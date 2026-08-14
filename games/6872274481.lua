@@ -2346,6 +2346,42 @@ run(function()
 end)
 
 run(function()
+	local HitregAdjuster
+	local Hitreg
+	local swordSpeed, swingSpeed, swingRestore
+	
+	HitregAdjuster = vape.Categories.Combat:CreateModule({
+		Name = 'HitregAdjuster',
+		Function = function(callback)
+			if callback then
+				swingSpeed = bedwars.SyncEvents.SwordSwing:setPriority(150):connect(function(event)
+					swordSpeed = event.attackSpeed
+					event.attackSpeed = 10 / math.max(Hitreg.Value - 1, 1)
+				end)
+				swingRestore = bedwars.SyncEvents.SwordSwing:setPriority(300):connect(function(event)
+					event.attackSpeed = swordSpeed
+				end)
+				HitregAdjuster:Clean(function()
+					swingSpeed:Destroy()
+					swingRestore:Destroy()
+				end)
+			end
+		end,
+		Tooltip = 'Swaps the games attack cooldown for a hit count of your own'
+	})
+	Hitreg = HitregAdjuster:CreateSlider({
+		Name = 'Hitreg',
+		Min = 1,
+		Max = 36,
+		Default = 35,
+		Suffix = function(val)
+			return val == 1 and 'hit / 10s' or 'hits / 10s'
+		end,
+		Tooltip = 'Spacing your manual and autoclicker hits fire at, 35 is the killaura spacing'
+	})
+end)
+
+run(function()
 	local BlockReach
 	local BlockRange
 	local BreakReach
