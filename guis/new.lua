@@ -75,6 +75,7 @@ local getcustomassets = {
 	['mxtionv4/assets/new/blockedtab.png'] = 'rbxassetid://14385672881',
 	['mxtionv4/assets/new/blur.png'] = 'rbxassetid://14898786664',
 	['mxtionv4/assets/new/blurnotif.png'] = 'rbxassetid://16738720137',
+	['mxtionv4/assets/new/camo.png'] = 'rbxassetid://14368310000', -- Added Camo Overlay Asset ID
 	['mxtionv4/assets/new/close.png'] = 'rbxassetid://14368309446',
 	['mxtionv4/assets/new/closemini.png'] = 'rbxassetid://14368310467',
 	['mxtionv4/assets/new/colorpreview.png'] = 'rbxassetid://14368311578',
@@ -90,7 +91,7 @@ local getcustomassets = {
 	['mxtionv4/assets/new/guisettings.png'] = 'rbxassetid://14368318994',
 	['mxtionv4/assets/new/guislider.png'] = 'rbxassetid://14368320020',
 	['mxtionv4/assets/new/guisliderrain.png'] = 'rbxassetid://14368321228',
-	['mxtionv4/assets/new/guiv4.png'] = 'rbxassetid://108672093407887',
+	['mxtionv4/assets/new/guiv4.png'] = 'rbxassetid://14368322618',
 	['mxtionv4/assets/new/guivape.png'] = 'rbxassetid://108672093407887',
 	['mxtionv4/assets/new/info.png'] = 'rbxassetid://14368324807',
 	['mxtionv4/assets/new/inventoryicon.png'] = 'rbxassetid://14928011633',
@@ -119,10 +120,10 @@ local getcustomassets = {
 	['mxtionv4/assets/new/targetplayers2.png'] = 'rbxassetid://14497397862',
 	['mxtionv4/assets/new/targetstab.png'] = 'rbxassetid://14497393895',
 	['mxtionv4/assets/new/textguiicon.png'] = 'rbxassetid://14368355456',
-	['mxtionv4/assets/new/textv4.png'] = 'rbxassetid://108672093407887',
+	['mxtionv4/assets/new/textv4.png'] = 'rbxassetid://14368356391',
 	['mxtionv4/assets/new/textvape.png'] = 'rbxassetid://108672093407887',
 	['mxtionv4/assets/new/utilityicon.png'] = 'rbxassetid://14368359107',
-	['mxtionv4/assets/new/vape.png'] = 'rbxassetid://108672093407887',
+	['mxtionv4/assets/new/vape.png'] = 'rbxassetid://14368360388',
 	['mxtionv4/assets/new/warning.png'] = 'rbxassetid://14368361552',
 	['mxtionv4/assets/new/worldicon.png'] = 'rbxassetid://14368362492'
 }
@@ -155,6 +156,21 @@ local function addBlur(parent, notif)
 	blur.Parent = parent
 
 	return blur
+end
+
+local function addCamoOverlay(parent, transparency)
+	local camo = Instance.new('ImageLabel')
+	camo.Name = 'CamoOverlay'
+	camo.Size = UDim2.fromScale(1, 1)
+	camo.Position = UDim2.fromScale(0, 0)
+	camo.BackgroundTransparency = 1
+	camo.Image = getcustomasset('mxtionv4/assets/new/camo.png')
+	camo.ImageTransparency = transparency or 0.85
+	camo.ScaleType = Enum.ScaleType.Tile
+	camo.TileSize = UDim2.fromOffset(200, 200)
+	camo.Parent = parent
+
+	return camo
 end
 
 local function addCorner(parent, radius)
@@ -195,26 +211,6 @@ local function addCloseButton(parent, offset)
 	return close
 end
 
-local function addMaid(object)
-	object.Connections = {}
-	function object:Clean(callback)
-		if typeof(callback) == 'Instance' then
-			table.insert(self.Connections, {
-				Disconnect = function()
-					callback:ClearAllChildren()
-					callback:Destroy()
-				end
-			})
-		elseif type(callback) == 'function' then
-			table.insert(self.Connections, {
-				Disconnect = callback
-			})
-		else
-			table.insert(self.Connections, callback)
-		end
-	end
-end
-
 local function addTooltip(gui, text)
 	if not text then return end
 
@@ -239,83 +235,8 @@ local function addTooltip(gui, text)
 	end)
 end
 
-local function checkKeybinds(compare, target, key)
-	if type(target) == 'table' then
-		if table.find(target, key) then
-			for i, v in target do
-				if not table.find(compare, v) then
-					return false
-				end
-			end
-			return true
-		end
-	end
-
-	return false
-end
-
-local function createDownloader(text)
-	if mainapi.Loaded ~= true then
-		local downloader = mainapi.Downloader
-		if not downloader then
-			downloader = Instance.new('TextLabel')
-			downloader.Size = UDim2.new(1, 0, 0, 40)
-			downloader.BackgroundTransparency = 1
-			downloader.TextStrokeTransparency = 0
-			downloader.TextSize = 20
-			downloader.TextColor3 = Color3.new(1, 1, 1)
-			downloader.FontFace = uipallet.Font
-			downloader.Parent = mainapi.gui
-			mainapi.Downloader = downloader
-		end
-		downloader.Text = 'Downloading '..text
-	end
-end
-
-local function createMobileButton(buttonapi, position)
-	local heldbutton = false
-	local button = Instance.new('TextButton')
-	button.Size = UDim2.fromOffset(40, 40)
-	button.Position = UDim2.fromOffset(position.X, position.Y)
-	button.AnchorPoint = Vector2.new(0.5, 0.5)
-	button.BackgroundColor3 = buttonapi.Enabled and Color3.new(0, 0.7, 0) or Color3.new()
-	button.BackgroundTransparency = 0.5
-	button.Text = buttonapi.Name
-	button.TextColor3 = Color3.new(1, 1, 1)
-	button.TextScaled = true
-	button.Font = Enum.Font.Gotham
-	button.Parent = mainapi.gui
-	local buttonconstraint = Instance.new('UITextSizeConstraint')
-	buttonconstraint.MaxTextSize = 16
-	buttonconstraint.Parent = button
-	addCorner(button, UDim.new(1, 0))
-
-	button.MouseButton1Down:Connect(function()
-		heldbutton = true
-		local holdtime, holdpos = tick(), inputService:GetMouseLocation()
-		repeat
-			heldbutton = (inputService:GetMouseLocation() - holdpos).Magnitude < 6
-			task.wait()
-		until (tick() - holdtime) > 1 or not heldbutton
-		if heldbutton then
-			buttonapi.Bind = {}
-			button:Destroy()
-		end
-	end)
-	button.MouseButton1Up:Connect(function()
-		heldbutton = false
-	end)
-	button.MouseButton1Click:Connect(function()
-		buttonapi:Toggle()
-		button.BackgroundColor3 = buttonapi.Enabled and Color3.new(0, 0.7, 0) or Color3.new()
-	end)
-
-	buttonapi.Bind = {Button = button}
-end
-
 local function downloadFile(path, func)
 	if not isfile(path) then
-		createDownloader(path)
 		local suc, res = pcall(function()
 			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
@@ -351,15 +272,6 @@ local function getTableSize(tab)
 	return ind
 end
 
-local function loopClean(tab)
-	for i, v in tab do
-		if type(v) == 'table' then
-			loopClean(v)
-		end
-		tab[i] = nil
-	end
-end
-
 local function loadJson(path)
 	local suc, res = pcall(function()
 		return httpService:JSONDecode(readfile(path))
@@ -393,29 +305,12 @@ local function makeDraggable(gui, window)
 			local ended
 			ended = inputObj.Changed:Connect(function()
 				if inputObj.UserInputState == Enum.UserInputState.End then
-					if changed then
-						changed:Disconnect()
-					end
-					if ended then
-						ended:Disconnect()
-					end
+					if changed then changed:Disconnect() end
+					if ended then ended:Disconnect() end
 				end
 			end)
 		end
 	end)
-end
-
-local function randomString()
-	local array = {}
-	for i = 1, math.random(10, 100) do
-		array[i] = string.char(math.random(32, 126))
-	end
-	return table.concat(array)
-end
-
-local function removeTags(str)
-	str = str:gsub('<br%s*/>', '\n')
-	return str:gsub('<[^<>]->', '')
 end
 
 do
@@ -445,23 +340,10 @@ do
 
 	function mainapi:Color(h)
 		local s = 0.75 + (0.15 * math.min(h / 0.03, 1))
-		if h > 0.57 then
-			s = 0.9 - (0.4 * math.min((h - 0.57) / 0.09, 1))
-		end
-		if h > 0.66 then
-			s = 0.5 + (0.4 * math.min((h - 0.66) / 0.16, 1))
-		end
-		if h > 0.87 then
-			s = 0.9 - (0.15 * math.min((h - 0.87) / 0.13, 1))
-		end
+		if h > 0.57 then s = 0.9 - (0.4 * math.min((h - 0.57) / 0.09, 1)) end
+		if h > 0.66 then s = 0.5 + (0.4 * math.min((h - 0.66) / 0.16, 1)) end
+		if h > 0.87 then s = 0.9 - (0.15 * math.min((h - 0.87) / 0.13, 1)) end
 		return h, s, 1
-	end
-
-	function mainapi:TextColor(h, s, v)
-		if v >= 0.7 and (s < 0.6 or h > 0.04 and h < 0.56) then
-			return Color3.new(0.19, 0.19, 0.19)
-		end
-		return Color3.new(1, 1, 1)
 	end
 end
 
@@ -488,17 +370,11 @@ do
 			end
 		end
 	end
-
-	function tween:Cancel(obj)
-		if self.tweens[obj] then
-			self.tweens[obj]:Cancel()
-			self.tweens[obj] = nil
-		end
-	end
 end
 
 mainapi.Libraries = {
 	addBlur = addBlur,
+	addCamoOverlay = addCamoOverlay, -- Exposed to API libraries
 	addCloseButton = addCloseButton,
 	addCorner = addCorner,
 	color = color,
@@ -524,12 +400,14 @@ components = {
 		button.BackgroundTransparency = 1
 		button.Parent = children
 		addTooltip(button, optionsettings.Tooltip)
+		
 		local bkg = Instance.new('Frame')
 		bkg.Size = UDim2.fromOffset(200, 27)
 		bkg.Position = UDim2.fromOffset(10, 2)
 		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
 		bkg.Parent = button
 		addCorner(bkg)
+		
 		local label = Instance.new('TextLabel')
 		label.Size = UDim2.new(1, -4, 1, -4)
 		label.Position = UDim2.fromOffset(2, 2)
@@ -540,6 +418,7 @@ components = {
 		label.FontFace = uipallet.Font
 		label.Parent = bkg
 		addCorner(label, UDim.new(0, 4))
+		
 		optionsettings.Function = optionsettings.Function or function() end
 		
 		button.MouseEnter:Connect(function()
@@ -577,6 +456,7 @@ components = {
 		slider.Text = ''
 		slider.Parent = children
 		addTooltip(slider, optionsettings.Tooltip)
+
 		local title = Instance.new('TextLabel')
 		title.Name = 'Title'
 		title.Size = UDim2.fromOffset(60, 30)
@@ -588,6 +468,7 @@ components = {
 		title.TextSize = 11
 		title.FontFace = uipallet.Font
 		title.Parent = slider
+
 		local valuebutton = Instance.new('TextButton')
 		valuebutton.Name = 'Value'
 		valuebutton.Size = UDim2.fromOffset(60, 15)
@@ -599,10 +480,12 @@ components = {
 		valuebutton.TextSize = 11
 		valuebutton.FontFace = uipallet.Font
 		valuebutton.Parent = slider
+
 		local valuebutton2 = valuebutton:Clone()
 		valuebutton2.Position = UDim2.new(1, -125, 0, 9)
 		valuebutton2.Text = optionapi.ValueMin
 		valuebutton2.Parent = slider
+
 		local valuebox = Instance.new('TextBox')
 		valuebox.Name = 'Box'
 		valuebox.Size = valuebutton.Size
@@ -616,9 +499,11 @@ components = {
 		valuebox.FontFace = uipallet.Font
 		valuebox.ClearTextOnFocus = false
 		valuebox.Parent = slider
+
 		local valuebox2 = valuebox:Clone()
 		valuebox2.Position = valuebutton2.Position
 		valuebox2.Parent = slider
+
 		local bkg = Instance.new('Frame')
 		bkg.Name = 'Slider'
 		bkg.Size = UDim2.new(1, -20, 0, 2)
@@ -626,12 +511,14 @@ components = {
 		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
 		bkg.BorderSizePixel = 0
 		bkg.Parent = slider
+
 		local fill = bkg:Clone()
 		fill.Name = 'Fill'
 		fill.Position = UDim2.fromScale(math.clamp(optionapi.ValueMin / optionsettings.Max, 0.04, 0.96), 0)
 		fill.Size = UDim2.fromScale(math.clamp(math.clamp(optionapi.ValueMax / optionsettings.Max, 0, 1), 0.04, 0.96) - fill.Position.X.Scale, 1)
 		fill.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
 		fill.Parent = bkg
+
 		local knobholder = Instance.new('Frame')
 		knobholder.Name = 'Knob'
 		knobholder.Size = UDim2.fromOffset(16, 4)
@@ -640,6 +527,7 @@ components = {
 		knobholder.BackgroundColor3 = slider.BackgroundColor3
 		knobholder.BorderSizePixel = 0
 		knobholder.Parent = fill
+
 		local knob = Instance.new('ImageLabel')
 		knob.Name = 'Knob'
 		knob.Size = UDim2.fromOffset(9, 16)
@@ -649,11 +537,13 @@ components = {
 		knob.Image = getcustomasset('mxtionv4/assets/new/range.png')
 		knob.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
 		knob.Parent = knobholder
+
 		local knobholdermax = knobholder:Clone()
 		knobholdermax.Name = 'KnobMax'
 		knobholdermax.Position = UDim2.fromScale(1, 0.5)
 		knobholdermax.Parent = fill
 		knobholdermax.Knob.Rotation = 180
+
 		local arrow = Instance.new('ImageLabel')
 		arrow.Name = 'Arrow'
 		arrow.Size = UDim2.fromOffset(12, 6)
@@ -662,33 +552,30 @@ components = {
 		arrow.Image = getcustomasset('mxtionv4/assets/new/rangearrow.png')
 		arrow.ImageColor3 = color.Light(uipallet.Main, 0.14)
 		arrow.Parent = slider
+
 		optionsettings.Function = optionsettings.Function or function() end
 		optionsettings.Decimal = optionsettings.Decimal or 1
 		local random = Random.new()
-		
+
 		function optionapi:Save(tab)
 			tab[optionsettings.Name] = {ValueMin = self.ValueMin, ValueMax = self.ValueMax}
 		end
-		
+
 		function optionapi:Load(tab)
-			if self.ValueMin ~= tab.ValueMin then
-				self:SetValue(false, tab.ValueMin)
-			end
-			if self.ValueMax ~= tab.ValueMax then
-				self:SetValue(true, tab.ValueMax)
-			end
+			if self.ValueMin ~= tab.ValueMin then self:SetValue(false, tab.ValueMin) end
+			if self.ValueMax ~= tab.ValueMax then self:SetValue(true, tab.ValueMax) end
 		end
-		
+
 		function optionapi:Color(hue, sat, val, rainbowcheck)
 			fill.BackgroundColor3 = rainbowcheck and Color3.fromHSV(mainapi:Color((hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
 			knob.ImageColor3 = fill.BackgroundColor3
 			knobholdermax.Knob.ImageColor3 = fill.BackgroundColor3
 		end
-		
+
 		function optionapi:GetRandomValue()
 			return random:NextNumber(optionapi.ValueMin, optionapi.ValueMax)
 		end
-		
+
 		function optionapi:SetValue(max, value)
 			if tonumber(value) == math.huge or value ~= value then return end
 			self[max and 'ValueMax' or 'ValueMin'] = value
@@ -700,7 +587,7 @@ components = {
 				Size = UDim2.fromScale(math.clamp(math.clamp(math.clamp(self.ValueMax / optionsettings.Max, 0.04, 0.96), 0.04, 0.96) - size, 0, 1), 1)
 			})
 		end
-		
+
 		slider.InputBegan:Connect(function(inputObj)
 			if
 				(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
