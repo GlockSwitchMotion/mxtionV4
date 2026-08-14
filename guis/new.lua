@@ -1,4 +1,5 @@
-local license = ... or {}
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+local license = ...
 local mainapi = {
 	Categories = {},
 	GUIColor = {
@@ -17,11 +18,11 @@ local mainapi = {
 	RainbowSpeed = {Value = 1},
 	RainbowUpdateSpeed = {Value = 60},
 	RainbowTable = {},
+	SaveCache = {},
 	Scale = {Value = 1},
 	ThreadFix = setthreadidentity and true or false,
 	ToggleNotifications = {},
 	Version = '4.18',
-	ToggleMode = {Value = 'Toggle'},
 	Windows = {}
 }
 
@@ -53,7 +54,7 @@ local tween = {
 	tweenstwo = {}
 }
 local uipallet = {
-	Main = Color3.fromRGB(26, 25, 26),
+	Main = Color3.fromRGB(9, 8, 7),
 	Text = Color3.fromRGB(200, 200, 200),
 	Font = Font.fromEnum(Enum.Font.Arial),
 	FontSemiBold = Font.fromEnum(Enum.Font.Arial, Enum.FontWeight.SemiBold),
@@ -61,69 +62,69 @@ local uipallet = {
 }
 
 local getcustomassets = {
-	['catrewrite/assets/new/add.png'] = 'rbxassetid://14368300605',
-	['catrewrite/assets/new/alert.png'] = 'rbxassetid://14368301329',
-	['catrewrite/assets/new/allowedicon.png'] = 'rbxassetid://14368302000',
-	['catrewrite/assets/new/allowedtab.png'] = 'rbxassetid://14368302875',
-	['catrewrite/assets/new/arrowmodule.png'] = 'rbxassetid://14473354880',
-	['catrewrite/assets/new/back.png'] = 'rbxassetid://14368303894',
-	['catrewrite/assets/new/bind.png'] = 'rbxassetid://14368304734',
-	['catrewrite/assets/new/bindbkg.png'] = 'rbxassetid://14368305655',
-	['catrewrite/assets/new/blatanticon.png'] = 'rbxassetid://14368306745',
-	['catrewrite/assets/new/blockedicon.png'] = 'rbxassetid://14385669108',
-	['catrewrite/assets/new/blockedtab.png'] = 'rbxassetid://14385672881',
-	['catrewrite/assets/new/blur.png'] = 'rbxassetid://14898786664',
-	['catrewrite/assets/new/blurnotif.png'] = 'rbxassetid://16738720137',
-	['catrewrite/assets/new/close.png'] = 'rbxassetid://14368309446',
-	['catrewrite/assets/new/closemini.png'] = 'rbxassetid://14368310467',
-	['catrewrite/assets/new/colorpreview.png'] = 'rbxassetid://14368311578',
-	['catrewrite/assets/new/combaticon.png'] = 'rbxassetid://14368312652',
-	['catrewrite/assets/new/customsettings.png'] = 'rbxassetid://14403726449',
-	['catrewrite/assets/new/discord.png'] = '',
-	['catrewrite/assets/new/dots.png'] = 'rbxassetid://14368314459',
-	['catrewrite/assets/new/edit.png'] = 'rbxassetid://14368315443',
-	['catrewrite/assets/new/expandicon.png'] = 'rbxassetid://14368353032',
-	['catrewrite/assets/new/expandright.png'] = 'rbxassetid://14368316544',
-	['catrewrite/assets/new/expandup.png'] = 'rbxassetid://14368317595',
-	['catrewrite/assets/new/friendstab.png'] = 'rbxassetid://14397462778',
-	['catrewrite/assets/new/guisettings.png'] = 'rbxassetid://14368318994',
-	['catrewrite/assets/new/guislider.png'] = 'rbxassetid://14368320020',
-	['catrewrite/assets/new/guisliderrain.png'] = 'rbxassetid://14368321228',
-	['catrewrite/assets/new/guiv4.png'] = 'rbxassetid://14368322199',
-	['catrewrite/assets/new/guivape.png'] = 'rbxassetid://14657521312',
-	['catrewrite/assets/new/info.png'] = 'rbxassetid://14368324807',
-	['catrewrite/assets/new/inventoryicon.png'] = 'rbxassetid://14928011633',
-	['catrewrite/assets/new/legit.png'] = 'rbxassetid://14425650534',
-	['catrewrite/assets/new/legittab.png'] = 'rbxassetid://14426740825',
-	['catrewrite/assets/new/miniicon.png'] = 'rbxassetid://14368326029',
-	['catrewrite/assets/new/notification.png'] = 'rbxassetid://16738721069',
-	['catrewrite/assets/new/overlaysicon.png'] = 'rbxassetid://14368339581',
-	['catrewrite/assets/new/overlaystab.png'] = 'rbxassetid://14397380433',
-	['catrewrite/assets/new/pin.png'] = 'rbxassetid://14368342301',
-	['catrewrite/assets/new/profilesicon.png'] = 'rbxassetid://14397465323',
-	['catrewrite/assets/new/radaricon.png'] = 'rbxassetid://14368343291',
-	['catrewrite/assets/new/rainbow_1.png'] = 'rbxassetid://14368344374',
-	['catrewrite/assets/new/rainbow_2.png'] = 'rbxassetid://14368345149',
-	['catrewrite/assets/new/rainbow_3.png'] = 'rbxassetid://14368345840',
-	['catrewrite/assets/new/rainbow_4.png'] = 'rbxassetid://14368346696',
-	['catrewrite/assets/new/range.png'] = 'rbxassetid://14368347435',
-	['catrewrite/assets/new/rangearrow.png'] = 'rbxassetid://14368348640',
-	['catrewrite/assets/new/rendericon.png'] = 'rbxassetid://14368350193',
-	['catrewrite/assets/new/rendertab.png'] = 'rbxassetid://14397373458',
-	['catrewrite/assets/new/search.png'] = 'rbxassetid://14425646684',
-	['catrewrite/assets/new/targetinfoicon.png'] = 'rbxassetid://14368354234',
-	['catrewrite/assets/new/targetnpc1.png'] = 'rbxassetid://14497400332',
-	['catrewrite/assets/new/targetnpc2.png'] = 'rbxassetid://14497402744',
-	['catrewrite/assets/new/targetplayers1.png'] = 'rbxassetid://14497396015',
-	['catrewrite/assets/new/targetplayers2.png'] = 'rbxassetid://14497397862',
-	['catrewrite/assets/new/targetstab.png'] = 'rbxassetid://14497393895',
-	['catrewrite/assets/new/textguiicon.png'] = 'rbxassetid://14368355456',
-	['catrewrite/assets/new/textv4.png'] = 'rbxassetid://14368357095',
-	['catrewrite/assets/new/textvape.png'] = 'rbxassetid://14368358200',
-	['catrewrite/assets/new/utilityicon.png'] = 'rbxassetid://14368359107',
-	['catrewrite/assets/new/vape.png'] = 'rbxassetid://14373395239',
-	['catrewrite/assets/new/warning.png'] = 'rbxassetid://14368361552',
-	['catrewrite/assets/new/worldicon.png'] = 'rbxassetid://14368362492'
+	['mxtionv4/assets/new/add.png'] = 'rbxassetid://14368300605',
+	['mxtionv4/assets/new/alert.png'] = 'rbxassetid://14368301329',
+	['mxtionv4/assets/new/allowedicon.png'] = 'rbxassetid://14368302000',
+	['mxtionv4/assets/new/allowedtab.png'] = 'rbxassetid://14368302875',
+	['mxtionv4/assets/new/arrowmodule.png'] = 'rbxassetid://14473354880',
+	['mxtionv4/assets/new/back.png'] = 'rbxassetid://14368303894',
+	['mxtionv4/assets/new/bind.png'] = 'rbxassetid://14368304734',
+	['mxtionv4/assets/new/bindbkg.png'] = 'rbxassetid://14368305655',
+	['mxtionv4/assets/new/blatanticon.png'] = 'rbxassetid://14368306745',
+	['mxtionv4/assets/new/blockedicon.png'] = 'rbxassetid://14385669108',
+	['mxtionv4/assets/new/blockedtab.png'] = 'rbxassetid://14385672881',
+	['mxtionv4/assets/new/blur.png'] = 'rbxassetid://14898786664',
+	['mxtionv4/assets/new/blurnotif.png'] = 'rbxassetid://16738720137',
+	['mxtionv4/assets/new/close.png'] = 'rbxassetid://14368309446',
+	['mxtionv4/assets/new/closemini.png'] = 'rbxassetid://14368310467',
+	['mxtionv4/assets/new/colorpreview.png'] = 'rbxassetid://14368311578',
+	['mxtionv4/assets/new/combaticon.png'] = 'rbxassetid://14368312652',
+	['mxtionv4/assets/new/customsettings.png'] = 'rbxassetid://14403726449',
+	['mxtionv4/assets/new/discord.png'] = '',
+	['mxtionv4/assets/new/dots.png'] = 'rbxassetid://14368314459',
+	['mxtionv4/assets/new/edit.png'] = 'rbxassetid://14368315443',
+	['mxtionv4/assets/new/expandicon.png'] = 'rbxassetid://14368353032',
+	['mxtionv4/assets/new/expandright.png'] = 'rbxassetid://14368316544',
+	['mxtionv4/assets/new/expandup.png'] = 'rbxassetid://14368317595',
+	['mxtionv4/assets/new/friendstab.png'] = 'rbxassetid://14397462778',
+	['mxtionv4/assets/new/guisettings.png'] = 'rbxassetid://14368318994',
+	['mxtionv4/assets/new/guislider.png'] = 'rbxassetid://14368320020',
+	['mxtionv4/assets/new/guisliderrain.png'] = 'rbxassetid://14368321228',
+	['mxtionv4/assets/new/guiv4.png'] = 'rbxassetid://138935172340460',
+	['mxtionv4/assets/new/guivape.png'] = 'rbxassetid://108672093407887',
+	['mxtionv4/assets/new/info.png'] = 'rbxassetid://14368324807',
+	['mxtionv4/assets/new/inventoryicon.png'] = 'rbxassetid://14928011633',
+	['mxtionv4/assets/new/legit.png'] = 'rbxassetid://14425650534',
+	['mxtionv4/assets/new/legittab.png'] = 'rbxassetid://14426740825',
+	['mxtionv4/assets/new/miniicon.png'] = 'rbxassetid://14368326029',
+	['mxtionv4/assets/new/notification.png'] = 'rbxassetid://16738721069',
+	['mxtionv4/assets/new/overlaysicon.png'] = 'rbxassetid://14368339581',
+	['mxtionv4/assets/new/overlaystab.png'] = 'rbxassetid://14397380433',
+	['mxtionv4/assets/new/pin.png'] = 'rbxassetid://14368342301',
+	['mxtionv4/assets/new/profilesicon.png'] = 'rbxassetid://14397465323',
+	['mxtionv4/assets/new/radaricon.png'] = 'rbxassetid://14368343291',
+	['mxtionv4/assets/new/rainbow_1.png'] = 'rbxassetid://14368344374',
+	['mxtionv4/assets/new/rainbow_2.png'] = 'rbxassetid://14368345149',
+	['mxtionv4/assets/new/rainbow_3.png'] = 'rbxassetid://14368345840',
+	['mxtionv4/assets/new/rainbow_4.png'] = 'rbxassetid://14368346696',
+	['mxtionv4/assets/new/range.png'] = 'rbxassetid://14368347435',
+	['mxtionv4/assets/new/rangearrow.png'] = 'rbxassetid://14368348640',
+	['mxtionv4/assets/new/rendericon.png'] = 'rbxassetid://14368350193',
+	['mxtionv4/assets/new/rendertab.png'] = 'rbxassetid://14397373458',
+	['mxtionv4/assets/new/search.png'] = 'rbxassetid://14425646684',
+	['mxtionv4/assets/new/targetinfoicon.png'] = 'rbxassetid://14368354234',
+	['mxtionv4/assets/new/targetnpc1.png'] = 'rbxassetid://14497400332',
+	['mxtionv4/assets/new/targetnpc2.png'] = 'rbxassetid://14497402744',
+	['mxtionv4/assets/new/targetplayers1.png'] = 'rbxassetid://14497396015',
+	['mxtionv4/assets/new/targetplayers2.png'] = 'rbxassetid://14497397862',
+	['mxtionv4/assets/new/targetstab.png'] = 'rbxassetid://14497393895',
+	['mxtionv4/assets/new/textguiicon.png'] = 'rbxassetid://14368355456',
+	['mxtionv4/assets/new/textv4.png'] = 'rbxassetid://138935172340460',
+	['mxtionv4/assets/new/textvape.png'] = 'rbxassetid://108672093407887',
+	['mxtionv4/assets/new/utilityicon.png'] = 'rbxassetid://14368359107',
+	['mxtionv4/assets/new/vape.png'] = 'rbxassetid://108672093407887',
+	['mxtionv4/assets/new/warning.png'] = 'rbxassetid://14368361552',
+	['mxtionv4/assets/new/worldicon.png'] = 'rbxassetid://14368362492'
 }
 
 local isfile = isfile or function(file)
@@ -148,7 +149,7 @@ local function addBlur(parent, notif)
 	blur.Size = UDim2.new(1, 89, 1, 52)
 	blur.Position = UDim2.fromOffset(-48, -31)
 	blur.BackgroundTransparency = 1
-	blur.Image = getcustomasset('catrewrite/assets/new/'..(notif and 'blurnotif' or 'blur')..'.png')
+	blur.Image = getcustomasset('mxtionv4/assets/new/'..(notif and 'blurnotif' or 'blur')..'.png')
 	blur.ScaleType = Enum.ScaleType.Slice
 	blur.SliceCenter = Rect.new(52, 31, 261, 502)
 	blur.Parent = parent
@@ -172,7 +173,7 @@ local function addCloseButton(parent, offset)
 	close.BackgroundColor3 = Color3.new(1, 1, 1)
 	close.BackgroundTransparency = 1
 	close.AutoButtonColor = false
-	close.Image = getcustomasset('catrewrite/assets/new/close.png')
+	close.Image = getcustomasset('mxtionv4/assets/new/close.png')
 	close.ImageColor3 = color.Light(uipallet.Text, 0.2)
 	close.ImageTransparency = 0.5
 	close.Parent = parent
@@ -207,12 +208,6 @@ local function addMaid(object)
 		elseif type(callback) == 'function' then
 			table.insert(self.Connections, {
 				Disconnect = callback
-			})
-		elseif type(callback) == 'thread' then
-			table.insert(self.Connections, {
-				Disconnect = function()
-					pcall(task.cancel, callback)
-				end
 			})
 		else
 			table.insert(self.Connections, callback)
@@ -262,7 +257,7 @@ end
 local function createDownloader(text)
 	if mainapi.Loaded ~= true then
 		local downloader = mainapi.Downloader
-		if not downloader and not license.Closet then
+		if not downloader then
 			downloader = Instance.new('TextLabel')
 			downloader.Size = UDim2.new(1, 0, 0, 40)
 			downloader.BackgroundTransparency = 1
@@ -273,9 +268,7 @@ local function createDownloader(text)
 			downloader.Parent = mainapi.gui
 			mainapi.Downloader = downloader
 		end
-		pcall(function()
-			downloader.Text = 'Downloading '..text
-		end)
+		downloader.Text = 'Downloading '..text
 	end
 end
 
@@ -324,7 +317,7 @@ local function downloadFile(path, func)
 	if not isfile(path) then
 		createDownloader(path)
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('catrewrite/profiles/commit.txt')..'/'..select(1, path:gsub('catrewrite/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -338,9 +331,14 @@ local function downloadFile(path, func)
 end
 
 getcustomasset = assetfunction and function(path)
-	local suc, res = pcall(downloadFile, path, assetfunction)
-	if suc then
-		return res
+	if isfile(path) then
+		return assetfunction(path)
+	end
+	pcall(function()
+		downloadFile(path)
+	end)
+	if isfile(path) then
+		return assetfunction(path)
 	end
 	return getcustomassets[path] or ''
 end or function(path)
@@ -369,10 +367,35 @@ local function loadJson(path)
 	return suc and type(res) == 'table' and res or nil
 end
 
-downloadFile('catrewrite/profiles/features.json')
-local moduleData = loadJson('catrewrite/profiles/features.json')
-local newModules = moduleData.new or {}
-local updModules = moduleData.updated or {}
+local function loadFeatures()
+	local suc, res = pcall(downloadFile, 'mxtionv4/features.json')
+	if not suc or type(res) ~= 'string' then return nil end
+
+	local decoded, payload = pcall(function()
+		return httpService:JSONDecode(res)
+	end)
+	return decoded and type(payload) == 'table' and payload or nil
+end
+
+local featureTags
+local function getFeatureTag(name)
+	if not featureTags then
+		featureTags = {}
+		local features = loadFeatures()
+		for tag, key in {updated = 'updated', new = 'added'} do
+			local list = features and features[key]
+			if type(list) == 'table' then
+				for _, module in list do
+					if type(module) == 'string' then
+						featureTags[module] = tag
+					end
+				end
+			end
+		end
+	end
+	return featureTags[name]
+end
+
 local function makeDraggable(gui, window)
 	gui.InputBegan:Connect(function(inputObj)
 		if window and not window.Visible then return end
@@ -425,7 +448,7 @@ local function removeTags(str)
 end
 
 do
-	local res = isfile('catrewrite/profiles/color.txt') and loadJson('catrewrite/profiles/color.txt')
+	local res = isfile('mxtionv4/profiles/color.txt') and loadJson('mxtionv4/profiles/color.txt')
 	if res then
 		uipallet.Main = res.Main and Color3.fromRGB(unpack(res.Main)) or uipallet.Main
 		uipallet.Text = res.Text and Color3.fromRGB(unpack(res.Text)) or uipallet.Text
@@ -504,9 +527,13 @@ do
 end
 
 mainapi.Libraries = {
+	addBlur = addBlur,
+	addCloseButton = addCloseButton,
+	addCorner = addCorner,
 	color = color,
 	getcustomasset = getcustomasset,
 	getfontsize = getfontsize,
+	makeDraggable = makeDraggable,
 	tween = tween,
 	uipallet = uipallet,
 }
@@ -517,11 +544,13 @@ components = {
 		local button = Instance.new('TextButton')
 		button.Name = optionsettings.Name..'Button'
 		button.Size = UDim2.new(1, 0, 0, 31)
+		button.LayoutOrder = optionsettings.LayoutOrder or 0
 		button.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
 		button.BorderSizePixel = 0
 		button.AutoButtonColor = false
 		button.Visible = optionsettings.Visible == nil or optionsettings.Visible
 		button.Text = ''
+		button.BackgroundTransparency = 1
 		button.Parent = children
 		addTooltip(button, optionsettings.Tooltip)
 		local bkg = Instance.new('Frame')
@@ -712,7 +741,7 @@ components = {
 		preview.Size = UDim2.fromOffset(12, 12)
 		preview.Position = UDim2.new(1, -22, 0, 10)
 		preview.BackgroundTransparency = 1
-		preview.Image = getcustomasset('catrewrite/assets/new/colorpreview.png')
+		preview.Image = getcustomasset('mxtionv4/assets/new/colorpreview.png')
 		preview.ImageColor3 = Color3.fromHSV(optionapi.Hue, optionapi.Sat, optionapi.Value)
 		preview.ImageTransparency = 1 - optionapi.Opacity
 		preview.Parent = slider
@@ -728,7 +757,7 @@ components = {
 		expand.Size = UDim2.fromOffset(9, 5)
 		expand.Position = UDim2.fromOffset(4, 4)
 		expand.BackgroundTransparency = 1
-		expand.Image = getcustomasset('catrewrite/assets/new/expandicon.png')
+		expand.Image = getcustomasset('mxtionv4/assets/new/expandicon.png')
 		expand.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 		expand.Parent = expandbutton
 		local rainbow = Instance.new('TextButton')
@@ -741,17 +770,17 @@ components = {
 		local rainbow1 = Instance.new('ImageLabel')
 		rainbow1.Size = UDim2.fromOffset(12, 12)
 		rainbow1.BackgroundTransparency = 1
-		rainbow1.Image = getcustomasset('catrewrite/assets/new/rainbow_1.png')
+		rainbow1.Image = getcustomasset('mxtionv4/assets/new/rainbow_1.png')
 		rainbow1.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		rainbow1.Parent = rainbow
 		local rainbow2 = rainbow1:Clone()
-		rainbow2.Image = getcustomasset('catrewrite/assets/new/rainbow_2.png')
+		rainbow2.Image = getcustomasset('mxtionv4/assets/new/rainbow_2.png')
 		rainbow2.Parent = rainbow
 		local rainbow3 = rainbow1:Clone()
-		rainbow3.Image = getcustomasset('catrewrite/assets/new/rainbow_3.png')
+		rainbow3.Image = getcustomasset('mxtionv4/assets/new/rainbow_3.png')
 		rainbow3.Parent = rainbow
 		local rainbow4 = rainbow1:Clone()
-		rainbow4.Image = getcustomasset('catrewrite/assets/new/rainbow_4.png')
+		rainbow4.Image = getcustomasset('mxtionv4/assets/new/rainbow_4.png')
 		rainbow4.Parent = rainbow
 		local knobholder = Instance.new('Frame')
 		knobholder.Name = 'Knob'
@@ -971,12 +1000,15 @@ components = {
 		local optionapi = {
 			Type = 'Dropdown',
 			Value = optionsettings.List[1] or 'None',
+			Default = optionsettings.Default or optionsettings.List[1] or 'None',
+			List = optionsettings.List,
 			Index = 0
 		}
 		
 		local dropdown = Instance.new('TextButton')
 		dropdown.Name = optionsettings.Name..'Dropdown'
 		dropdown.Size = UDim2.new(1, 0, 0, 40)
+		dropdown.LayoutOrder = optionsettings.LayoutOrder or 0
 		dropdown.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
 		dropdown.BorderSizePixel = 0
 		dropdown.AutoButtonColor = false
@@ -1016,7 +1048,7 @@ components = {
 		arrow.Size = UDim2.fromOffset(4, 8)
 		arrow.Position = UDim2.new(1, -17, 0, 11)
 		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('catrewrite/assets/new/expandright.png')
+		arrow.Image = getcustomasset('mxtionv4/assets/new/expandright.png')
 		arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
 		arrow.Rotation = 90
 		arrow.Parent = button
@@ -1035,6 +1067,7 @@ components = {
 		
 		function optionapi:Change(list)
 			optionsettings.List = list or {}
+			self.List = optionsettings.List
 			if not table.find(optionsettings.List, self.Value) then
 				self:SetValue(self.Value)
 			end
@@ -1174,7 +1207,11 @@ components = {
 		local optionapi = {
 			Type = 'Slider',
 			Value = optionsettings.Default or optionsettings.Min,
+			Default = optionsettings.Default or optionsettings.Min,
+			Min = optionsettings.Min,
 			Max = optionsettings.Max,
+			Decimal = optionsettings.Decimal or 1,
+			Suffix = optionsettings.Suffix,
 			Index = getTableSize(api.Options)
 		}
 		
@@ -1353,6 +1390,12 @@ components = {
 	Targets = function(optionsettings, children, api)
 		local optionapi = {
 			Type = 'Targets',
+			Default = {
+				Players = optionsettings.Players and true or false,
+				NPCs = optionsettings.NPCs and true or false,
+				Invisible = optionsettings.Invisible and true or false,
+				Walls = optionsettings.Walls and true or false
+			},
 			Index = getTableSize(api.Options)
 		}
 		
@@ -1427,7 +1470,7 @@ components = {
 		icon.Size = UDim2.fromOffset(18, 12)
 		icon.Position = UDim2.fromOffset(10, 15)
 		icon.BackgroundTransparency = 1
-		icon.Image = getcustomasset('catrewrite/assets/new/targetstab.png')
+		icon.Image = getcustomasset('mxtionv4/assets/new/targetstab.png')
 		icon.Parent = window
 		local title = Instance.new('TextLabel')
 		title.Name = 'Title'
@@ -1489,20 +1532,20 @@ components = {
 		
 		optionapi.Players = components.TargetsButton({
 			Position = UDim2.fromOffset(11, 45),
-			Icon = getcustomasset('catrewrite/assets/new/targetplayers1.png'),
+			Icon = getcustomasset('mxtionv4/assets/new/targetplayers1.png'),
 			IconSize = UDim2.fromOffset(15, 16),
 			IconParent = tool,
-			ToolIcon = getcustomasset('catrewrite/assets/new/targetplayers2.png'),
+			ToolIcon = getcustomasset('mxtionv4/assets/new/targetplayers2.png'),
 			ToolSize = UDim2.fromOffset(11, 12),
 			Tooltip = 'Players',
 			Function = optionsettings.Function
 		}, window, tool)
 		optionapi.NPCs = components.TargetsButton({
 			Position = UDim2.fromOffset(112, 45),
-			Icon = getcustomasset('catrewrite/assets/new/targetnpc1.png'),
+			Icon = getcustomasset('mxtionv4/assets/new/targetnpc1.png'),
 			IconSize = UDim2.fromOffset(12, 16),
 			IconParent = tool,
-			ToolIcon = getcustomasset('catrewrite/assets/new/targetnpc2.png'),
+			ToolIcon = getcustomasset('mxtionv4/assets/new/targetnpc2.png'),
 			ToolSize = UDim2.fromOffset(9, 12),
 			Tooltip = 'NPCs',
 			Function = optionsettings.Function
@@ -1675,6 +1718,7 @@ components = {
 		local textbox = Instance.new('TextButton')
 		textbox.Name = optionsettings.Name..'TextBox'
 		textbox.Size = UDim2.new(1, 0, 0, 58)
+		textbox.LayoutOrder = optionsettings.LayoutOrder or 0
 		textbox.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
 		textbox.BorderSizePixel = 0
 		textbox.AutoButtonColor = false
@@ -1750,6 +1794,8 @@ components = {
 			Type = 'TextList',
 			List = optionsettings.Default or {},
 			ListEnabled = optionsettings.Default or {},
+			Default = table.clone(optionsettings.Default or {}),
+			Icon = optionsettings.Icon,
 			Objects = {},
 			Window = {Visible = false},
 			Index = getTableSize(api.Options)
@@ -1786,7 +1832,7 @@ components = {
 		buttonicon.Size = UDim2.fromOffset(14, 12)
 		buttonicon.Position = UDim2.fromOffset(10, 14)
 		buttonicon.BackgroundTransparency = 1
-		buttonicon.Image = optionsettings.Icon or getcustomasset('catrewrite/assets/new/allowedicon.png')
+		buttonicon.Image = optionsettings.Icon or getcustomasset('mxtionv4/assets/new/allowedicon.png')
 		buttonicon.Parent = button
 		local buttontitle = Instance.new('TextLabel')
 		buttontitle.Name = 'Title'
@@ -1832,7 +1878,7 @@ components = {
 		icon.Size = optionsettings.TabSize or UDim2.fromOffset(19, 16)
 		icon.Position = UDim2.fromOffset(10, 13)
 		icon.BackgroundTransparency = 1
-		icon.Image = optionsettings.Tab or getcustomasset('catrewrite/assets/new/allowedtab.png')
+		icon.Image = optionsettings.Tab or getcustomasset('mxtionv4/assets/new/allowedtab.png')
 		icon.Parent = window
 		local title = Instance.new('TextLabel')
 		title.Name = 'Title'
@@ -1875,7 +1921,7 @@ components = {
 		addbutton.Size = UDim2.fromOffset(16, 16)
 		addbutton.Position = UDim2.new(1, -26, 0, 8)
 		addbutton.BackgroundTransparency = 1
-		addbutton.Image = getcustomasset('catrewrite/assets/new/add.png')
+		addbutton.Image = getcustomasset('mxtionv4/assets/new/add.png')
 		addbutton.ImageColor3 = optionsettings.Color
 		addbutton.ImageTransparency = 0.3
 		addbutton.Parent = addbkg
@@ -1979,7 +2025,7 @@ components = {
 				close.BackgroundColor3 = Color3.new(1, 1, 1)
 				close.BackgroundTransparency = 1
 				close.AutoButtonColor = false
-				close.Image = getcustomasset('catrewrite/assets/new/closemini.png')
+				close.Image = getcustomasset('mxtionv4/assets/new/closemini.png')
 				close.ImageColor3 = color.Light(uipallet.Text, 0.2)
 				close.ImageTransparency = 0.5
 				close.Parent = object
@@ -2102,6 +2148,7 @@ components = {
 		local optionapi = {
 			Type = 'Toggle',
 			Enabled = false,
+			Default = optionsettings.Default and true or false,
 			Index = getTableSize(api.Options)
 		}
 		
@@ -2160,14 +2207,7 @@ components = {
 			tween:Tween(knob, uipallet.Tween, {
 				Position = UDim2.fromOffset(self.Enabled and 12 or 2, 2)
 			})
-			xpcall(function()
-				optionsettings.Function(self.Enabled)
-			end, function(err)
-				if shared.VapeDeveloper then
-					mainapi:CreateNotification('Vape', 'gui error: '.. err, 15, 'warning')
-					task.defer(error, err)
-				end	
-			end)
+			optionsettings.Function(self.Enabled)
 		end
 		
 		toggle.MouseEnter:Connect(function()
@@ -2203,7 +2243,11 @@ components = {
 			Type = 'TwoSlider',
 			ValueMin = optionsettings.DefaultMin or optionsettings.Min,
 			ValueMax = optionsettings.DefaultMax or 10,
+			DefaultMin = optionsettings.DefaultMin or optionsettings.Min,
+			DefaultMax = optionsettings.DefaultMax or 10,
+			Min = optionsettings.Min,
 			Max = optionsettings.Max,
+			Decimal = optionsettings.Decimal or 1,
 			Index = getTableSize(api.Options)
 		}
 		
@@ -2286,7 +2330,7 @@ components = {
 		knob.Position = UDim2.fromScale(0.5, 0.5)
 		knob.AnchorPoint = Vector2.new(0.5, 0.5)
 		knob.BackgroundTransparency = 1
-		knob.Image = getcustomasset('catrewrite/assets/new/range.png')
+		knob.Image = getcustomasset('mxtionv4/assets/new/range.png')
 		knob.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
 		knob.Parent = knobholder
 		local knobholdermax = knobholder:Clone()
@@ -2299,7 +2343,7 @@ components = {
 		arrow.Size = UDim2.fromOffset(12, 6)
 		arrow.Position = UDim2.new(1, -56, 0, 10)
 		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('catrewrite/assets/new/rangearrow.png')
+		arrow.Image = getcustomasset('mxtionv4/assets/new/rangearrow.png')
 		arrow.ImageColor3 = color.Light(uipallet.Main, 0.14)
 		arrow.Parent = slider
 		optionsettings.Function = optionsettings.Function or function() end
@@ -2508,18 +2552,20 @@ function mainapi:CreateGUI()
 	makeDraggable(window)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
-	logo.Size = UDim2.fromOffset(62, 18)
-	logo.Position = UDim2.fromOffset(11, 10)
+	logo.Size = UDim2.fromOffset(155, 40)
+    logo.Position = UDim2.fromOffset(4, 2)
 	logo.BackgroundTransparency = 1
-	logo.Image = getcustomasset('catrewrite/assets/new/guivape.png')
+	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
 	logo.ImageColor3 = select(3, uipallet.Main:ToHSV()) > 0.5 and uipallet.Text or Color3.new(1, 1, 1)
+	logo.ScaleType = Enum.ScaleType.Fit
 	logo.Parent = window
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(28, 16)
-	logov4.Position = UDim2.new(1, 1, 0, 1)
+	logov4.Size = UDim2.fromOffset(36, 20)
+	logov4.Position = UDim2.new(1, 4, 0, 2)
 	logov4.BackgroundTransparency = 1
-	logov4.Image = getcustomasset('catrewrite/assets/new/guiv4.png')
+	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
+	logov4.ScaleType = Enum.ScaleType.Fit
 	logov4.Parent = logo
 	local children = Instance.new('Frame')
 	children.Name = 'Children'
@@ -2543,14 +2589,14 @@ function mainapi:CreateGUI()
 	settingsicon.Size = UDim2.fromOffset(14, 14)
 	settingsicon.Position = UDim2.fromOffset(15, 12)
 	settingsicon.BackgroundTransparency = 1
-	settingsicon.Image = getcustomasset('catrewrite/assets/new/guisettings.png')
+	settingsicon.Image = getcustomasset('mxtionv4/assets/new/guisettings.png')
 	settingsicon.ImageColor3 = color.Light(uipallet.Main, 0.37)
 	settingsicon.Parent = settingsbutton
 	local discordbutton = Instance.new('ImageButton')
 	discordbutton.Size = UDim2.fromOffset(16, 16)
 	discordbutton.Position = UDim2.new(1, -56, 0, 11)
 	discordbutton.BackgroundTransparency = 1
-	discordbutton.Image = getcustomasset('catrewrite/assets/new/discord.png')
+	discordbutton.Image = getcustomasset('mxtionv4/assets/new/discord.png')
 	discordbutton.Parent = window
 	addTooltip(discordbutton, 'Join discord')
 	local settingspane = Instance.new('TextButton')
@@ -2577,7 +2623,7 @@ function mainapi:CreateGUI()
 	back.Size = UDim2.fromOffset(16, 16)
 	back.Position = UDim2.fromOffset(11, 13)
 	back.BackgroundTransparency = 1
-	back.Image = getcustomasset('catrewrite/assets/new/back.png')
+	back.Image = getcustomasset('mxtionv4/assets/new/back.png')
 	back.ImageColor3 = color.Light(uipallet.Main, 0.37)
 	back.Parent = settingspane
 	local settingsversion = Instance.new('TextLabel')
@@ -2585,8 +2631,8 @@ function mainapi:CreateGUI()
 	settingsversion.Size = UDim2.new(1, 0, 0, 16)
 	settingsversion.Position = UDim2.new(0, 0, 1, -16)
 	settingsversion.BackgroundTransparency = 1
-	settingsversion.Text = 'Vape '..mainapi.Version..' '..(
-		isfile('catrewrite/profiles/commit.txt') and readfile('catrewrite/profiles/commit.txt'):sub(1, 6) or ''
+	settingsversion.Text = 'mxtionV4 '..mainapi.Version..' '..(
+		isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt'):sub(1, 6) or ''
 	)..' '
 	settingsversion.TextColor3 = color.Dark(uipallet.Text, 0.43)
 	settingsversion.TextXAlignment = Enum.TextXAlignment.Right
@@ -2640,7 +2686,7 @@ function mainapi:CreateGUI()
 		icon.Size = UDim2.fromOffset(12, 12)
 		icon.Position = UDim2.new(0.5, -6, 0, 5)
 		icon.BackgroundTransparency = 1
-		icon.Image = getcustomasset('catrewrite/assets/new/bind.png')
+		icon.Image = getcustomasset('mxtionv4/assets/new/bind.png')
 		icon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 		icon.Parent = bind
 		local label = Instance.new('TextLabel')
@@ -2673,13 +2719,13 @@ function mainapi:CreateGUI()
 		bind.MouseEnter:Connect(function()
 			label.Visible = false
 			icon.Visible = not label.Visible
-			icon.Image = getcustomasset('catrewrite/assets/new/edit.png')
+			icon.Image = getcustomasset('mxtionv4/assets/new/edit.png')
 			icon.ImageColor3 = color.Dark(uipallet.Text, 0.16)
 		end)
 		bind.MouseLeave:Connect(function()
 			label.Visible = true
 			icon.Visible = not label.Visible
-			icon.Image = getcustomasset('catrewrite/assets/new/bind.png')
+			icon.Image = getcustomasset('mxtionv4/assets/new/bind.png')
 			icon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 		end)
 		bind.MouseButton1Click:Connect(function()
@@ -2740,7 +2786,7 @@ function mainapi:CreateGUI()
 		arrow.Size = UDim2.fromOffset(4, 8)
 		arrow.Position = UDim2.new(1, -20, 0, 16)
 		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('catrewrite/assets/new/expandright.png')
+		arrow.Image = getcustomasset('mxtionv4/assets/new/expandright.png')
 		arrow.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		arrow.Parent = button
 		optionapi.Name = categorysettings.Name
@@ -2802,7 +2848,7 @@ function mainapi:CreateGUI()
 		button.Position = UDim2.new(1, -29, 0, 7)
 		button.BackgroundTransparency = 1
 		button.AutoButtonColor = false
-		button.Image = getcustomasset('catrewrite/assets/new/overlaysicon.png')
+		button.Image = getcustomasset('mxtionv4/assets/new/overlaysicon.png')
 		button.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		button.Parent = bar
 		addCorner(button, UDim.new(1, 0))
@@ -2829,7 +2875,7 @@ function mainapi:CreateGUI()
 		icon.Size = UDim2.fromOffset(14, 12)
 		icon.Position = UDim2.fromOffset(10, 13)
 		icon.BackgroundTransparency = 1
-		icon.Image = getcustomasset('catrewrite/assets/new/overlaystab.png')
+		icon.Image = getcustomasset('mxtionv4/assets/new/overlaystab.png')
 		icon.ImageColor3 = uipallet.Text
 		icon.Parent = window
 		local title = Instance.new('TextLabel')
@@ -3021,7 +3067,7 @@ function mainapi:CreateGUI()
 		arrow.Size = UDim2.fromOffset(4, 8)
 		arrow.Position = UDim2.new(1, -20, 0, 16)
 		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('catrewrite/assets/new/expandright.png')
+		arrow.Image = getcustomasset('mxtionv4/assets/new/expandright.png')
 		arrow.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		arrow.Parent = button
 		local settingspane = Instance.new('TextButton')
@@ -3048,7 +3094,7 @@ function mainapi:CreateGUI()
 		back.Size = UDim2.fromOffset(16, 16)
 		back.Position = UDim2.fromOffset(11, 13)
 		back.BackgroundTransparency = 1
-		back.Image = getcustomasset('catrewrite/assets/new/back.png')
+		back.Image = getcustomasset('mxtionv4/assets/new/back.png')
 		back.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		back.Parent = settingspane
 		addCorner(settingspane)
@@ -3296,7 +3342,7 @@ function mainapi:CreateGUI()
 		preview.Size = UDim2.fromOffset(12, 12)
 		preview.Position = UDim2.new(1, -22, 0, 10)
 		preview.BackgroundTransparency = 1
-		preview.Image = getcustomasset('catrewrite/assets/new/colorpreview.png')
+		preview.Image = getcustomasset('mxtionv4/assets/new/colorpreview.png')
 		preview.ImageColor3 = Color3.fromHSV(optionapi.Hue, 1, 1)
 		preview.Parent = slider
 		local valuebox = Instance.new('TextBox')
@@ -3324,7 +3370,7 @@ function mainapi:CreateGUI()
 		expandicon.Size = UDim2.fromOffset(9, 5)
 		expandicon.Position = UDim2.fromOffset(4, 4)
 		expandicon.BackgroundTransparency = 1
-		expandicon.Image = getcustomasset('catrewrite/assets/new/expandicon.png')
+		expandicon.Image = getcustomasset('mxtionv4/assets/new/expandicon.png')
 		expandicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 		expandicon.Parent = expandbutton
 		local rainbow = Instance.new('TextButton')
@@ -3337,24 +3383,24 @@ function mainapi:CreateGUI()
 		local rainbow1 = Instance.new('ImageLabel')
 		rainbow1.Size = UDim2.fromOffset(12, 12)
 		rainbow1.BackgroundTransparency = 1
-		rainbow1.Image = getcustomasset('catrewrite/assets/new/rainbow_1.png')
+		rainbow1.Image = getcustomasset('mxtionv4/assets/new/rainbow_1.png')
 		rainbow1.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		rainbow1.Parent = rainbow
 		local rainbow2 = rainbow1:Clone()
-		rainbow2.Image = getcustomasset('catrewrite/assets/new/rainbow_2.png')
+		rainbow2.Image = getcustomasset('mxtionv4/assets/new/rainbow_2.png')
 		rainbow2.Parent = rainbow
 		local rainbow3 = rainbow1:Clone()
-		rainbow3.Image = getcustomasset('catrewrite/assets/new/rainbow_3.png')
+		rainbow3.Image = getcustomasset('mxtionv4/assets/new/rainbow_3.png')
 		rainbow3.Parent = rainbow
 		local rainbow4 = rainbow1:Clone()
-		rainbow4.Image = getcustomasset('catrewrite/assets/new/rainbow_4.png')
+		rainbow4.Image = getcustomasset('mxtionv4/assets/new/rainbow_4.png')
 		rainbow4.Parent = rainbow
 		local knob = Instance.new('ImageLabel')
 		knob.Name = 'Knob'
 		knob.Size = UDim2.fromOffset(26, 12)
 		knob.Position = UDim2.fromOffset(slidercolorpos[4] - 3, -5)
 		knob.BackgroundTransparency = 1
-		knob.Image = getcustomasset('catrewrite/assets/new/guislider.png')
+		knob.Image = getcustomasset('mxtionv4/assets/new/guislider.png')
 		knob.ImageColor3 = slidercolors[4]
 		knob.Parent = holder
 		optionsettings.Function = optionsettings.Function or function() end
@@ -3371,8 +3417,8 @@ function mainapi:CreateGUI()
 			ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, 0)),
 			ColorSequenceKeypoint.new(1, Color3.fromHSV(optionapi.Hue, optionapi.Sat, 1))
 		}))
-		local normalknob = getcustomasset('catrewrite/assets/new/guislider.png')
-		local rainbowknob = getcustomasset('catrewrite/assets/new/guisliderrain.png')
+		local normalknob = getcustomasset('mxtionv4/assets/new/guislider.png')
+		local rainbowknob = getcustomasset('mxtionv4/assets/new/guisliderrain.png')
 		local rainbowthread
 
 		function optionapi:Save(tab)
@@ -3594,14 +3640,14 @@ function mainapi:CreateGUI()
 			local body = httpService:JSONEncode({
 				nonce = httpService:GenerateGUID(false),
 				args = {
-					invite = {code = 'catvape'},
-					code = 'catvape'
+					invite = {code = 'VZEQJxMSnG'},
+					code = 'VZEQJxMSnG'
 				},
 				cmd = 'INVITE_BROWSER'
 			})
 
 			for i = 1, 14 do
-				task.defer(function()
+				task.spawn(function()
 					request({
 						Method = 'POST',
 						Url = 'http://127.0.0.1:64'..(53 + i)..'/rpc?v=1',
@@ -3617,7 +3663,7 @@ function mainapi:CreateGUI()
 
 		task.spawn(function()
 			tooltip.Text = 'Copied!'
-			setclipboard('https://discord.gg/catvape')
+			setclipboard('https://discord.gg/VZEQJxMSnG')
 		end)
 	end)
 	settingsbutton.MouseEnter:Connect(function()
@@ -3695,7 +3741,7 @@ function mainapi:CreateCategory(categorysettings)
 	arrow.Size = UDim2.fromOffset(9, 4)
 	arrow.Position = UDim2.fromOffset(20, 18)
 	arrow.BackgroundTransparency = 1
-	arrow.Image = getcustomasset('catrewrite/assets/new/expandup.png')
+	arrow.Image = getcustomasset('mxtionv4/assets/new/expandup.png')
 	arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
 	arrow.Rotation = 180
 	arrow.Parent = arrowbutton
@@ -3749,7 +3795,12 @@ function mainapi:CreateCategory(categorysettings)
 		modulebutton.TextColor3 = color.Dark(uipallet.Text, 0.16)
 		modulebutton.TextSize = 14
 		modulebutton.FontFace = uipallet.Font
-		modulebutton.Parent = children
+		if not pcall(function()
+			modulebutton.Parent = children
+		end) and mainapi.ThreadFix then
+			setthreadidentity(8)
+			modulebutton.Parent = children
+		end
 		local indicatorholder = Instance.new('Frame')
 		indicatorholder.Parent = modulebutton
 		indicatorholder.Size = UDim2.fromOffset(0, 21)
@@ -3757,24 +3808,18 @@ function mainapi:CreateCategory(categorysettings)
 		indicatorholder.Name = 'Indicators'
 		indicatorholder.BackgroundTransparency = 1
 		indicatorholder.Position = UDim2.fromScale(0.85, 0.5)
-
-		do
-			local layout = Instance.new('UIListLayout')
-			layout.Parent = indicatorholder
-			layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-			layout.VerticalAlignment = Enum.VerticalAlignment.Center
-			layout.FillDirection = Enum.FillDirection.Horizontal
-			layout.Padding = UDim.new(0, 5)
-		end
-
+		local layout = Instance.new('UIListLayout')
+		layout.Parent = indicatorholder
+		layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		layout.VerticalAlignment = Enum.VerticalAlignment.Center
+		layout.FillDirection = Enum.FillDirection.Horizontal
+		layout.Padding = UDim.new(0, 5)
 		modulesettings.Tags = modulesettings.Tags or {}
-		pcall(function()
-			if table.find(newModules, moduleapi.Name) then
-				table.insert(modulesettings.Tags, 'new')
-			end
-			if table.find(updModules, moduleapi.Name) then
-				table.insert(modulesettings.Tags, 'updated')
-			end
+		local featureTag = getFeatureTag(modulesettings.Name)
+		if featureTag and not table.find(modulesettings.Tags, featureTag) then
+			table.insert(modulesettings.Tags, featureTag)
+		end
+		task.spawn(function()
 			for i, tag in modulesettings.Tags do
 				tag = tag:upper()
 				modulesettings.Tags[i] = tag:lower()
@@ -3805,7 +3850,6 @@ function mainapi:CreateCategory(categorysettings)
 				indicator.Visible = tag ~= 'MATCHED'
 			end
 		end)
-		moduleapi.dtctags = modulesettings.Tags
 		local gradient = Instance.new('UIGradient')
 		gradient.Rotation = 90
 		gradient.Enabled = false
@@ -3830,7 +3874,7 @@ function mainapi:CreateCategory(categorysettings)
 		bindicon.Size = UDim2.fromOffset(12, 12)
 		bindicon.Position = UDim2.new(0.5, -6, 0, 5)
 		bindicon.BackgroundTransparency = 1
-		bindicon.Image = getcustomasset('catrewrite/assets/new/bind.png')
+		bindicon.Image = getcustomasset('mxtionv4/assets/new/bind.png')
 		bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 		bindicon.Parent = bind
 		local bindtext = Instance.new('TextLabel')
@@ -3848,7 +3892,7 @@ function mainapi:CreateCategory(categorysettings)
 		bindcover.Size = UDim2.fromOffset(154, 40)
 		bindcover.BackgroundTransparency = 1
 		bindcover.Visible = false
-		bindcover.Image = getcustomasset('catrewrite/assets/new/bindbkg.png')
+		bindcover.Image = getcustomasset('mxtionv4/assets/new/bindbkg.png')
 		bindcover.ScaleType = Enum.ScaleType.Slice
 		bindcover.SliceCenter = Rect.new(0, 0, 141, 40)
 		bindcover.Parent = modulebutton
@@ -3874,7 +3918,7 @@ function mainapi:CreateCategory(categorysettings)
 		dots.Size = UDim2.fromOffset(3, 16)
 		dots.Position = UDim2.fromOffset(4, 12)
 		dots.BackgroundTransparency = 1
-		dots.Image = getcustomasset('catrewrite/assets/new/dots.png')
+		dots.Image = getcustomasset('mxtionv4/assets/new/dots.png')
 		dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		dots.Parent = dotsbutton
 		modulechildren.Name = modulesettings.Name..'Children'
@@ -3949,6 +3993,7 @@ function mainapi:CreateCategory(categorysettings)
 			if not multiple then
 				mainapi:UpdateTextGUI()
 			end
+			mainapi:QueueSave()
 			task.spawn(modulesettings.Function, self.Enabled)
 		end
 
@@ -3961,13 +4006,13 @@ function mainapi:CreateCategory(categorysettings)
 		bind.MouseEnter:Connect(function()
 			bindtext.Visible = false
 			bindicon.Visible = not bindtext.Visible
-			bindicon.Image = getcustomasset('catrewrite/assets/new/edit.png')
+			bindicon.Image = getcustomasset('mxtionv4/assets/new/edit.png')
 			if not moduleapi.Enabled then bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.16) end
 		end)
 		bind.MouseLeave:Connect(function()
 			bindtext.Visible = #moduleapi.Bind > 0
 			bindicon.Visible = not bindtext.Visible
-			bindicon.Image = getcustomasset('catrewrite/assets/new/bind.png')
+			bindicon.Image = getcustomasset('mxtionv4/assets/new/bind.png')
 			if not moduleapi.Enabled then
 				bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 			end
@@ -4209,7 +4254,7 @@ function mainapi:CreateOverlay(categorysettings)
 	pin.Position = UDim2.new(1, -47, 0, 12)
 	pin.BackgroundTransparency = 1
 	pin.AutoButtonColor = false
-	pin.Image = getcustomasset('catrewrite/assets/new/pin.png')
+	pin.Image = getcustomasset('mxtionv4/assets/new/pin.png')
 	pin.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 	pin.Parent = window
 	local dotsbutton = Instance.new('TextButton')
@@ -4224,7 +4269,7 @@ function mainapi:CreateOverlay(categorysettings)
 	dots.Size = UDim2.fromOffset(3, 16)
 	dots.Position = UDim2.fromOffset(4, 12)
 	dots.BackgroundTransparency = 1
-	dots.Image = getcustomasset('catrewrite/assets/new/dots.png')
+	dots.Image = getcustomasset('mxtionv4/assets/new/dots.png')
 	dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
 	dots.Parent = dotsbutton
 	local customchildren = Instance.new('Frame')
@@ -4394,7 +4439,7 @@ function mainapi:CreateCategoryList(categorysettings)
 	arrow.Size = UDim2.fromOffset(9, 4)
 	arrow.Position = UDim2.fromOffset(20, 19)
 	arrow.BackgroundTransparency = 1
-	arrow.Image = getcustomasset('catrewrite/assets/new/expandup.png')
+	arrow.Image = getcustomasset('mxtionv4/assets/new/expandup.png')
 	arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
 	arrow.Rotation = 180
 	arrow.Parent = arrowbutton
@@ -4402,6 +4447,7 @@ function mainapi:CreateCategoryList(categorysettings)
 	children.Name = 'Children'
 	children.Size = UDim2.new(1, 0, 1, -45)
 	children.Position = UDim2.fromOffset(0, 45)
+	children.BackgroundColor3 = uipallet.Main
 	children.BackgroundTransparency = 1
 	children.BorderSizePixel = 0
 	children.Visible = false
@@ -4420,7 +4466,7 @@ function mainapi:CreateCategoryList(categorysettings)
 	settings.Position = UDim2.new(1, -52, 0, 13)
 	settings.BackgroundTransparency = 1
 	settings.AutoButtonColor = false
-	settings.Image = getcustomasset('catrewrite/assets/new/customsettings.png')
+	settings.Image = getcustomasset('mxtionv4/assets/new/customsettings.png')
 	settings.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 	settings.Parent = window
 	local divider = Instance.new('Frame')
@@ -4468,12 +4514,1649 @@ function mainapi:CreateCategoryList(categorysettings)
 	local addbutton = Instance.new('ImageButton')
 	addbutton.Name = 'AddButton'
 	addbutton.Size = UDim2.fromOffset(16, 16)
-	addbutton.Position = UDim2.new(1, -26, 0, 8)
+	addbutton.Position = UDim2.new(1, -26, 0, 10)
 	addbutton.BackgroundTransparency = 1
-	addbutton.Image = getcustomasset('catrewrite/assets/new/add.png')
+	addbutton.Image = getcustomasset('mxtionv4/assets/new/add.png')
 	addbutton.ImageColor3 = categorysettings.Color
 	addbutton.ImageTransparency = 0.3
 	addbutton.Parent = addbkg
+	if categorysettings.Profiles then
+		local addrow = Instance.new('Frame')
+		addrow.Name = 'AddRow'
+		addrow.Size = UDim2.new(1, -20, 0, 36)
+		addrow.BackgroundTransparency = 1
+		addrow.LayoutOrder = addbkg.LayoutOrder
+		addrow.Parent = children
+		local addrowlayout = Instance.new('UIListLayout')
+		addrowlayout.FillDirection = Enum.FillDirection.Horizontal
+		addrowlayout.SortOrder = Enum.SortOrder.LayoutOrder
+		addrowlayout.Padding = UDim.new(0, 8)
+		addrowlayout.Parent = addrow
+
+		addbkg.Size = UDim2.fromOffset(200, 31)
+		addbkg.Position = UDim2.fromOffset(0, 0)
+		addbkg.LayoutOrder = addrow.LayoutOrder + 1
+		addbkg.Visible = false
+		addvalue.Size = UDim2.new(1, -35, 1, 0)
+		addvalue.TextSize = 15
+
+		local createbkg = Instance.new('TextButton')
+		createbkg.Name = 'CreateNew'
+		createbkg.Size = UDim2.new(0.53, -4, 1, 0)
+		createbkg.LayoutOrder = 1
+		createbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+		createbkg.AutoButtonColor = false
+		createbkg.Text = ''
+		createbkg.Parent = addrow
+		addCorner(createbkg)
+		local createinner = Instance.new('Frame')
+		createinner.Size = UDim2.new(1, -2, 1, -2)
+		createinner.Position = UDim2.fromOffset(1, 1)
+		createinner.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+		createinner.Parent = createbkg
+		addCorner(createinner)
+		local function addRowButtonContent(parent, asset, text, iconsize)
+			local width = getfontsize(text, 11, uipallet.FontSemiBold).X
+			local holder = Instance.new('Frame')
+			holder.Name = 'Content'
+			holder.Size = UDim2.new(0, iconsize + 7 + width, 1, 0)
+			holder.Position = UDim2.fromScale(0.5, 0.5)
+			holder.AnchorPoint = Vector2.new(0.5, 0.5)
+			holder.BackgroundTransparency = 1
+			holder.ZIndex = 2
+			holder.Parent = parent
+			local icon = Instance.new('ImageLabel')
+			icon.Name = 'Icon'
+			icon.Size = UDim2.fromOffset(iconsize, iconsize)
+			icon.AnchorPoint = Vector2.new(0, 0.5)
+			icon.Position = UDim2.new(0, 0, 0.5, 0)
+			icon.BackgroundTransparency = 1
+			icon.Image = getcustomasset(asset)
+			icon.ImageColor3 = categorysettings.Color
+			icon.ZIndex = 2
+			icon.Parent = holder
+			local label = Instance.new('TextLabel')
+			label.Size = UDim2.new(0, width, 1, 0)
+			label.Position = UDim2.fromOffset(iconsize + 7, 0)
+			label.BackgroundTransparency = 1
+			label.Text = text
+			label.TextColor3 = Color3.new(1, 1, 1)
+			label.TextSize = 11
+			label.FontFace = uipallet.FontSemiBold
+			label.TextXAlignment = Enum.TextXAlignment.Left
+			label.ZIndex = 2
+			label.Parent = holder
+		end
+
+		addRowButtonContent(createbkg, 'mxtionv4/assets/new/add.png', 'CREATE NEW', 16)
+
+		local newprofile = Instance.new('Frame')
+		newprofile.Name = 'NewProfile'
+		newprofile.Size = UDim2.new(1, 0, 1, 0)
+		newprofile.BackgroundColor3 = uipallet.Main
+		newprofile.BorderSizePixel = 0
+		newprofile.Visible = false
+		newprofile.ZIndex = 3
+		newprofile.Parent = window
+
+		local back = Instance.new('TextButton')
+		back.Name = 'Back'
+		back.Size = UDim2.fromOffset(15, 15)
+		back.Position = UDim2.fromOffset(14, 15)
+		back.BackgroundColor3 = color.Light(uipallet.Main, 0.06)
+		back.AutoButtonColor = true
+		back.Text = ''
+		back.ZIndex = 4
+		back.Parent = newprofile
+		addCorner(back, UDim.new(1, 0))
+		local backicon = Instance.new('ImageLabel')
+		backicon.Size = UDim2.fromScale(1, 1)
+		backicon.AnchorPoint = Vector2.new(0.5, 0.5)
+		backicon.Position = UDim2.fromScale(0.5, 0.5)
+		backicon.BackgroundTransparency = 1
+		backicon.Image = getcustomasset('mxtionv4/assets/new/back.png')
+		backicon.ImageColor3 = uipallet.Text
+		backicon.ZIndex = 5
+		backicon.Parent = back
+
+		local newtitle = Instance.new('TextLabel')
+		newtitle.Size = UDim2.fromOffset(150, 20)
+		newtitle.Position = UDim2.fromOffset(36, 12)
+		newtitle.BackgroundTransparency = 1
+		newtitle.Text = 'New Profile'
+		newtitle.TextColor3 = uipallet.Text
+		newtitle.TextSize = 13
+		newtitle.FontFace = uipallet.Font
+		newtitle.TextXAlignment = Enum.TextXAlignment.Left
+		newtitle.ZIndex = 4
+		newtitle.Parent = newprofile
+
+		local newarrowbutton = Instance.new('TextButton')
+		newarrowbutton.Name = 'Arrow'
+		newarrowbutton.Size = UDim2.fromOffset(40, 40)
+		newarrowbutton.Position = UDim2.new(1, -40, 0, 0)
+		newarrowbutton.BackgroundTransparency = 1
+		newarrowbutton.Text = ''
+		newarrowbutton.ZIndex = 4
+		newarrowbutton.Parent = newprofile
+		local newarrow = Instance.new('ImageLabel')
+		newarrow.Name = 'Arrow'
+		newarrow.Size = UDim2.fromOffset(9, 4)
+		newarrow.Position = UDim2.fromOffset(20, 19)
+		newarrow.BackgroundTransparency = 1
+		newarrow.Image = getcustomasset('mxtionv4/assets/new/expandup.png')
+		newarrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
+		newarrow.ZIndex = 5
+		newarrow.Parent = newarrowbutton
+		newarrowbutton.MouseButton1Click:Connect(function()
+			categoryapi:Expand()
+			newarrow.Rotation = arrow.Rotation
+		end)
+
+		local namebkg = addbkg:Clone()
+		namebkg.Name = 'NameBox'
+		namebkg.Size = UDim2.new(1, -20, 0, 36)
+		namebkg.Position = UDim2.fromOffset(10, 42)
+		namebkg.Visible = true
+		namebkg.ZIndex = 4
+		for _, d in namebkg:GetDescendants() do
+			if d:IsA('GuiObject') then d.ZIndex = 5 end
+		end
+		namebkg.Parent = newprofile
+		local namebox = namebkg:FindFirstChildWhichIsA('TextBox')
+		local nameadd = namebkg:FindFirstChild('AddButton')
+
+		local countlabel = Instance.new('TextLabel')
+		countlabel.Name = 'Count'
+		countlabel.Size = UDim2.fromOffset(150, 16)
+		countlabel.Position = UDim2.fromOffset(10, 94)
+		countlabel.BackgroundTransparency = 1
+		countlabel.RichText = true
+		countlabel.Text = ''
+		countlabel.TextColor3 = Color3.fromRGB(140, 140, 140)
+		countlabel.TextSize = 11
+		countlabel.FontFace = uipallet.FontSemiBold
+		countlabel.TextXAlignment = Enum.TextXAlignment.Left
+		countlabel.ZIndex = 4
+		countlabel.Parent = newprofile
+
+		local editall = Instance.new('TextButton')
+		editall.Name = 'EditAll'
+		editall.Size = UDim2.fromOffset(50, 16)
+		editall.Position = UDim2.new(1, -60, 0, 94)
+		editall.BackgroundTransparency = 1
+		editall.AutoButtonColor = false
+		editall.Text = 'edit all'
+		editall.TextColor3 = Color3.fromRGB(171, 171, 171)
+		editall.TextSize = 11
+		editall.FontFace = uipallet.Font
+		editall.TextXAlignment = Enum.TextXAlignment.Right
+		editall.ZIndex = 4
+		editall.Parent = newprofile
+
+		local modulelist = Instance.new('ScrollingFrame')
+		modulelist.Name = 'Modules'
+		modulelist.Size = UDim2.new(1, -16, 1, -123)
+		modulelist.Position = UDim2.fromOffset(8, 114)
+		modulelist.BackgroundTransparency = 1
+		modulelist.BorderSizePixel = 0
+		modulelist.ScrollBarThickness = 0
+		modulelist.ScrollBarImageTransparency = 1
+		modulelist.CanvasSize = UDim2.new()
+		modulelist.ZIndex = 4
+		modulelist.Parent = newprofile
+		local modulelayout = Instance.new('UIListLayout')
+		modulelayout.SortOrder = Enum.SortOrder.LayoutOrder
+		modulelayout.Padding = UDim.new(0, 5)
+		modulelayout.Parent = modulelist
+		local modulepadding = Instance.new('UIPadding')
+		modulepadding.PaddingTop = UDim.new(0, 2)
+		modulepadding.PaddingLeft = UDim.new(0, 2)
+		modulepadding.Parent = modulelist
+
+		local openEditor
+
+		local function accentColor()
+			return Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+		end
+
+		local function accentTextColor()
+			return mainapi:TextColor(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+		end
+
+		local function listModules(query, affectedonly)
+			local list = {}
+			for name, mod in pairs(mainapi.Modules) do
+				local rank = mod.Bind[1] and 1 or (mod.Enabled and 2 or 3)
+				if (rank < 3 or not affectedonly) and (query == '' or tostring(name):lower():find(query, 1, true)) then
+					table.insert(list, {Name = tostring(name), Module = mod, Rank = rank})
+				end
+			end
+			table.sort(list, function(a, b)
+				if a.Rank ~= b.Rank then
+					return a.Rank < b.Rank
+				end
+				return a.Name < b.Name
+			end)
+			return list
+		end
+
+		local function addModuleChip(row, mod, offset)
+			local bind = mod.Bind[1] and tostring(mod.Bind[1]):upper() or ''
+			if not mod.Enabled and bind == '' then return end
+
+			local chip = Instance.new('Frame')
+			chip.Name = 'Chip'
+			chip.Size = UDim2.fromOffset(mod.Enabled and 24 or math.max(getfontsize(bind, 11, uipallet.Font).X + 12, 20), 18)
+			chip.AnchorPoint = Vector2.new(1, 0.5)
+			chip.Position = UDim2.new(1, -offset, 0.5, 0)
+			chip.BackgroundColor3 = mod.Enabled and accentColor() or color.Light(uipallet.Main, 0.08)
+			chip.BorderSizePixel = 0
+			chip.ZIndex = 5
+			chip.Parent = row
+			addCorner(chip, UDim.new(0, 4))
+			local chiptext = Instance.new('TextLabel')
+			chiptext.Name = 'Text'
+			chiptext.Size = UDim2.fromScale(1, 1)
+			chiptext.BackgroundTransparency = 1
+			chiptext.Text = mod.Enabled and 'ON' or bind
+			chiptext.TextColor3 = mod.Enabled and accentTextColor() or Color3.fromRGB(171, 171, 171)
+			chiptext.TextSize = 11
+			chiptext.FontFace = uipallet.Font
+			chiptext.ZIndex = 6
+			chiptext.Parent = chip
+
+			return chip
+		end
+
+		local function refreshModules()
+			if mainapi.ThreadFix then
+				setthreadidentity(8)
+			end
+			
+			for _, old in modulelist:GetChildren() do
+				if old:IsA('TextButton') then
+					old:Destroy()
+				end
+			end
+
+			local list = listModules('', false)
+			countlabel.Text = `<font color="rgb(255,255,255)">{#listModules('', true)}</font> AFFECTED MODULES`
+
+			for i, entry in list do
+				local row = Instance.new('TextButton')
+				row.Name = entry.Name
+				row.Size = UDim2.new(1, -4, 0, 34)
+				row.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
+				row.BorderSizePixel = 0
+				row.AutoButtonColor = false
+				row.Text = ''
+				row.LayoutOrder = i
+				row.ZIndex = 4
+				row.Parent = modulelist
+				addCorner(row)
+				local rowstroke = Instance.new('UIStroke')
+				rowstroke.Color = color.Light(uipallet.Main, 0.09)
+				rowstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+				rowstroke.Parent = row
+				local label = Instance.new('TextLabel')
+				label.Name = 'Label'
+				label.Size = UDim2.new(1, -50, 1, 0)
+				label.Position = UDim2.fromOffset(10, 0)
+				label.BackgroundTransparency = 1
+				label.Text = entry.Name
+				label.TextColor3 = color.Dark(uipallet.Text, 0.16)
+				label.TextSize = 13
+				label.FontFace = uipallet.Font
+				label.TextXAlignment = Enum.TextXAlignment.Left
+				label.TextTruncate = Enum.TextTruncate.AtEnd
+				label.ZIndex = 5
+				label.Parent = row
+				addModuleChip(row, entry.Module, 8)
+
+				row.MouseEnter:Connect(function()
+					tween:Tween(row, uipallet.Tween, {BackgroundColor3 = color.Light(uipallet.Main, 0.075)})
+				end)
+				row.MouseLeave:Connect(function()
+					tween:Tween(row, uipallet.Tween, {BackgroundColor3 = color.Light(uipallet.Main, 0.034)})
+				end)
+				row.MouseButton1Click:Connect(function()
+					openEditor(entry.Name)
+				end)
+			end
+
+			modulelist.CanvasSize = UDim2.fromOffset(0, (#list * 39) + 4)
+		end
+
+		local editor = Instance.new('Frame')
+		editor.Name = 'ModuleEditor'
+		editor.Size = UDim2.fromOffset(674, 387)
+		editor.Position = UDim2.new(0.5, -337, 0.5, -193)
+		editor.BackgroundColor3 = uipallet.Main
+		editor.Visible = false
+		editor.Parent = scaledgui
+		addBlur(editor)
+		addCorner(editor)
+		makeDraggable(editor)
+		table.insert(mainapi.Windows, editor)
+
+		local editorside = Instance.new('Frame')
+		editorside.Name = 'Sidebar'
+		editorside.Size = UDim2.fromOffset(244, 387)
+		editorside.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+		editorside.BorderSizePixel = 0
+		editorside.Parent = editor
+		addCorner(editorside)
+		local sideedge = Instance.new('Frame')
+		sideedge.Name = 'Edge'
+		sideedge.Size = UDim2.fromOffset(6, 387)
+		sideedge.Position = UDim2.fromOffset(238, 0)
+		sideedge.BackgroundColor3 = editorside.BackgroundColor3
+		sideedge.BorderSizePixel = 0
+		sideedge.Parent = editorside
+
+		local editortitle = Instance.new('TextLabel')
+		editortitle.Name = 'Title'
+		editortitle.Size = UDim2.fromOffset(200, 28)
+		editortitle.Position = UDim2.fromOffset(26, 21)
+		editortitle.BackgroundTransparency = 1
+		editortitle.Text = ''
+		editortitle.TextColor3 = Color3.new(1, 1, 1)
+		editortitle.TextSize = 19
+		editortitle.FontFace = uipallet.FontSemiBold
+		editortitle.TextXAlignment = Enum.TextXAlignment.Left
+		editortitle.TextTruncate = Enum.TextTruncate.AtEnd
+		editortitle.Parent = editorside
+
+		local searchbkg = Instance.new('Frame')
+		searchbkg.Name = 'Search'
+		searchbkg.Size = UDim2.fromOffset(173, 30)
+		searchbkg.Position = UDim2.fromOffset(26, 59)
+		searchbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.015)
+		searchbkg.BorderSizePixel = 0
+		searchbkg.Parent = editorside
+		addCorner(searchbkg)
+		local searchstroke = Instance.new('UIStroke')
+		searchstroke.Color = color.Light(uipallet.Main, 0.06)
+		searchstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		searchstroke.Parent = searchbkg
+		local searchicon = Instance.new('ImageLabel')
+		searchicon.Name = 'Icon'
+		searchicon.Size = UDim2.fromOffset(12, 12)
+		searchicon.Position = UDim2.fromOffset(12, 9)
+		searchicon.BackgroundTransparency = 1
+		searchicon.Image = getcustomasset('mxtionv4/assets/new/search.png')
+		searchicon.ImageColor3 = Color3.fromRGB(122, 122, 122)
+		searchicon.Parent = searchbkg
+		local searchbox = Instance.new('TextBox')
+		searchbox.Size = UDim2.new(1, -44, 1, 0)
+		searchbox.Position = UDim2.fromOffset(33, 0)
+		searchbox.BackgroundTransparency = 1
+		searchbox.Text = ''
+		searchbox.PlaceholderText = 'Search modules...'
+		searchbox.PlaceholderColor3 = Color3.fromRGB(122, 122, 122)
+		searchbox.TextColor3 = uipallet.Text
+		searchbox.TextSize = 13
+		searchbox.FontFace = uipallet.Font
+		searchbox.TextXAlignment = Enum.TextXAlignment.Left
+		searchbox.ClearTextOnFocus = false
+		searchbox.Parent = searchbkg
+
+		local filterbtn = Instance.new('TextButton')
+		filterbtn.Name = 'Filter'
+		filterbtn.Size = UDim2.fromOffset(27, 30)
+		filterbtn.Position = UDim2.fromOffset(206, 59)
+		filterbtn.BackgroundColor3 = searchbkg.BackgroundColor3
+		filterbtn.AutoButtonColor = false
+		filterbtn.Text = ''
+		filterbtn.Parent = editorside
+		addCorner(filterbtn)
+		local filterstroke = searchstroke:Clone()
+		filterstroke.Parent = filterbtn
+		local filtericon = Instance.new('Frame')
+		filtericon.Name = 'Icon'
+		filtericon.Size = UDim2.fromOffset(12, 10)
+		filtericon.AnchorPoint = Vector2.new(0.5, 0.5)
+		filtericon.Position = UDim2.fromScale(0.5, 0.5)
+		filtericon.BackgroundTransparency = 1
+		filtericon.Parent = filterbtn
+		local filterbars = {}
+		for i, width in {12, 8, 4} do
+			local bar = Instance.new('Frame')
+			bar.Name = `Bar{i}`
+			bar.Size = UDim2.fromOffset(width, 2)
+			bar.AnchorPoint = Vector2.new(0.5, 0)
+			bar.Position = UDim2.new(0.5, 0, 0, (i - 1) * 4)
+			bar.BackgroundColor3 = Color3.fromRGB(171, 171, 171)
+			bar.BorderSizePixel = 0
+			bar.Parent = filtericon
+			addCorner(bar, UDim.new(1, 0))
+			table.insert(filterbars, bar)
+		end
+
+		local editorcount = Instance.new('TextLabel')
+		editorcount.Name = 'Count'
+		editorcount.Size = UDim2.fromOffset(160, 16)
+		editorcount.Position = UDim2.fromOffset(26, 108)
+		editorcount.BackgroundTransparency = 1
+		editorcount.RichText = true
+		editorcount.Text = ''
+		editorcount.TextColor3 = Color3.fromRGB(134, 134, 134)
+		editorcount.TextSize = 11
+		editorcount.FontFace = uipallet.FontSemiBold
+		editorcount.TextXAlignment = Enum.TextXAlignment.Left
+		editorcount.Parent = editorside
+
+		local resetall = Instance.new('TextButton')
+		resetall.Name = 'ResetAll'
+		resetall.Size = UDim2.fromOffset(70, 16)
+		resetall.Position = UDim2.fromOffset(163, 108)
+		resetall.BackgroundTransparency = 1
+		resetall.AutoButtonColor = false
+		resetall.Text = 'Reset all'
+		resetall.TextColor3 = Color3.fromRGB(171, 171, 171)
+		resetall.TextSize = 11
+		resetall.FontFace = uipallet.Font
+		resetall.TextXAlignment = Enum.TextXAlignment.Right
+		resetall.Parent = editorside
+
+		local editorlist = Instance.new('ScrollingFrame')
+		editorlist.Name = 'Modules'
+		editorlist.Size = UDim2.fromOffset(211, 248)
+		editorlist.Position = UDim2.fromOffset(24, 129)
+		editorlist.BackgroundTransparency = 1
+		editorlist.BorderSizePixel = 0
+		editorlist.ScrollBarThickness = 0
+		editorlist.ScrollBarImageTransparency = 1
+		editorlist.CanvasSize = UDim2.new()
+		editorlist.Parent = editorside
+		local editorlayout = Instance.new('UIListLayout')
+		editorlayout.SortOrder = Enum.SortOrder.LayoutOrder
+		editorlayout.Padding = UDim.new(0, 2)
+		editorlayout.Parent = editorlist
+		local editorpadding = Instance.new('UIPadding')
+		editorpadding.PaddingTop = UDim.new(0, 2)
+		editorpadding.PaddingLeft = UDim.new(0, 2)
+		editorpadding.Parent = editorlist
+
+		local moduletitle = Instance.new('TextLabel')
+		moduletitle.Name = 'ModuleTitle'
+		moduletitle.Size = UDim2.fromOffset(260, 26)
+		moduletitle.Position = UDim2.fromOffset(260, 28)
+		moduletitle.BackgroundTransparency = 1
+		moduletitle.Text = ''
+		moduletitle.TextColor3 = Color3.new(1, 1, 1)
+		moduletitle.TextSize = 17
+		moduletitle.FontFace = uipallet.FontSemiBold
+		moduletitle.TextXAlignment = Enum.TextXAlignment.Left
+		moduletitle.TextTruncate = Enum.TextTruncate.AtEnd
+		moduletitle.Parent = editor
+
+		local function addChip(parent, name, width)
+			local chip = Instance.new('Frame')
+			chip.Name = name
+			chip.Size = UDim2.fromOffset(width, 17)
+			chip.BackgroundColor3 = color.Light(uipallet.Main, 0.09)
+			chip.BorderSizePixel = 0
+			chip.Visible = false
+			chip.Parent = parent
+			addCorner(chip, UDim.new(0, 4))
+			local text = Instance.new('TextLabel')
+			text.Name = 'Text'
+			text.Size = UDim2.fromScale(1, 1)
+			text.BackgroundTransparency = 1
+			text.Text = ''
+			text.TextColor3 = Color3.fromRGB(171, 171, 171)
+			text.TextSize = 10
+			text.FontFace = uipallet.FontSemiBold
+			text.ZIndex = 2
+			text.Parent = chip
+			return chip, text
+		end
+
+		local function chipWidth(text)
+			return math.max(getfontsize(text, 10, uipallet.FontSemiBold).X + 14, 22)
+		end
+
+		local statechip, statetext = addChip(editor, 'State', 28)
+		local bindchip, bindtext = addChip(editor, 'Bind', 22)
+
+		local resetmodule = Instance.new('TextButton')
+		resetmodule.Name = 'ResetModule'
+		resetmodule.Size = UDim2.fromOffset(112, 20)
+		resetmodule.Position = UDim2.fromOffset(538, 31)
+		resetmodule.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
+		resetmodule.AutoButtonColor = false
+		resetmodule.Text = 'RESET THIS MODULE'
+		resetmodule.TextColor3 = Color3.fromRGB(171, 171, 171)
+		resetmodule.TextSize = 10
+		resetmodule.FontFace = uipallet.FontSemiBold
+		resetmodule.Visible = false
+		resetmodule.Parent = editor
+		addCorner(resetmodule, UDim.new(0, 4))
+
+		local settingscaption = Instance.new('TextLabel')
+		settingscaption.Name = 'Caption'
+		settingscaption.Size = UDim2.fromOffset(200, 14)
+		settingscaption.Position = UDim2.fromOffset(260, 61)
+		settingscaption.BackgroundTransparency = 1
+		settingscaption.Text = 'SETTINGS'
+		settingscaption.TextColor3 = Color3.fromRGB(122, 122, 122)
+		settingscaption.TextSize = 10
+		settingscaption.FontFace = uipallet.FontSemiBold
+		settingscaption.TextXAlignment = Enum.TextXAlignment.Left
+		settingscaption.Visible = false
+		settingscaption.Parent = editor
+
+		local settingslist = Instance.new('ScrollingFrame')
+		settingslist.Name = 'Settings'
+		settingslist.Size = UDim2.fromOffset(390, 293)
+		settingslist.Position = UDim2.fromOffset(260, 82)
+		settingslist.BackgroundTransparency = 1
+		settingslist.BorderSizePixel = 0
+		settingslist.ScrollBarThickness = 0
+		settingslist.ScrollBarImageTransparency = 1
+		settingslist.CanvasSize = UDim2.new()
+		settingslist.Parent = editor
+		local settingslayout = Instance.new('UIListLayout')
+		settingslayout.SortOrder = Enum.SortOrder.LayoutOrder
+		settingslayout.Parent = settingslist
+
+		local editorclose = addCloseButton(editor, 8)
+
+		local targetsscrim = Instance.new('TextButton')
+		targetsscrim.Name = 'TargetsScrim'
+		targetsscrim.Size = UDim2.fromScale(1, 1)
+		targetsscrim.BackgroundColor3 = Color3.new()
+		targetsscrim.BackgroundTransparency = 0.45
+		targetsscrim.AutoButtonColor = false
+		targetsscrim.Text = ''
+		targetsscrim.Visible = false
+		targetsscrim.ZIndex = 8
+		targetsscrim.Parent = editor
+		addCorner(targetsscrim)
+
+		local targetspanel = Instance.new('Frame')
+		targetspanel.Name = 'TargetsPanel'
+		targetspanel.Size = UDim2.fromOffset(220, 113)
+		targetspanel.BackgroundColor3 = color.Light(uipallet.Main, 0.07)
+		targetspanel.BorderSizePixel = 0
+		targetspanel.Visible = false
+		targetspanel.ZIndex = 9
+		targetspanel.Parent = editor
+		addCorner(targetspanel, UDim.new(0, 6))
+
+		local function addResetButton(row, y, callback)
+			local reset = Instance.new('TextButton')
+			reset.Name = 'Reset'
+			reset.Size = UDim2.fromOffset(18, 18)
+			reset.Position = UDim2.fromOffset(368, y)
+			reset.BackgroundTransparency = 1
+			reset.AutoButtonColor = false
+			reset.Text = ''
+			reset.Parent = row
+			local ring = Instance.new('Frame')
+			ring.Name = 'Ring'
+			ring.Size = UDim2.fromOffset(12, 12)
+			ring.AnchorPoint = Vector2.new(0.5, 0.5)
+			ring.Position = UDim2.fromScale(0.5, 0.5)
+			ring.BackgroundTransparency = 1
+			ring.Parent = reset
+			addCorner(ring, UDim.new(1, 0))
+			local ringstroke = Instance.new('UIStroke')
+			ringstroke.Color = Color3.fromRGB(128, 128, 128)
+			ringstroke.Thickness = 1.3
+			ringstroke.Parent = ring
+			local gap = Instance.new('Frame')
+			gap.Name = 'Gap'
+			gap.Size = UDim2.fromOffset(6, 5)
+			gap.Position = UDim2.fromOffset(6, -2)
+			gap.BackgroundColor3 = uipallet.Main
+			gap.BorderSizePixel = 0
+			gap.Parent = ring
+			local head = Instance.new('ImageLabel')
+			head.Name = 'Head'
+			head.Size = UDim2.fromOffset(5, 6)
+			head.Position = UDim2.fromOffset(7, -1)
+			head.BackgroundTransparency = 1
+			head.Image = getcustomasset('mxtionv4/assets/new/range.png')
+			head.ImageColor3 = ringstroke.Color
+			head.Rotation = 180
+			head.Parent = ring
+
+			reset.MouseEnter:Connect(function()
+				ringstroke.Color = Color3.new(1, 1, 1)
+				head.ImageColor3 = ringstroke.Color
+			end)
+			reset.MouseLeave:Connect(function()
+				ringstroke.Color = Color3.fromRGB(128, 128, 128)
+				head.ImageColor3 = ringstroke.Color
+			end)
+			reset.MouseButton1Click:Connect(callback)
+
+			return reset
+		end
+
+		local function addRowLabel(row, text, size, y, height)
+			local label = Instance.new('TextLabel')
+			label.Name = 'Label'
+			label.Size = UDim2.fromOffset(240, height)
+			label.Position = UDim2.fromOffset(0, y)
+			label.BackgroundTransparency = 1
+			label.Text = text
+			label.TextColor3 = color.Dark(uipallet.Text, 0.16)
+			label.TextSize = size
+			label.FontFace = uipallet.Font
+			label.TextXAlignment = Enum.TextXAlignment.Left
+			label.TextTruncate = Enum.TextTruncate.AtEnd
+			label.Parent = row
+			return label
+		end
+
+		local function addValueLabel(row, text, y)
+			local label = Instance.new('TextLabel')
+			label.Name = 'Value'
+			label.Size = UDim2.fromOffset(160, 22)
+			label.Position = UDim2.fromOffset(197, y)
+			label.BackgroundTransparency = 1
+			label.Text = text
+			label.TextColor3 = color.Dark(uipallet.Text, 0.16)
+			label.TextSize = 12
+			label.FontFace = uipallet.Font
+			label.TextXAlignment = Enum.TextXAlignment.Right
+			label.Parent = row
+			return label
+		end
+
+		local function addTogglePill(parent, x, y, enabled)
+			local pill = Instance.new('TextButton')
+			pill.Name = 'Toggle'
+			pill.Size = UDim2.fromOffset(25, 13)
+			pill.Position = UDim2.fromOffset(x, y)
+			pill.BackgroundColor3 = enabled and accentColor() or color.Light(uipallet.Main, 0.14)
+			pill.AutoButtonColor = false
+			pill.Text = ''
+			pill.Parent = parent
+			addCorner(pill, UDim.new(1, 0))
+			local knob = Instance.new('Frame')
+			knob.Name = 'Knob'
+			knob.Size = UDim2.fromOffset(9, 9)
+			knob.Position = UDim2.fromOffset(enabled and 14 or 2, 2)
+			knob.BackgroundColor3 = enabled and accentTextColor() or Color3.new(1, 1, 1)
+			knob.BorderSizePixel = 0
+			knob.Parent = pill
+			addCorner(knob, UDim.new(1, 0))
+			return pill, knob
+		end
+
+		local function trackRatio(ratio)
+			return math.clamp(ratio, 0.04, 0.96)
+		end
+
+		local function addSliderTrack(row, y)
+			local track = Instance.new('Frame')
+			track.Name = 'Track'
+			track.Size = UDim2.fromOffset(357, 3)
+			track.Position = UDim2.fromOffset(0, y)
+			track.BackgroundColor3 = color.Light(uipallet.Main, 0.09)
+			track.BorderSizePixel = 0
+			track.Parent = row
+			addCorner(track, UDim.new(1, 0))
+			local fill = Instance.new('Frame')
+			fill.Name = 'Fill'
+			fill.BackgroundColor3 = accentColor()
+			fill.BorderSizePixel = 0
+			fill.Parent = track
+			addCorner(fill, UDim.new(1, 0))
+			return track, fill
+		end
+
+		local function addDragInput(row, track, callback)
+			row.InputBegan:Connect(function(inputObj)
+				if
+					(inputObj.UserInputType ~= Enum.UserInputType.MouseButton1 and inputObj.UserInputType ~= Enum.UserInputType.Touch)
+					or (inputObj.Position.Y - row.AbsolutePosition.Y) < (26 * scale.Scale)
+				then
+					return
+				end
+
+				callback(math.clamp((inputObj.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1), true)
+				local changed = inputService.InputChanged:Connect(function(input)
+					if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
+						callback(math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1), false)
+					end
+				end)
+
+				local ended
+				ended = inputObj.Changed:Connect(function()
+					if inputObj.UserInputState == Enum.UserInputState.End then
+						changed:Disconnect()
+						ended:Disconnect()
+						callback(nil, false, true)
+					end
+				end)
+			end)
+		end
+
+		local function getOptions(mod)
+			local order = mod.Children and mod.Children:GetChildren() or {}
+			local list = {}
+			for name, opt in pairs(mod.Options) do
+				table.insert(list, {
+					Name = tostring(name),
+					Option = opt,
+					Order = table.find(order, opt.Object) or 1000
+				})
+			end
+			table.sort(list, function(a, b)
+				return a.Order < b.Order
+			end)
+			return list
+		end
+
+		local function sameList(list, other)
+			if #list ~= #other then return false end
+			for _, v in list do
+				if not table.find(other, v) then return false end
+			end
+			return true
+		end
+
+		local function isDefault(opt)
+			if opt.Type == 'Toggle' then
+				return opt.Enabled == opt.Default
+			elseif opt.Type == 'Slider' then
+				return opt.Value == opt.Default
+			elseif opt.Type == 'TwoSlider' then
+				return opt.ValueMin == opt.DefaultMin and opt.ValueMax == opt.DefaultMax
+			elseif opt.Type == 'Dropdown' or opt.Type == 'TextBox' then
+				return opt.Value == opt.Default
+			elseif opt.Type == 'TextList' then
+				return sameList(opt.List, opt.Default) and sameList(opt.ListEnabled, opt.Default)
+			elseif opt.Type == 'Targets' then
+				return opt.Players.Enabled == opt.Default.Players
+					and opt.NPCs.Enabled == opt.Default.NPCs
+					and opt.Invisible.Enabled == opt.Default.Invisible
+					and opt.Walls.Enabled == opt.Default.Walls
+			end
+			return true
+		end
+
+		local function resetOption(opt)
+			if opt.Type == 'Toggle' then
+				if opt.Enabled ~= opt.Default then
+					opt:Toggle()
+				end
+			elseif opt.Type == 'Slider' then
+				opt:SetValue(opt.Default, nil, true)
+			elseif opt.Type == 'TwoSlider' then
+				opt:SetValue(false, opt.DefaultMin)
+				opt:SetValue(true, opt.DefaultMax)
+			elseif opt.Type == 'Dropdown' then
+				opt:SetValue(opt.Default, true)
+			elseif opt.Type == 'TextBox' then
+				opt:SetValue(opt.Default or '')
+			elseif opt.Type == 'TextList' then
+				opt:Load({List = table.clone(opt.Default), ListEnabled = table.clone(opt.Default)})
+			elseif opt.Type == 'Targets' then
+				opt:Load(opt.Default)
+			end
+			mainapi:QueueSave()
+		end
+
+		local selectedmodule
+		local selectedname
+		local expandedoption
+		local refreshEditor
+		local refreshSettings
+
+		local function addToggleRow(entry, order, listicon)
+			local opt = entry.Option
+			local row = Instance.new('Frame')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, 30)
+			row.BackgroundTransparency = 1
+			row.LayoutOrder = order
+			row.Parent = settingslist
+			addRowLabel(row, entry.Name, 13, 0, 30)
+
+			if listicon then
+				local icon = Instance.new('ImageLabel')
+				icon.Name = 'ListIcon'
+				icon.Size = UDim2.fromOffset(14, 12)
+				icon.Position = UDim2.fromOffset(315, 9)
+				icon.BackgroundTransparency = 1
+				icon.Image = listicon
+				icon.Parent = row
+			end
+
+			local pill, knob = addTogglePill(row, 332, 9, opt.Enabled)
+			if not isDefault(opt) then
+				addResetButton(row, 6, function()
+					resetOption(opt)
+					refreshSettings()
+				end)
+			end
+
+			pill.MouseButton1Click:Connect(function()
+				opt:Toggle()
+				mainapi:QueueSave()
+				tween:Tween(pill, uipallet.Tween, {BackgroundColor3 = opt.Enabled and accentColor() or color.Light(uipallet.Main, 0.14)})
+				tween:Tween(knob, uipallet.Tween, {
+					Position = UDim2.fromOffset(opt.Enabled and 14 or 2, 2),
+					BackgroundColor3 = opt.Enabled and accentTextColor() or Color3.new(1, 1, 1)
+				})
+				refreshSettings()
+			end)
+		end
+
+		local function addSliderRow(entry, order)
+			local opt = entry.Option
+			local row = Instance.new('TextButton')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, 50)
+			row.BackgroundTransparency = 1
+			row.AutoButtonColor = false
+			row.Text = ''
+			row.LayoutOrder = order
+			row.Parent = settingslist
+			addRowLabel(row, entry.Name, 12, 4, 22)
+
+			local function formatValue()
+				local suffix = type(opt.Suffix) == 'function' and opt.Suffix(opt.Value) or opt.Suffix
+				return suffix and `{opt.Value} {suffix}` or tostring(opt.Value)
+			end
+
+			local value = addValueLabel(row, formatValue(), 4)
+			local range = math.max(opt.Max - opt.Min, 1e-6)
+			local track, fill = addSliderTrack(row, 36)
+			fill.Size = UDim2.fromScale(trackRatio((opt.Value - opt.Min) / range), 1)
+			local knob = Instance.new('Frame')
+			knob.Name = 'Knob'
+			knob.Size = UDim2.fromOffset(13, 13)
+			knob.AnchorPoint = Vector2.new(0.5, 0.5)
+			knob.Position = UDim2.fromScale(1, 0.5)
+			knob.BackgroundColor3 = accentColor()
+			knob.BorderSizePixel = 0
+			knob.ZIndex = 2
+			knob.Parent = fill
+			addCorner(knob, UDim.new(1, 0))
+
+			local hadreset = not isDefault(opt)
+			if hadreset then
+				addResetButton(row, 12, function()
+					resetOption(opt)
+					refreshSettings()
+				end)
+			end
+
+			row.MouseEnter:Connect(function()
+				tween:Tween(knob, uipallet.Tween, {Size = UDim2.fromOffset(15, 15)})
+			end)
+			row.MouseLeave:Connect(function()
+				tween:Tween(knob, uipallet.Tween, {Size = UDim2.fromOffset(13, 13)})
+			end)
+
+			addDragInput(row, track, function(pos, _, final)
+				if final then
+					opt:SetValue(opt.Value, nil, true)
+					mainapi:QueueSave()
+					if hadreset == isDefault(opt) then
+						refreshSettings()
+					end
+					return
+				end
+				opt:SetValue(math.floor((opt.Min + range * pos) * opt.Decimal) / opt.Decimal, pos)
+				value.Text = formatValue()
+				tween:Tween(fill, uipallet.Tween, {Size = UDim2.fromScale(trackRatio(pos), 1)})
+			end)
+		end
+
+		local function addTwoSliderRow(entry, order)
+			local opt = entry.Option
+			local row = Instance.new('TextButton')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, 50)
+			row.BackgroundTransparency = 1
+			row.AutoButtonColor = false
+			row.Text = ''
+			row.LayoutOrder = order
+			row.Parent = settingslist
+			addRowLabel(row, entry.Name, 12, 4, 22)
+
+			local maxwidth = getfontsize(tostring(opt.ValueMax), 12, uipallet.Font).X
+			local maxvalue = addValueLabel(row, opt.ValueMax, 4)
+			local arrow = Instance.new('ImageLabel')
+			arrow.Name = 'Arrow'
+			arrow.Size = UDim2.fromOffset(12, 6)
+			arrow.Position = UDim2.fromOffset(339 - maxwidth, 12)
+			arrow.BackgroundTransparency = 1
+			arrow.Image = getcustomasset('mxtionv4/assets/new/rangearrow.png')
+			arrow.ImageColor3 = color.Light(uipallet.Main, 0.2)
+			arrow.Parent = row
+			local minvalue = addValueLabel(row, opt.ValueMin, 4)
+			minvalue.Position = UDim2.fromOffset(161 - maxwidth, 4)
+
+			local range = math.max(opt.Max - opt.Min, 1e-6)
+			local minratio = trackRatio((opt.ValueMin - opt.Min) / range)
+			local maxratio = trackRatio((opt.ValueMax - opt.Min) / range)
+			local track, fill = addSliderTrack(row, 36)
+			fill.Position = UDim2.fromScale(minratio, 0)
+			fill.Size = UDim2.fromScale(math.max(maxratio - minratio, 0), 1)
+
+			local function addKnob(name, edge, flipped)
+				local knob = Instance.new('ImageLabel')
+				knob.Name = name
+				knob.Size = UDim2.fromOffset(9, 16)
+				knob.AnchorPoint = Vector2.new(0.5, 0.5)
+				knob.Position = UDim2.fromScale(edge, 0.5)
+				knob.BackgroundTransparency = 1
+				knob.Image = getcustomasset('mxtionv4/assets/new/range.png')
+				knob.ImageColor3 = accentColor()
+				knob.Rotation = flipped and 180 or 0
+				knob.ZIndex = 2
+				knob.Parent = fill
+
+				knob.MouseEnter:Connect(function()
+					tween:Tween(knob, uipallet.Tween, {Size = UDim2.fromOffset(11, 18)})
+				end)
+				knob.MouseLeave:Connect(function()
+					tween:Tween(knob, uipallet.Tween, {Size = UDim2.fromOffset(9, 16)})
+				end)
+
+				return knob
+			end
+
+			addKnob('KnobMin', 0, false)
+			addKnob('KnobMax', 1, true)
+
+			local hadreset = not isDefault(opt)
+			if hadreset then
+				addResetButton(row, 12, function()
+					resetOption(opt)
+					refreshSettings()
+				end)
+			end
+
+			local editingmax = false
+			addDragInput(row, track, function(pos, began, final)
+				if final then
+					mainapi:QueueSave()
+					if hadreset == isDefault(opt) then
+						refreshSettings()
+					end
+					return
+				end
+				if began then
+					editingmax = math.abs(pos - maxratio) <= math.abs(pos - minratio)
+				end
+				opt:SetValue(editingmax, math.floor((opt.Min + range * pos) * opt.Decimal) / opt.Decimal)
+				minratio = trackRatio((opt.ValueMin - opt.Min) / range)
+				maxratio = trackRatio((opt.ValueMax - opt.Min) / range)
+				minvalue.Text = opt.ValueMin
+				maxvalue.Text = opt.ValueMax
+				tween:Tween(fill, uipallet.Tween, {
+					Position = UDim2.fromScale(minratio, 0),
+					Size = UDim2.fromScale(math.max(maxratio - minratio, 0), 1)
+				})
+			end)
+		end
+
+		local function addDropdownRow(entry, order, expanded)
+			local opt = entry.Option
+			local options = opt.List or {}
+			local row = Instance.new('Frame')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, expanded and 40 + (#options * 26) or 40)
+			row.BackgroundTransparency = 1
+			row.LayoutOrder = order
+			row.Parent = settingslist
+
+			local bkg = Instance.new('Frame')
+			bkg.Name = 'BKG'
+			bkg.Size = UDim2.new(0, 357, 1, -9)
+			bkg.Position = UDim2.fromOffset(0, 4)
+			bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
+			bkg.BorderSizePixel = 0
+			bkg.Parent = row
+			addCorner(bkg, UDim.new(0, 6))
+			local button = Instance.new('TextButton')
+			button.Name = 'Dropdown'
+			button.Size = UDim2.new(1, -2, 1, -2)
+			button.Position = UDim2.fromOffset(1, 1)
+			button.BackgroundColor3 = uipallet.Main
+			button.AutoButtonColor = false
+			button.Text = ''
+			button.Parent = bkg
+			addCorner(button, UDim.new(0, 6))
+			local title = Instance.new('TextLabel')
+			title.Name = 'Title'
+			title.Size = UDim2.new(1, -44, 0, 29)
+			title.Position = UDim2.fromOffset(14, 0)
+			title.BackgroundTransparency = 1
+			title.Text = `{entry.Name} - {opt.Value}`
+			title.TextColor3 = color.Dark(uipallet.Text, 0.16)
+			title.TextSize = 13
+			title.FontFace = uipallet.Font
+			title.TextXAlignment = Enum.TextXAlignment.Left
+			title.TextTruncate = Enum.TextTruncate.AtEnd
+			title.Parent = button
+			local arrow = Instance.new('ImageLabel')
+			arrow.Name = 'Arrow'
+			arrow.Size = UDim2.fromOffset(4, 8)
+			arrow.Position = UDim2.new(1, -17, 0, 11)
+			arrow.BackgroundTransparency = 1
+			arrow.Image = getcustomasset('mxtionv4/assets/new/expandright.png')
+			arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
+			arrow.Rotation = expanded and 270 or 90
+			arrow.Parent = button
+
+			row.MouseEnter:Connect(function()
+				tween:Tween(bkg, uipallet.Tween, {BackgroundColor3 = color.Light(uipallet.Main, 0.0875)})
+			end)
+			row.MouseLeave:Connect(function()
+				tween:Tween(bkg, uipallet.Tween, {BackgroundColor3 = color.Light(uipallet.Main, 0.034)})
+			end)
+
+			if not isDefault(opt) then
+				addResetButton(row, 11, function()
+					resetOption(opt)
+					refreshSettings()
+				end)
+			end
+
+			button.MouseButton1Click:Connect(function()
+				expandedoption = not expanded and entry.Name or nil
+				refreshSettings()
+			end)
+
+			if not expanded then return end
+
+			for i, v in options do
+				local choice = Instance.new('TextButton')
+				choice.Name = v
+				choice.Size = UDim2.new(1, 0, 0, 26)
+				choice.Position = UDim2.fromOffset(0, 29 + ((i - 1) * 26))
+				choice.BackgroundColor3 = uipallet.Main
+				choice.BorderSizePixel = 0
+				choice.AutoButtonColor = false
+				choice.Text = ''
+				choice.Parent = button
+				local choicetext = Instance.new('TextLabel')
+				choicetext.Name = 'Text'
+				choicetext.Size = UDim2.new(1, -28, 1, 0)
+				choicetext.Position = UDim2.fromOffset(14, 0)
+				choicetext.BackgroundTransparency = 1
+				choicetext.Text = v
+				choicetext.TextColor3 = v == opt.Value and Color3.new(1, 1, 1) or color.Dark(uipallet.Text, 0.16)
+				choicetext.TextSize = 13
+				choicetext.FontFace = uipallet.Font
+				choicetext.TextXAlignment = Enum.TextXAlignment.Left
+				choicetext.TextTruncate = Enum.TextTruncate.AtEnd
+				choicetext.Parent = choice
+
+				choice.MouseEnter:Connect(function()
+					tween:Tween(choice, uipallet.Tween, {BackgroundColor3 = color.Light(uipallet.Main, 0.04)})
+				end)
+				choice.MouseLeave:Connect(function()
+					tween:Tween(choice, uipallet.Tween, {BackgroundColor3 = uipallet.Main})
+				end)
+				choice.MouseButton1Click:Connect(function()
+					opt:SetValue(v, true)
+					mainapi:QueueSave()
+					expandedoption = nil
+					refreshSettings()
+				end)
+			end
+		end
+
+		local function showTargets(opt, rowy)
+			for _, old in targetspanel:GetChildren() do
+				if not old:IsA('UICorner') then
+					old:Destroy()
+				end
+			end
+
+			local function addTargetTab(name, toggle, asset, size, x)
+				local tab = Instance.new('TextButton')
+				tab.Name = name
+				tab.Size = UDim2.fromOffset(61, 28)
+				tab.Position = UDim2.fromOffset(x, 12)
+				tab.BackgroundColor3 = toggle.Enabled and accentColor() or color.Light(uipallet.Main, 0.12)
+				tab.AutoButtonColor = false
+				tab.Text = ''
+				tab.ZIndex = 10
+				tab.Parent = targetspanel
+				addCorner(tab, UDim.new(0, 5))
+				local icon = Instance.new('ImageLabel')
+				icon.Name = 'Icon'
+				icon.Size = size
+				icon.AnchorPoint = Vector2.new(0.5, 0.5)
+				icon.Position = UDim2.fromScale(0.5, 0.5)
+				icon.BackgroundTransparency = 1
+				icon.Image = getcustomasset(asset)
+				icon.ImageColor3 = toggle.Enabled and accentTextColor() or Color3.fromRGB(171, 171, 171)
+				icon.ZIndex = 11
+				icon.Parent = tab
+
+				tab.MouseButton1Click:Connect(function()
+					toggle:Toggle()
+					mainapi:QueueSave()
+					refreshSettings()
+				end)
+			end
+
+			addTargetTab('Players', opt.Players, 'mxtionv4/assets/new/targetplayers1.png', UDim2.fromOffset(15, 16), 12)
+			addTargetTab('NPCs', opt.NPCs, 'mxtionv4/assets/new/targetnpc1.png', UDim2.fromOffset(12, 16), 79)
+
+			local function addTargetToggle(name, toggle, y)
+				local label = Instance.new('TextLabel')
+				label.Name = name
+				label.Size = UDim2.new(1, -70, 0, 22)
+				label.Position = UDim2.fromOffset(14, y)
+				label.BackgroundTransparency = 1
+				label.Text = name
+				label.TextColor3 = color.Dark(uipallet.Text, 0.16)
+				label.TextSize = 13
+				label.FontFace = uipallet.Font
+				label.TextXAlignment = Enum.TextXAlignment.Left
+				label.ZIndex = 10
+				label.Parent = targetspanel
+
+				local pill, knob = addTogglePill(targetspanel, 181, y + 4, toggle.Enabled)
+				pill.ZIndex = 10
+				knob.ZIndex = 11
+				pill.MouseButton1Click:Connect(function()
+					toggle:Toggle()
+					mainapi:QueueSave()
+					refreshSettings()
+				end)
+			end
+
+			addTargetToggle('Ignore invisible', opt.Invisible, 52)
+			addTargetToggle('Ignore behind walls', opt.Walls, 84)
+
+			targetspanel.Position = UDim2.fromOffset(332, 134 + rowy - settingslist.CanvasPosition.Y)
+			targetspanel.Visible = true
+			targetsscrim.Visible = true
+		end
+
+		local function addTargetsRow(entry, order, rowy, expanded)
+			local opt = entry.Option
+			local row = Instance.new('Frame')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, 50)
+			row.BackgroundTransparency = 1
+			row.LayoutOrder = order
+			row.Parent = settingslist
+
+			local bkg = Instance.new('Frame')
+			bkg.Name = 'BKG'
+			bkg.Size = UDim2.fromOffset(357, 32)
+			bkg.Position = UDim2.fromOffset(0, 9)
+			bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.06)
+			bkg.BorderSizePixel = 0
+			bkg.Parent = row
+			addCorner(bkg, UDim.new(0, 6))
+			local inner = Instance.new('Frame')
+			inner.Name = 'Inner'
+			inner.Size = UDim2.new(1, -2, 1, -2)
+			inner.Position = UDim2.fromOffset(1, 1)
+			inner.BackgroundColor3 = uipallet.Main
+			inner.BorderSizePixel = 0
+			inner.Parent = bkg
+			addCorner(inner, UDim.new(0, 6))
+
+			local tag = Instance.new('Frame')
+			tag.Name = 'Tag'
+			tag.Size = UDim2.fromOffset(81, 30)
+			tag.BackgroundColor3 = color.Light(uipallet.Main, 0.055)
+			tag.BorderSizePixel = 0
+			tag.Parent = inner
+			addCorner(tag, UDim.new(0, 6))
+			local tagicon = Instance.new('ImageLabel')
+			tagicon.Name = 'Icon'
+			tagicon.Size = UDim2.fromOffset(15, 12)
+			tagicon.Position = UDim2.fromOffset(14, 9)
+			tagicon.BackgroundTransparency = 1
+			tagicon.Image = getcustomasset('mxtionv4/assets/new/targetstab.png')
+			tagicon.ImageColor3 = Color3.fromRGB(171, 171, 171)
+			tagicon.Parent = tag
+			local tagtext = Instance.new('TextLabel')
+			tagtext.Name = 'Text'
+			tagtext.Size = UDim2.new(1, -36, 1, 0)
+			tagtext.Position = UDim2.fromOffset(36, 0)
+			tagtext.BackgroundTransparency = 1
+			tagtext.Text = entry.Name
+			tagtext.TextColor3 = color.Dark(uipallet.Text, 0.16)
+			tagtext.TextSize = 13
+			tagtext.FontFace = uipallet.Font
+			tagtext.TextXAlignment = Enum.TextXAlignment.Left
+			tagtext.Parent = tag
+
+			local targets = {}
+			if opt.Players.Enabled then table.insert(targets, 'Players') end
+			if opt.NPCs.Enabled then table.insert(targets, 'NPCs') end
+			local valuetext = Instance.new('TextLabel')
+			valuetext.Name = 'Value'
+			valuetext.Size = UDim2.new(1, -150, 1, 0)
+			valuetext.Position = UDim2.fromOffset(95, 0)
+			valuetext.BackgroundTransparency = 1
+			valuetext.Text = #targets > 0 and table.concat(targets, ', ') or 'None'
+			valuetext.TextColor3 = color.Dark(uipallet.Text, 0.16)
+			valuetext.TextSize = 13
+			valuetext.FontFace = uipallet.Font
+			valuetext.TextXAlignment = Enum.TextXAlignment.Left
+			valuetext.TextTruncate = Enum.TextTruncate.AtEnd
+			valuetext.Parent = inner
+
+			local edit = Instance.new('TextButton')
+			edit.Name = 'Edit'
+			edit.Size = UDim2.fromOffset(40, 32)
+			edit.Position = UDim2.new(1, -50, 0, 0)
+			edit.BackgroundTransparency = 1
+			edit.AutoButtonColor = false
+			edit.Text = 'edit'
+			edit.TextColor3 = Color3.fromRGB(171, 171, 171)
+			edit.TextSize = 12
+			edit.FontFace = uipallet.Font
+			edit.TextXAlignment = Enum.TextXAlignment.Right
+			edit.Parent = inner
+
+			if not isDefault(opt) then
+				addResetButton(row, 16, function()
+					resetOption(opt)
+					refreshSettings()
+				end)
+			end
+
+			edit.MouseButton1Click:Connect(function()
+				expandedoption = not expanded and entry.Name or nil
+				refreshSettings()
+			end)
+
+			if expanded then
+				showTargets(opt, rowy)
+			end
+		end
+
+		local function addTextListRow(entry, order)
+			local opt = entry.Option
+			local row = Instance.new('Frame')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, 48)
+			row.BackgroundTransparency = 1
+			row.LayoutOrder = order
+			row.Parent = settingslist
+
+			local card = Instance.new('Frame')
+			card.Name = 'Card'
+			card.Size = UDim2.fromOffset(331, 40)
+			card.Position = UDim2.fromOffset(26, 2)
+			card.BackgroundColor3 = color.Light(uipallet.Main, 0.045)
+			card.BorderSizePixel = 0
+			card.Parent = row
+			addCorner(card, UDim.new(0, 6))
+			local icon = Instance.new('ImageLabel')
+			icon.Name = 'Icon'
+			icon.Size = UDim2.fromOffset(14, 12)
+			icon.Position = UDim2.fromOffset(14, 14)
+			icon.BackgroundTransparency = 1
+			icon.Image = opt.Icon or getcustomasset('mxtionv4/assets/new/allowedicon.png')
+			icon.Parent = card
+			local title = Instance.new('TextLabel')
+			title.Name = 'Title'
+			title.Size = UDim2.new(1, -80, 0, 16)
+			title.Position = UDim2.fromOffset(38, 6)
+			title.BackgroundTransparency = 1
+			title.Text = entry.Name
+			title.TextColor3 = color.Dark(uipallet.Text, 0.16)
+			title.TextSize = 13
+			title.FontFace = uipallet.Font
+			title.TextXAlignment = Enum.TextXAlignment.Left
+			title.TextTruncate = Enum.TextTruncate.AtEnd
+			title.Parent = card
+			local items = Instance.new('TextLabel')
+			items.Name = 'Items'
+			items.Size = UDim2.new(1, -80, 0, 14)
+			items.Position = UDim2.fromOffset(38, 21)
+			items.BackgroundTransparency = 1
+			items.Text = #opt.ListEnabled > 0 and table.concat(opt.ListEnabled, ', ') or 'None'
+			items.TextColor3 = color.Dark(uipallet.Text, 0.43)
+			items.TextSize = 11
+			items.FontFace = uipallet.Font
+			items.TextXAlignment = Enum.TextXAlignment.Left
+			items.TextTruncate = Enum.TextTruncate.AtEnd
+			items.Parent = card
+			local amount = Instance.new('TextLabel')
+			amount.Name = 'Amount'
+			amount.Size = UDim2.new(1, -20, 1, 0)
+			amount.BackgroundTransparency = 1
+			amount.Text = #opt.List
+			amount.TextColor3 = color.Dark(uipallet.Text, 0.16)
+			amount.TextSize = 13
+			amount.FontFace = uipallet.Font
+			amount.TextXAlignment = Enum.TextXAlignment.Right
+			amount.Parent = card
+
+			if not isDefault(opt) then
+				addResetButton(row, 13, function()
+					resetOption(opt)
+					refreshSettings()
+				end)
+			end
+		end
+
+		local function addColorRow(entry, order)
+			local opt = entry.Option
+			local row = Instance.new('Frame')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, 30)
+			row.BackgroundTransparency = 1
+			row.LayoutOrder = order
+			row.Parent = settingslist
+			addRowLabel(row, entry.Name, 13, 0, 30)
+
+			local swatch = Instance.new('Frame')
+			swatch.Name = 'Color'
+			swatch.Size = UDim2.fromOffset(26, 14)
+			swatch.Position = UDim2.fromOffset(332, 9)
+			swatch.BackgroundColor3 = Color3.fromHSV(opt.Hue, opt.Sat, opt.Value)
+			swatch.BorderSizePixel = 0
+			swatch.Parent = row
+			addCorner(swatch, UDim.new(0, 4))
+		end
+
+		local function addValueRow(entry, order, text)
+			local row = Instance.new('Frame')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, 0, 0, 30)
+			row.BackgroundTransparency = 1
+			row.LayoutOrder = order
+			row.Parent = settingslist
+			addRowLabel(row, entry.Name, 13, 0, 30)
+			local value = addValueLabel(row, text, 4)
+			value.TextColor3 = color.Dark(uipallet.Text, 0.43)
+		end
+
+		function refreshSettings()
+			for _, old in settingslist:GetChildren() do
+				if not old:IsA('UIListLayout') then
+					old:Destroy()
+				end
+			end
+			targetsscrim.Visible = false
+			targetspanel.Visible = false
+
+			local mod = selectedmodule
+			settingscaption.Visible = mod ~= nil
+			resetmodule.Visible = mod ~= nil
+			moduletitle.Text = mod and selectedname or ''
+			statechip.Visible = mod ~= nil
+			bindchip.Visible = mod ~= nil and mod.Bind[1] ~= nil
+
+			if not mod then
+				settingslist.CanvasSize = UDim2.new()
+				return
+			end
+
+			local namewidth = getfontsize(selectedname, 17, uipallet.FontSemiBold).X
+			statetext.Text = mod.Enabled and 'ON' or 'OFF'
+			statechip.Size = UDim2.fromOffset(chipWidth(statetext.Text), 18)
+			statechip.Position = UDim2.fromOffset(272 + namewidth, 32)
+			statechip.BackgroundColor3 = mod.Enabled and accentColor() or color.Light(uipallet.Main, 0.09)
+			statetext.TextColor3 = mod.Enabled and accentTextColor() or Color3.fromRGB(171, 171, 171)
+
+			bindtext.Text = mod.Bind[1] and tostring(mod.Bind[1]):upper() or ''
+			bindchip.Size = UDim2.fromOffset(chipWidth(bindtext.Text), 18)
+			bindchip.Position = UDim2.fromOffset(278 + namewidth + statechip.Size.X.Offset, 32)
+
+			local options = getOptions(mod)
+			local y = 0
+			for i, entry in options do
+				local following = options[i + 1]
+				local opt = entry.Option
+				if opt.Type == 'Toggle' then
+					local sublist = following and following.Option.Type == 'TextList'
+					addToggleRow(entry, i, sublist and (following.Option.Icon or getcustomasset('mxtionv4/assets/new/allowedicon.png')) or nil)
+					y += 30
+				elseif opt.Type == 'Slider' then
+					addSliderRow(entry, i)
+					y += 50
+				elseif opt.Type == 'TwoSlider' then
+					addTwoSliderRow(entry, i)
+					y += 50
+				elseif opt.Type == 'Dropdown' then
+					local expanded = expandedoption == entry.Name
+					addDropdownRow(entry, i, expanded)
+					y += expanded and 40 + (#(opt.List or {}) * 26) or 40
+				elseif opt.Type == 'Targets' then
+					addTargetsRow(entry, i, y, expandedoption == entry.Name)
+					y += 50
+				elseif opt.Type == 'TextList' then
+					addTextListRow(entry, i)
+					y += 48
+				elseif opt.Type == 'ColorSlider' then
+					addColorRow(entry, i)
+					y += 30
+				elseif opt.Type == 'TextBox' then
+					addValueRow(entry, i, tostring(opt.Value))
+					y += 30
+				end
+			end
+
+			settingslist.CanvasSize = UDim2.fromOffset(0, y)
+		end
+
+		local function addEditorRow(entry, order, selected)
+			local row = Instance.new('TextButton')
+			row.Name = entry.Name
+			row.Size = UDim2.new(1, -4, 0, 34)
+			row.BackgroundColor3 = color.Light(uipallet.Main, 0.06)
+			row.BackgroundTransparency = selected and 0 or 1
+			row.AutoButtonColor = false
+			row.Text = ''
+			row.LayoutOrder = order
+			row.Parent = editorlist
+			addCorner(row)
+			local stroke = Instance.new('UIStroke')
+			stroke.Color = color.Light(uipallet.Main, 0.13)
+			stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			stroke.Enabled = selected
+			stroke.Parent = row
+			local label = Instance.new('TextLabel')
+			label.Name = 'Label'
+			label.Size = UDim2.new(1, -58, 1, 0)
+			label.Position = UDim2.fromOffset(10, 0)
+			label.BackgroundTransparency = 1
+			label.Text = entry.Name
+			label.TextColor3 = selected and Color3.new(1, 1, 1) or Color3.fromRGB(171, 171, 171)
+			label.TextSize = 13
+			label.FontFace = uipallet.Font
+			label.TextXAlignment = Enum.TextXAlignment.Left
+			label.TextTruncate = Enum.TextTruncate.AtEnd
+			label.Parent = row
+			local chevron = Instance.new('ImageLabel')
+			chevron.Name = 'Chevron'
+			chevron.Size = UDim2.fromOffset(5, 9)
+			chevron.AnchorPoint = Vector2.new(1, 0.5)
+			chevron.Position = UDim2.new(1, -12, 0.5, 0)
+			chevron.BackgroundTransparency = 1
+			chevron.Image = getcustomasset('mxtionv4/assets/new/expandright.png')
+			chevron.ImageColor3 = Color3.fromRGB(122, 122, 122)
+			chevron.Parent = row
+
+			local bindname = entry.Module.Bind[1] and tostring(entry.Module.Bind[1]):upper() or ''
+			if entry.Module.Enabled or bindname ~= '' then
+				local chip, chiptext = addChip(row, 'Chip', 22)
+				chiptext.Text = entry.Module.Enabled and 'ON' or bindname
+				chip.Size = UDim2.fromOffset(chipWidth(chiptext.Text), 18)
+				chip.AnchorPoint = Vector2.new(1, 0.5)
+				chip.Position = UDim2.new(1, -28, 0.5, 0)
+				chip.Visible = true
+				if entry.Module.Enabled then
+					chip.BackgroundColor3 = accentColor()
+					chiptext.TextColor3 = accentTextColor()
+				end
+			end
+
+			row.MouseEnter:Connect(function()
+				if not selected then
+					tween:Tween(row, uipallet.Tween, {BackgroundTransparency = 0.55})
+				end
+			end)
+			row.MouseLeave:Connect(function()
+				if not selected then
+					tween:Tween(row, uipallet.Tween, {BackgroundTransparency = 1})
+				end
+			end)
+			row.MouseButton1Click:Connect(function()
+				selectedname = entry.Name
+				selectedmodule = entry.Module
+				expandedoption = nil
+				refreshEditor()
+			end)
+		end
+
+		local affectedonly = false
+
+		local function getModules()
+			return listModules(searchbox.Text:lower(), affectedonly)
+		end
+
+		function refreshEditor()
+			for _, old in editorlist:GetChildren() do
+				if old:IsA('TextButton') then
+					old:Destroy()
+				end
+			end
+
+			local active = getModules()
+			editorcount.Text = `<font color="rgb(255,255,255)">{#listModules('', true)}</font> AFFECTED MODULES`
+
+			if selectedname and not mainapi.Modules[selectedname] then
+				selectedname = nil
+				selectedmodule = nil
+			end
+
+			for i, entry in active do
+				addEditorRow(entry, i, entry.Name == selectedname)
+			end
+
+			editorlist.CanvasSize = UDim2.fromOffset(0, (#active * 36) + 4)
+			refreshSettings()
+		end
+
+		function openEditor(target)
+			editortitle.Text = mainapi.Profile or 'Profile'
+			searchbox.Text = ''
+			expandedoption = nil
+
+			local active = getModules()
+			selectedname = typeof(target) == 'string' and target or (active[1] and active[1].Name)
+			selectedmodule = selectedname and mainapi.Modules[selectedname]
+
+			refreshEditor()
+			editor.Position = UDim2.new(0.5, -337, 0.5, -193)
+			editor.Visible = true
+		end
+
+		searchbox:GetPropertyChangedSignal('Text'):Connect(refreshEditor)
+
+		targetsscrim.MouseButton1Click:Connect(function()
+			expandedoption = nil
+			refreshSettings()
+		end)
+
+		filterbtn.MouseButton1Click:Connect(function()
+			affectedonly = not affectedonly
+			for _, bar in filterbars do
+				bar.BackgroundColor3 = affectedonly and accentColor() or Color3.fromRGB(171, 171, 171)
+			end
+			refreshEditor()
+		end)
+
+		resetmodule.MouseEnter:Connect(function()
+			tween:Tween(resetmodule, uipallet.Tween, {BackgroundColor3 = color.Light(uipallet.Main, 0.075)})
+		end)
+		resetmodule.MouseLeave:Connect(function()
+			tween:Tween(resetmodule, uipallet.Tween, {BackgroundColor3 = color.Light(uipallet.Main, 0.034)})
+		end)
+		resetmodule.MouseButton1Click:Connect(function()
+			if selectedmodule then
+				for _, entry in getOptions(selectedmodule) do
+					resetOption(entry.Option)
+				end
+				expandedoption = nil
+				refreshSettings()
+			end
+		end)
+
+		resetall.MouseEnter:Connect(function()
+			resetall.TextColor3 = Color3.new(1, 1, 1)
+		end)
+		resetall.MouseLeave:Connect(function()
+			resetall.TextColor3 = Color3.fromRGB(171, 171, 171)
+		end)
+		resetall.MouseButton1Click:Connect(function()
+			for _, entry in listModules('', true) do
+				for _, option in getOptions(entry.Module) do
+					resetOption(option.Option)
+				end
+			end
+			expandedoption = nil
+			refreshEditor()
+		end)
+
+		editall.MouseButton1Click:Connect(function()
+			openEditor()
+		end)
+		editorclose.MouseButton1Click:Connect(function()
+			editor.Visible = false
+		end)
+
+		createbkg.MouseButton1Click:Connect(function()
+			refreshModules()
+			namebox.Text = ''
+			newprofile.Visible = true
+			namebox:CaptureFocus()
+		end)
+
+		back.MouseButton1Click:Connect(function()
+			newprofile.Visible = false
+		end)
+
+		nameadd.MouseButton1Click:Connect(function()
+			if namebox.Text == '' then return end
+			categoryapi:ChangeValue(namebox.Text)
+			namebox.Text = ''
+			newprofile.Visible = false
+		end)
+
+		local publicbkg = Instance.new('TextButton')
+		publicbkg.Name = 'Public'
+		publicbkg.Size = UDim2.new(0.47, -4, 1, 0)
+		publicbkg.LayoutOrder = 2
+		publicbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+		publicbkg.AutoButtonColor = true
+		publicbkg.Text = ''
+		publicbkg.Parent = addrow
+		addCorner(publicbkg)
+		local publicstroke = Instance.new('UIStroke')
+		publicstroke.Color = color.Light(uipallet.Main, 0.02)
+		publicstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		publicstroke.Parent = publicbkg
+		addRowButtonContent(publicbkg, 'mxtionv4/assets/new/profileworld.png', 'PUBLIC', 14)
+
+		publicbkg.MouseButton1Click:Connect(function()
+			local public = mainapi.PublicProfiles
+			if not public then return end
+			public.Window.Position = UDim2.new(0.5, -350, 0.5, -194)
+			public.Window.Visible = true
+		end)
+
+	end
+
 	local cursedpadding = Instance.new('Frame')
 	cursedpadding.Size = UDim2.fromOffset()
 	cursedpadding.BackgroundTransparency = 1
@@ -4487,8 +6170,8 @@ function mainapi:CreateCategoryList(categorysettings)
 				if ind then
 					if val ~= 'default' then
 						table.remove(mainapi.Profiles, ind)
-						if isfile('catrewrite/profiles/'..val..mainapi.Place..'.txt') and delfile then
-							delfile('catrewrite/profiles/'..val..mainapi.Place..'.txt')
+						if isfile('mxtionv4/profiles/'..val..mainapi.Place..'.txt') and delfile then
+							delfile('mxtionv4/profiles/'..val..mainapi.Place..'.txt')
 						end
 					end
 				else
@@ -4554,7 +6237,7 @@ function mainapi:CreateCategoryList(categorysettings)
 				dots.Size = UDim2.fromOffset(3, 16)
 				dots.Position = UDim2.fromOffset(10, 9)
 				dots.BackgroundTransparency = 1
-				dots.Image = getcustomasset('catrewrite/assets/new/dots.png')
+				dots.Image = getcustomasset('mxtionv4/assets/new/dots.png')
 				dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
 				dots.Parent = dotsbutton
 				local bind = Instance.new('TextButton')
@@ -4575,7 +6258,7 @@ function mainapi:CreateCategoryList(categorysettings)
 				bindicon.Size = UDim2.fromOffset(12, 12)
 				bindicon.Position = UDim2.new(0.5, -6, 0, 5)
 				bindicon.BackgroundTransparency = 1
-				bindicon.Image = getcustomasset('catrewrite/assets/new/bind.png')
+				bindicon.Image = getcustomasset('mxtionv4/assets/new/bind.png')
 				bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 				bindicon.Parent = bind
 				local bindtext = Instance.new('TextLabel')
@@ -4591,7 +6274,7 @@ function mainapi:CreateCategoryList(categorysettings)
 				bind.MouseEnter:Connect(function()
 					bindtext.Visible = false
 					bindicon.Visible = not bindtext.Visible
-					bindicon.Image = getcustomasset('catrewrite/assets/new/edit.png')
+					bindicon.Image = getcustomasset('mxtionv4/assets/new/edit.png')
 					if v.Name ~= mainapi.Profile then
 						bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.16)
 					end
@@ -4599,7 +6282,7 @@ function mainapi:CreateCategoryList(categorysettings)
 				bind.MouseLeave:Connect(function()
 					bindtext.Visible = #v.Bind > 0
 					bindicon.Visible = not bindtext.Visible
-					bindicon.Image = getcustomasset('catrewrite/assets/new/bind.png')
+					bindicon.Image = getcustomasset('mxtionv4/assets/new/bind.png')
 					if v.Name ~= mainapi.Profile then
 						bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
 					end
@@ -4609,7 +6292,7 @@ function mainapi:CreateCategoryList(categorysettings)
 				bindcover.Size = UDim2.fromOffset(154, 33)
 				bindcover.BackgroundTransparency = 1
 				bindcover.Visible = false
-				bindcover.Image = getcustomasset('catrewrite/assets/new/bindbkg.png')
+				bindcover.Image = getcustomasset('mxtionv4/assets/new/bindbkg.png')
 				bindcover.ScaleType = Enum.ScaleType.Slice
 				bindcover.SliceCenter = Rect.new(0, 0, 141, 40)
 				bindcover.Parent = object
@@ -4742,7 +6425,7 @@ function mainapi:CreateCategoryList(categorysettings)
 				close.BackgroundColor3 = Color3.new(1, 1, 1)
 				close.BackgroundTransparency = 1
 				close.AutoButtonColor = false
-				close.Image = getcustomasset('catrewrite/assets/new/closemini.png')
+				close.Image = getcustomasset('mxtionv4/assets/new/closemini.png')
 				close.ImageColor3 = color.Light(uipallet.Text, 0.2)
 				close.ImageTransparency = 0.5
 				close.Parent = object
@@ -4805,7 +6488,7 @@ function mainapi:CreateCategoryList(categorysettings)
 
 	for i, v in components do
 		categoryapi['Create'..i] = function(self, optionsettings)
-			return v(optionsettings, childrentwo, categoryapi)
+			return v(optionsettings, children, categoryapi)
 		end
 	end
 
@@ -4896,12 +6579,12 @@ function mainapi:CreateCategoryList(categorysettings)
 end
 
 function mainapi:CreateSearch()
-	local xscale = inputService.TouchEnabled and 0.1 or 0.5
+	local xoffset = inputService.TouchEnabled and 0.35 or 0.5
 	local searchbkg = Instance.new('Frame')
 	searchbkg.Name = 'Search'
 	searchbkg.Size = UDim2.fromOffset(220, 37)
-	searchbkg.Position = UDim2.new(xscale, 0, 0, 13)
-	searchbkg.AnchorPoint = Vector2.new(xscale, 0)
+	searchbkg.Position = UDim2.new(xoffset, 0, 0, 13)
+	searchbkg.AnchorPoint = Vector2.new(xoffset, 0)
 	searchbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
 	searchbkg.Parent = clickgui
 	local searchicon = Instance.new('ImageLabel')
@@ -4909,7 +6592,7 @@ function mainapi:CreateSearch()
 	searchicon.Size = UDim2.fromOffset(14, 14)
 	searchicon.Position = UDim2.new(1, -23, 0, 11)
 	searchicon.BackgroundTransparency = 1
-	searchicon.Image = getcustomasset('catrewrite/assets/new/search.png')
+	searchicon.Image = getcustomasset('mxtionv4/assets/new/search.png')
 	searchicon.ImageColor3 = color.Light(uipallet.Main, 0.37)
 	searchicon.Parent = searchbkg
 	local legiticon = Instance.new('ImageButton')
@@ -4917,7 +6600,7 @@ function mainapi:CreateSearch()
 	legiticon.Size = UDim2.fromOffset(29, 16)
 	legiticon.Position = UDim2.fromOffset(8, 11)
 	legiticon.BackgroundTransparency = 1
-	legiticon.Image = getcustomasset('catrewrite/assets/new/legit.png')
+	legiticon.Image = getcustomasset('mxtionv4/assets/new/legit.png')
 	legiticon.Parent = searchbkg
 	local legitdivider = Instance.new('Frame')
 	legitdivider.Name = 'LegitDivider'
@@ -4981,7 +6664,7 @@ function mainapi:CreateSearch()
 		if search.Text == '' then return end
 
 		for i, v in self.Modules do
-			if i:lower():find(search.Text:lower()) or table.find(v.dtctags, search.Text:lower()) then
+			if i:lower():find(search.Text:lower()) then
 				local button = v.Object:Clone()
 				button.Bind:Destroy()
 				button.MouseButton1Click:Connect(function()
@@ -5032,7 +6715,7 @@ function mainapi:CreateSearch()
 end
 
 function mainapi:CreateLegit()
-	local legitapi = {Modules = {}, Categories = {}}
+	local legitapi = {Modules = {}}
 
 	local window = Instance.new('Frame')
 	window.Name = 'LegitGUI'
@@ -5054,14 +6737,14 @@ function mainapi:CreateLegit()
 	icon.Size = UDim2.fromOffset(16, 16)
 	icon.Position = UDim2.fromOffset(18, 13)
 	icon.BackgroundTransparency = 1
-	icon.Image = getcustomasset('catrewrite/assets/new/legittab.png')
+	icon.Image = getcustomasset('mxtionv4/assets/new/legittab.png')
 	icon.ImageColor3 = uipallet.Text
 	icon.Parent = window
 	local close = addCloseButton(window)
 	local children = Instance.new('ScrollingFrame')
 	children.Name = 'Children'
-	children.Size = UDim2.fromOffset(684, 300)
-	children.Position = UDim2.fromOffset(14, 80)
+	children.Size = UDim2.fromOffset(684, 340)
+	children.Position = UDim2.fromOffset(14, 41)
 	children.BackgroundTransparency = 1
 	children.BorderSizePixel = 0
 	children.ScrollBarThickness = 2
@@ -5074,124 +6757,13 @@ function mainapi:CreateLegit()
 	windowlist.CellSize = UDim2.fromOffset(163, 114)
 	windowlist.CellPadding = UDim2.fromOffset(6, 5)
 	windowlist.Parent = children
-	local search = Instance.new('Frame')
-	search.Position = UDim2.fromOffset(449, 42)
-	search.Name = 'Search'
-	search.Size = UDim2.fromOffset(240, 31)
-	search.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-	search.Parent = window
-	addCorner(search, UDim.new(0, 5))
-	local searchbox = search:Clone()
-	searchbox.Size = UDim2.new(1, -2, 1, -2)
-	searchbox.Position = UDim2.fromOffset(1, 1)
-	searchbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	searchbox.Parent = search
-	local searchvalue = Instance.new('TextBox')
-	searchvalue.Size = UDim2.new(1, -35, 1, 0)
-	searchvalue.Position = UDim2.fromOffset(10, 0)
-	searchvalue.BackgroundTransparency = 1
-	searchvalue.Text = ''
-	searchvalue.PlaceholderText = 'Search mods'
-	searchvalue.TextXAlignment = Enum.TextXAlignment.Left
-	searchvalue.PlaceholderColor3 = color.Dark(uipallet.Text, 0.11)
-	searchvalue.TextColor3 = color.Dark(uipallet.Text, 0.11)
-	searchvalue.TextSize = 14
-	searchvalue.FontFace = uipallet.Font
-	searchvalue.ClearTextOnFocus = false
-	searchvalue.Parent = search
-	local searchicon = Instance.new('ImageLabel')
-	searchicon.BackgroundTransparency = 1
-	searchicon.Position = UDim2.new(1, -28, 0, 8)
-	searchicon.Size = UDim2.fromOffset(12, 12)
-	searchicon.Image = getcustomasset('catrewrite/assets/new/search.png')
-	searchicon.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	searchicon.Parent = searchbox
-	local categorylist = Instance.new('Frame')
-	categorylist.BackgroundTransparency = 1
-	categorylist.Position = UDim2.fromOffset(22, 42)
-	categorylist.Size = UDim2.fromOffset(1, 31)
-	categorylist.Parent = window
-	local categorylayout = Instance.new('UIListLayout')
-	categorylayout.FillDirection = Enum.FillDirection.Horizontal
-	categorylayout.Parent = categorylist
-	categorylayout.SortOrder = Enum.SortOrder.LayoutOrder
-	local categoryhighlight = Instance.new('Frame')
-	categoryhighlight.BackgroundColor3 = color.Dark(uipallet.Text, 0.31)
-	categoryhighlight.BorderSizePixel = 0
-	categoryhighlight.Position = UDim2.fromOffset(0, 23)
-	categoryhighlight.Size = UDim2.new()
 	legitapi.Window = window
 	table.insert(mainapi.Windows, window)
-	
-	local function updateCheck()
-		local FocusedCategory = ''
-		for _, v in legitapi.Categories do
-			if v.Focused then
-				FocusedCategory = v.Name
-				break
-			end
-		end
-		for i, v in legitapi.Modules do
-			v.Object.Visible = (FocusedCategory == 'All' or v.ApiCategory == FocusedCategory) and (i == '' or i:lower():gsub(' ', ''):find(searchvalue.Text:lower():gsub(' ', '')) and true) or false
-		end
-	end
-
-	function legitapi:CreateCategory(categoryname)
-		local category = {
-			Name = categoryname,
-			Focused = #self.Categories <= 0 and true or false
-		}
-
-		local children = Instance.new('TextButton')
-		children.Name = category.Name
-		children.LayoutOrder = #self.Categories + 1
-		children.BackgroundTransparency = 1
-		children.Size = UDim2.new(0, 80, 1, 0)
-		children.FontFace = uipallet.Font
-		children.TextColor3 = color.Dark(uipallet.Text, 0.31)
-		children.Text = category.Name
-		children.TextSize = 14
-		children.TextXAlignment = Enum.TextXAlignment.Left
-		children.Parent = categorylist
-		children.MouseButton1Click:Connect(function()
-			category:SetVisible()
-		end)
-		
-		local sizex = textService:GetTextSize(children.Text, children.TextSize, children.Font, Vector2.new(1000, 1000)).X
-		children.Size = UDim2.new(0, sizex + 30, 1, 0)
-
-		function category:SetVisible(focused)
-			focused = focused or focused == nil and true
-			children.TextColor3 = focused and color.Light(uipallet.Text, 0.2) or color.Dark(uipallet.Text, 0.31)
-			categoryhighlight.Parent = focused and children or categoryhighlight.Parent
-			categoryhighlight.Size = focused and UDim2.fromOffset(sizex, 1) or categoryhighlight.Size
-			category.Focused = focused
-
-			if focused then
-				for _, v in legitapi.Categories do
-					if v.Name ~= category.Name and v.Focused then
-						v:SetVisible(false)
-					end
-				end
-				updateCheck()
-			end
-		end
-
-		if category.Focused then
-			category:SetVisible(true)
-			updateCheck()
-		end
-
-		category.Window = children
-		table.insert(legitapi.Categories, category)
-		return category
-	end
 
 	function legitapi:CreateModule(modulesettings)
 		mainapi:Remove(modulesettings.Name)
 		local moduleapi = {
 			Enabled = false,
-			ApiCategory = modulesettings.Category or 'Game',
 			Options = {},
 			Name = modulesettings.Name,
 			Legit = true
@@ -5240,7 +6812,7 @@ function mainapi:CreateLegit()
 		dots.Size = UDim2.fromOffset(2, 12)
 		dots.Position = UDim2.fromOffset(6, 6)
 		dots.BackgroundTransparency = 1
-		dots.Image = getcustomasset('catrewrite/assets/new/dots.png')
+		dots.Image = getcustomasset('mxtionv4/assets/new/dots.png')
 		dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		dots.Parent = dotsbutton
 		local shadow = Instance.new('TextButton')
@@ -5277,7 +6849,7 @@ function mainapi:CreateLegit()
 		back.Size = UDim2.fromOffset(16, 16)
 		back.Position = UDim2.fromOffset(11, 13)
 		back.BackgroundTransparency = 1
-		back.Image = getcustomasset('catrewrite/assets/new/back.png')
+		back.Image = getcustomasset('mxtionv4/assets/new/back.png')
 		back.ImageColor3 = color.Light(uipallet.Main, 0.37)
 		back.Parent = settingspane
 		addCorner(settingspane)
@@ -5331,6 +6903,7 @@ function mainapi:CreateLegit()
 				end
 				table.clear(moduleapi.Connections)
 			end
+			mainapi:QueueSave()
 			task.spawn(modulesettings.Function, moduleapi.Enabled)
 		end
 
@@ -5425,7 +6998,6 @@ function mainapi:CreateLegit()
 
 		return moduleapi
 	end
-	mainapi:Clean(searchvalue:GetPropertyChangedSignal('Text'):Connect(updateCheck))
 
 	local function visibleCheck()
 		for _, v in legitapi.Modules do
@@ -5457,39 +7029,321 @@ function mainapi:CreateLegit()
 
 	self.Legit = legitapi
 
-	legitapi:CreateCategory('All')
-	legitapi:CreateCategory('Hud')
-	legitapi:CreateCategory('Game')
-
 	return legitapi
+end
+
+
+local function escapeRich(text)
+	return (text:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;'))
+end
+
+local markerColors = {
+	['+'] = '#57a64a',
+	['-'] = '#e06c75',
+	['*'] = '#5c9fd6',
+	['!'] = '#e5c07b'
+}
+
+local function formatNotes(text)
+	local lines = {}
+	for _, line in string.split(text, '\n') do
+		local clean = line:gsub('\27%[[%d;]*m', '')
+		local escaped = escapeRich(clean):gsub('%[PAID%]', '<font color="#c678dd">[PAID]</font>')
+		local color = markerColors[clean:match('^%[(.)%] ') or '']
+		if color then
+			table.insert(lines, `<font color="{color}">{escaped}</font>`)
+		elseif clean:match('^%[.+%]$') then
+			table.insert(lines, `<font color="#dcddde">{escaped}</font>`)
+		else
+			table.insert(lines, escaped)
+		end
+	end
+	return table.concat(lines, '\n')
+end
+
+local presetPromptFile = 'mxtionv4/profiles/presetprompt.txt'
+
+local function getCommit()
+	return isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or nil
+end
+
+local function dismissedPresets()
+	local commit = getCommit()
+	return commit ~= nil and isfile(presetPromptFile) and readfile(presetPromptFile) == commit
+end
+
+local function shouldOfferPresets()
+	if shared.VapePresetInstall or shared.updated then return true end
+
+	local suc, files = pcall(listfiles, 'mxtionv4/profiles')
+	return suc and #files < 4
+end
+
+local function installPresets()
+	local install = shared.VapePresetInstall
+	if install then
+		shared.VapePresetInstall = nil
+		return install()
+	end
+
+	local suc, req = pcall(request, {
+		Url = 'https://api.github.com/repos/GlockSwitchMotion/mxtionV4/contents/profiles',
+		Method = 'GET'
+	})
+	if not suc or not req or req.StatusCode ~= 200 then return false end
+
+	local decoded, body = pcall(function()
+		return httpService:JSONDecode(req.Body)
+	end)
+	if not decoded or type(body) ~= 'table' then return false end
+
+	local commit = getCommit() or 'main'
+	local installed = false
+	for _, v in body do
+		if v.type == 'file' then
+			local path = ({v.path:gsub(' ', '%%20')})[1]
+			local got, res = pcall(function()
+				return game:HttpGet(`https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/{commit}/{path}`, true)
+			end)
+			if got and type(res) == 'string' and res ~= '' and res ~= '404: Not Found' then
+				writefile(`mxtionv4/{path}`, res)
+				installed = true
+			end
+		end
+	end
+	return installed
+end
+
+function mainapi:PromptPresets()
+	if self.PromptedPresets or dismissedPresets() then return end
+	self.PromptedPresets = true
+
+	self:CreatePrompt({
+		Title = 'Preset configs',
+		Text = 'Would you like to install a premade config, this will override ur default config.',
+		Confirm = 'Install',
+		Cancel = 'No thanks',
+		Dismiss = 'Dont show until next update',
+		Function = function(result)
+			if result == 'dismiss' then
+				pcall(writefile, presetPromptFile, getCommit() or 'main')
+				self:CreateNotification('MXTION V4', 'Preset configs wont be offered again until the next update.', 8)
+				return
+			end
+			if not result then return end
+			task.spawn(function()
+				local loaded = self.Loaded
+				self.Loaded = false
+
+				if not installPresets() then
+					self.Loaded = loaded
+					self:CreateNotification('MXTION V4', 'Failed to download preset configs.', 8, 'alert')
+					return
+				end
+
+				table.clear(self.SaveCache)
+				self:Load(true)
+				self:CreateNotification('MXTION V4', `Loaded the preset config for {self.Profile}`, 8)
+			end)
+		end
+	})
+end
+
+function mainapi:CreateChangelogs()
+	local changelogapi = {}
+
+	local window = Instance.new('Frame')
+	window.Name = 'ChangelogsGUI'
+	window.Size = UDim2.fromOffset(700, 389)
+	window.Position = UDim2.new(0.5, -350, 0.5, -194)
+	window.BackgroundColor3 = uipallet.Main
+	window.Visible = false
+	window.Parent = scaledgui
+	addBlur(window)
+	addCorner(window)
+	makeDraggable(window)
+	local modal = Instance.new('TextButton')
+	modal.BackgroundTransparency = 1
+	modal.Text = ''
+	modal.Modal = true
+	modal.Parent = window
+	local title = Instance.new('TextLabel')
+	title.Name = 'Title'
+	title.Size = UDim2.new(1, -47, 0, 20)
+	title.Position = UDim2.fromOffset(12, 10)
+	title.BackgroundTransparency = 1
+	title.Text = 'Changelogs'
+	title.TextColor3 = Color3.fromRGB(200, 200, 200)
+	title.TextSize = 13
+	title.FontFace = uipallet.Font
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextYAlignment = Enum.TextYAlignment.Top
+	title.Parent = window
+	local status = Instance.new('TextLabel')
+	status.Name = 'Status'
+	status.Size = UDim2.fromOffset(250, 16)
+	status.Position = UDim2.new(1, -295, 0, 13)
+	status.BackgroundTransparency = 1
+	status.Text = ''
+	status.TextColor3 = color.Dark(uipallet.Text, 0.43)
+	status.TextSize = 11
+	status.FontFace = uipallet.Font
+	status.TextXAlignment = Enum.TextXAlignment.Right
+	status.Parent = window
+	local close = addCloseButton(window)
+	local divider = Instance.new('Frame')
+	divider.Name = 'Divider'
+	divider.Size = UDim2.new(1, 0, 0, 1)
+	divider.Position = UDim2.new(0, 0, 0.102827765, 0)
+	divider.BorderSizePixel = 0
+	divider.BackgroundColor3 = Color3.new(1, 1, 1)
+	divider.BackgroundTransparency = 0.95
+	divider.Parent = window
+
+	local notes = Instance.new('Frame')
+	notes.Name = 'Notes'
+	notes.Size = UDim2.fromOffset(680, 325)
+	notes.Position = UDim2.fromOffset(10, 52)
+	notes.BackgroundColor3 = color.Dark(uipallet.Main, 0.025)
+	notes.BorderSizePixel = 0
+	notes.Parent = window
+	addCorner(notes)
+	local notesstroke = Instance.new('UIStroke')
+	notesstroke.Color = Color3.fromRGB(42, 41, 42)
+	notesstroke.Parent = notes
+	local noteslist = Instance.new('ScrollingFrame')
+	noteslist.Name = 'Children'
+	noteslist.Size = UDim2.fromOffset(680, 303)
+	noteslist.Position = UDim2.fromOffset(0, 11)
+	noteslist.BackgroundTransparency = 1
+	noteslist.BorderSizePixel = 0
+	noteslist.ScrollBarThickness = 2
+	noteslist.ScrollBarImageTransparency = 0.75
+	noteslist.CanvasSize = UDim2.new()
+	noteslist.Parent = notes
+	local notespadding = Instance.new('UIPadding')
+	notespadding.PaddingLeft = UDim.new(0, 14)
+	notespadding.Parent = noteslist
+	local body = Instance.new('TextLabel')
+	body.Name = 'Body'
+	body.Size = UDim2.fromOffset(652, 0)
+	body.AutomaticSize = Enum.AutomaticSize.Y
+	body.BackgroundTransparency = 1
+	body.RichText = true
+	body.Text = ''
+	body.TextColor3 = Color3.fromRGB(150, 150, 150)
+	body.TextSize = 12
+	body.LineHeight = 1.25
+	body.FontFace = Font.fromEnum(Enum.Font.Roboto)
+	body.TextXAlignment = Enum.TextXAlignment.Left
+	body.TextYAlignment = Enum.TextYAlignment.Top
+	body.TextWrapped = true
+	body.Parent = noteslist
+
+	local empty = Instance.new('TextLabel')
+	empty.Name = 'Empty'
+	empty.Size = UDim2.fromOffset(680, 20)
+	empty.Position = UDim2.fromOffset(10, 205)
+	empty.BackgroundTransparency = 1
+	empty.Text = 'No changelogs found'
+	empty.TextColor3 = Color3.fromRGB(171, 171, 171)
+	empty.TextSize = 12
+	empty.FontFace = uipallet.Font
+	empty.Visible = false
+	empty.Parent = window
+
+	changelogapi.Window = window
+
+	local graphemes = 0
+
+	local function render()
+		local features = loadFeatures()
+		local added = features and type(features.added) == 'table' and features.added or {}
+		local updated = features and type(features.updated) == 'table' and features.updated or {}
+		local text = features and type(features.text) == 'string' and features.text or ''
+		local commit = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt'):sub(1, 7) or ''
+
+		graphemes = utf8.len(text) or #text
+		body.Text = text ~= '' and formatNotes(text) or ''
+		status.Text = `{#added} added, {#updated} updated`..(commit ~= '' and '  ·  '..commit or '')
+		notes.Visible = text ~= ''
+		empty.Visible = text == ''
+	end
+
+	local function revealBody()
+		local duration = math.clamp(graphemes / 1500, 0.1, 3)
+		warn(duration)
+		tween:Cancel(body)
+		body.MaxVisibleGraphemes = 0
+		tween:Tween(body, TweenInfo.new(duration, Enum.EasingStyle.Linear), {MaxVisibleGraphemes = graphemes})
+		task.delay(duration, function()
+			body.MaxVisibleGraphemes = -1
+		end)
+	end
+
+	changelogapi.Refresh = render
+
+	close.MouseButton1Click:Connect(function()
+		window.Visible = false
+		self:PromptPresets()
+	end)
+	body:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
+		if self.ThreadFix then
+			setthreadidentity(8)
+		end
+		noteslist.CanvasSize = UDim2.fromOffset(0, body.AbsoluteSize.Y / scale.Scale)
+	end)
+
+	local loaded, revealed = false, false
+
+	function changelogapi:Open()
+		if not loaded then
+			loaded = true
+			render()
+		end
+
+		window.Position = UDim2.new(0.5, -350, 0.5, -194)
+		window.Visible = true
+		noteslist.CanvasPosition = Vector2.zero
+
+		if not revealed and notes.Visible then
+			revealed = true
+			revealBody()
+		end
+	end
+
+	if shared.updated then
+		local function showUpdate()
+			task.wait(0.5)
+			loaded = true
+			render()
+			if empty.Visible then return end
+
+			changelogapi:Open()
+			self:CreateNotification('MXTION V4', `Script updated from {shared.updated:sub(1, 7)}, here is what changed`, 10, 'info')
+		end
+
+		local pending
+		pending = clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
+			if not clickgui.Visible then return end
+			pending:Disconnect()
+			task.spawn(showUpdate)
+		end)
+		mainapi:Clean(pending)
+
+		if clickgui.Visible then
+			pending:Disconnect()
+			task.spawn(showUpdate)
+		end
+	end
+
+	self.Changelogs = changelogapi
+
+	return changelogapi
 end
 
 function mainapi:CreateNotification(title, text, duration, type)
 	if not self.Notifications.Enabled then return end
-	local color = type == 'alert' and Color3.fromRGB(250, 50, 56) or type == 'warning' and Color3.fromRGB(236, 129, 43) or Color3.fromRGB(220, 220, 220)
-	if license.Closet or license.Webhook then
-		if license.Webhook then
-			request({
-				Url = license.Webhook,
-				Method = 'POST',
-				Headers = {
-					['Content-Type'] = 'application/json'
-				},
-				Body = httpService:JSONEncode({
-					content = '',
-					embeds = {{
-						title = title or "Vape",
-						description = removeTags(text or "None"),
-						color = tonumber(color:ToHex(), 16),
-						timestamp = os.date('%Y-%m-%dT%X.000Z'),
-						fields = {}
-					}},
-					components = {}
-				})
-			})
-		end
-		return
-	end
 	task.delay(0, function()
 		if self.ThreadFix then
 			setthreadidentity(8)
@@ -5501,7 +7355,7 @@ function mainapi:CreateNotification(title, text, duration, type)
 		notification.Position = UDim2.new(1, 0, 1, -(29 + (78 * i)))
 		notification.ZIndex = 5
 		notification.BackgroundTransparency = 1
-		notification.Image = getcustomasset('catrewrite/assets/new/notification.png')
+		notification.Image = getcustomasset('mxtionv4/assets/new/notification.png')
 		notification.ScaleType = Enum.ScaleType.Slice
 		notification.SliceCenter = Rect.new(7, 7, 9, 9)
 		notification.Parent = notifications
@@ -5512,7 +7366,7 @@ function mainapi:CreateNotification(title, text, duration, type)
 		iconshadow.Position = UDim2.fromOffset(-5, -8)
 		iconshadow.ZIndex = 5
 		iconshadow.BackgroundTransparency = 1
-		iconshadow.Image = getcustomasset('catrewrite/assets/new/'..(type or 'info')..'.png')
+		iconshadow.Image = getcustomasset('mxtionv4/assets/new/'..(type or 'info')..'.png')
 		iconshadow.ImageColor3 = Color3.new()
 		iconshadow.ImageTransparency = 0.5
 		iconshadow.Parent = notification
@@ -5557,7 +7411,9 @@ function mainapi:CreateNotification(title, text, duration, type)
 		progress.Position = UDim2.new(0, 3, 1, -4)
 		progress.ZIndex = 5
 		progress.BackgroundColor3 =
-			color
+			type == 'alert' and Color3.fromRGB(250, 50, 56)
+			or type == 'warning' and Color3.fromRGB(236, 129, 43)
+			or Color3.fromRGB(220, 220, 220)
 		progress.BorderSizePixel = 0
 		progress.Parent = notification
 		if tween.Tween then
@@ -5581,20 +7437,146 @@ function mainapi:CreateNotification(title, text, duration, type)
 	end)
 end
 
-local guipane
+function mainapi:CreatePrompt(promptsettings)
+	local answered = false
+	local shadow = Instance.new('TextButton')
+	shadow.Name = 'PromptShadow'
+	shadow.Size = UDim2.fromScale(1, 1)
+	shadow.ZIndex = 10
+	shadow.BackgroundColor3 = Color3.new()
+	shadow.BackgroundTransparency = 0.6
+	shadow.AutoButtonColor = false
+	shadow.Modal = true
+	shadow.Text = ''
+	shadow.Parent = clickgui
+	local window = Instance.new('Frame')
+	window.Name = 'Prompt'
+	window.AnchorPoint = Vector2.new(0.5, 0.5)
+	window.Size = UDim2.fromOffset(360, promptsettings.Dismiss and 218 or 178)
+	window.Position = UDim2.fromScale(0.5, 0.5)
+	window.ZIndex = 11
+	window.BackgroundColor3 = uipallet.Main
+	window.Parent = shadow
+	addCorner(window)
+	addBlur(window)
+	local icon = Instance.new('ImageLabel')
+	icon.Name = 'Icon'
+	icon.Size = UDim2.fromOffset(16, 16)
+	icon.Position = UDim2.fromOffset(20, 20)
+	icon.ZIndex = 12
+	icon.BackgroundTransparency = 1
+	icon.Image = getcustomasset('mxtionv4/assets/new/'..(promptsettings.Icon or 'vape')..'.png')
+	icon.ImageColor3 = promptsettings.Icon and uipallet.Text or Color3.new(1, 1, 1)
+	icon.Parent = window
+	local title = Instance.new('TextLabel')
+	title.Name = 'Title'
+	title.Size = UDim2.new(1, -60, 0, 16)
+	title.Position = UDim2.fromOffset(44, 20)
+	title.ZIndex = 12
+	title.BackgroundTransparency = 1
+	title.Text = promptsettings.Title or 'Vape'
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextColor3 = uipallet.Text
+	title.TextSize = 14
+	title.FontFace = uipallet.FontSemiBold
+	title.Parent = window
+	local divider = Instance.new('Frame')
+	divider.Name = 'Divider'
+	divider.Size = UDim2.new(1, -40, 0, 1)
+	divider.Position = UDim2.fromOffset(20, 48)
+	divider.ZIndex = 12
+	divider.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+	divider.BorderSizePixel = 0
+	divider.Parent = window
+	local text = Instance.new('TextLabel')
+	text.Name = 'Text'
+	text.Size = UDim2.new(1, -40, 0, 62)
+	text.Position = UDim2.fromOffset(20, 62)
+	text.ZIndex = 12
+	text.BackgroundTransparency = 1
+	text.Text = promptsettings.Text or ''
+	text.TextXAlignment = Enum.TextXAlignment.Left
+	text.TextYAlignment = Enum.TextYAlignment.Top
+	text.TextColor3 = color.Dark(uipallet.Text, 0.31)
+	text.TextSize = 13
+	text.TextWrapped = true
+	text.RichText = true
+	text.FontFace = uipallet.Font
+	text.Parent = window
+
+	local function answer(result)
+		if answered then return end
+		answered = true
+		shadow:ClearAllChildren()
+		shadow:Destroy()
+		if promptsettings.Function then
+			promptsettings.Function(result)
+		end
+	end
+
+	local function createButton(name, label, offset, width, bottom, accent)
+		local button = Instance.new('TextButton')
+		button.Name = name
+		button.Size = UDim2.fromOffset(width, 32)
+		button.Position = UDim2.new(0, offset, 1, -bottom)
+		button.ZIndex = 12
+		button.BackgroundColor3 = accent
+			and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+			or color.Light(uipallet.Main, 0.02)
+		button.AutoButtonColor = false
+		button.Text = label
+		button.TextColor3 = accent
+			and mainapi:TextColor(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+			or color.Dark(uipallet.Text, 0.16)
+		button.TextSize = 13
+		button.FontFace = uipallet.FontSemiBold
+		button.Parent = window
+		addCorner(button, UDim.new(0, 6))
+		button.MouseEnter:Connect(function()
+			tween:Tween(button, uipallet.Tween, {
+				BackgroundColor3 = accent
+					and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, math.clamp(mainapi.GUIColor.Value + 0.1, 0, 1))
+					or color.Light(uipallet.Main, 0.14)
+			})
+		end)
+		button.MouseLeave:Connect(function()
+			tween:Tween(button, uipallet.Tween, {
+				BackgroundColor3 = accent
+					and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+					or color.Light(uipallet.Main, 0.02)
+			})
+		end)
+		return button
+	end
+
+	local row = promptsettings.Dismiss and 88 or 48
+	createButton('Cancel', promptsettings.Cancel or 'No', 20, 158, row, false).MouseButton1Click:Connect(function()
+		answer(false)
+	end)
+	createButton('Confirm', promptsettings.Confirm or 'Yes', 182, 158, row, true).MouseButton1Click:Connect(function()
+		answer(true)
+	end)
+	if promptsettings.Dismiss then
+		createButton('Dismiss', promptsettings.Dismiss, 20, 320, 48, false).MouseButton1Click:Connect(function()
+			answer('dismiss')
+		end)
+	end
+	return answer
+end
+
 function mainapi:Load(skipgui, profile)
 	if not skipgui then
 		self.GUIColor:SetValue(nil, nil, nil, 4)
 	end
 	local guidata = {}
 	local savecheck = true
+	local savenew
 
-	if isfile('catrewrite/profiles/'..game.GameId..'.gui.txt') then
-		guidata = loadJson('catrewrite/profiles/'..game.GameId..'.gui.txt')
+	if isfile('mxtionv4/profiles/'..game.GameId..'.gui.txt') then
+		guidata = loadJson('mxtionv4/profiles/'..game.GameId..'.gui.txt')
 		if not guidata then
 			guidata = {Categories = {}}
-			self:CreateNotification('Vape', 'Failed to load GUI settings, Try rejoining ur game', 10, 'alert')
-			delfile('catrewrite/profiles/'..game.GameId..'.gui.txt')
+			self:CreateNotification('MXTION V4', 'Failed to load GUI settings.', 10, 'alert')
 			savecheck = false
 		end
 
@@ -5605,6 +7587,9 @@ function mainapi:Load(skipgui, profile)
 				if not object then continue end
 				if object.Options and v.Options then
 					self:LoadOptions(object, v.Options)
+					if shared.vapesmooth then
+						task.wait()
+					end
 				end
 				if v.Enabled then
 					object.Button:Toggle()
@@ -5637,11 +7622,11 @@ function mainapi:Load(skipgui, profile)
 		self.ProfileLabel.Size = UDim2.fromOffset(getfontsize(self.ProfileLabel.Text, self.ProfileLabel.TextSize, self.ProfileLabel.Font).X + 16, 24)
 	end
 
-	if isfile('catrewrite/profiles/'..self.Profile..self.Place..'.txt') then
-		local savedata = loadJson('catrewrite/profiles/'..self.Profile..self.Place..'.txt')
+	if isfile('mxtionv4/profiles/'..self.Profile..self.Place..'.txt') then
+		local savedata = loadJson('mxtionv4/profiles/'..self.Profile..self.Place..'.txt')
 		if not savedata then
 			savedata = {Categories = {}, Modules = {}, Legit = {}}
-			self:CreateNotification('Vape', 'Failed to load '..self.Profile..' profile.', 10, 'alert')
+			self:CreateNotification('MXTIONV4', 'Failed to load '..self.Profile..' profile.', 10, 'alert')
 			savecheck = false
 		end
 
@@ -5650,6 +7635,9 @@ function mainapi:Load(skipgui, profile)
 			if not object then continue end
 			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
+				if shared.vapesmooth then
+					task.wait()
+				end
 			end
 			if v.Pinned ~= object.Pinned then
 				object:Pin()
@@ -5668,30 +7656,54 @@ function mainapi:Load(skipgui, profile)
 			object.Object.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
 		end
 
+		local modulelookup, legitlookup = {}, {}
+		for i, v in self.Modules do
+			modulelookup[i:gsub(' ', '')] = v
+		end
+		for i, v in self.Legit.Modules do
+			legitlookup[i:gsub(' ', '')] = v
+		end
+
 		for i, v in savedata.Modules do
-			local object = self.Modules[i]
+			i = i:gsub(' ', '')
+			local object = modulelookup[i]
 			if not object then continue end
 			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
+				if shared.vapesmooth then
+					task.wait()
+				end
 			end
 			if v.Enabled ~= object.Enabled then
 				if skipgui then
-					if self.ToggleNotifications.Enabled then self:CreateNotification('Module Toggled', i.."<font color='#FFFFFF'> has been </font>"..(v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>").."<font color='#FFFFFF'>!</font>", 0.75) end
+					if self.ToggleNotifications.Enabled then 
+						mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+					end
 				end
 				object:Toggle(true)
+				if shared.vapesmooth then
+					task.wait()
+				end
 			end
 			object:SetBind(v.Bind)
 			object.Object.Bind.Visible = #v.Bind > 0
 		end
 
 		for i, v in savedata.Legit do
-			local object = self.Legit.Modules[i]
+			i = i:gsub(' ', '')
+			local object = legitlookup[i]
 			if not object then continue end
 			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
+				if shared.vapesmooth then
+					task.wait()
+				end
 			end
 			if object.Enabled ~= v.Enabled then
 				object:Toggle()
+				if shared.vapesmooth then
+					task.wait()
+				end
 			end
 			if v.Position and object.Children then
 				object.Children.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
@@ -5700,7 +7712,7 @@ function mainapi:Load(skipgui, profile)
 
 		self:UpdateTextGUI(true)
 	else
-		self:Save()
+		savenew = true
 	end
 
 	if self.Downloader then
@@ -5710,8 +7722,12 @@ function mainapi:Load(skipgui, profile)
 	self.Loaded = savecheck
 	self.Categories.Main.Options.Bind:SetBind(self.Keybind)
 
+	if savenew then
+		self:Save()
+	end
+
 	if not inputService.KeyboardEnabled or shared.VapeDeveloper then
-		local hide = isfile('catrewrite/profiles/hide.txt') and readfile('catrewrite/profiles/hide.txt') or nil
+		local hide = isfile('mxtionv4/profiles/hide.txt') and readfile('mxtionv4/profiles/hide.txt') or nil
 		if hide ~= nil then
 			hide = hide == 'true' and true or false
 		end
@@ -5732,7 +7748,7 @@ function mainapi:Load(skipgui, profile)
 		image.Size = UDim2.fromOffset(22, 22)
 		image.Position = UDim2.fromScale(0.5, 0.5)
 		image.BackgroundTransparency = 1
-		image.Image = getcustomasset('catrewrite/assets/new/vape.png')
+		image.Image = getcustomasset('mxtionv4/assets/new/vape.png')
 		image.ImageTransparency = hide and 1 or 0
 		image.Parent = button
 		local buttoncorner = Instance.new('UICorner')
@@ -5755,18 +7771,6 @@ function mainapi:Load(skipgui, profile)
 			tooltip.Visible = false
 			self:BlurCheck()
 		end)
-
-		if guipane then
-			guipane:CreateToggle({
-				Name = 'Hide catvape button',
-				Default = hide or false,
-				Function = function(call)
-					button.BackgroundTransparency = call and 1 or 0.35
-					image.ImageTransparency = call and 1 or 0
-					writefile('catrewrite/profiles/hide.txt', tostring(call))
-				end
-			})
-		end
 	end
 end
 
@@ -5774,6 +7778,9 @@ function mainapi:LoadOptions(object, savedoptions)
 	for i, v in savedoptions do
 		local option = object.Options[i]
 		if not option then continue end
+		if mainapi.ThreadFix then
+			setthreadidentity(8)
+		end
 		option:Load(v)
 	end
 end
@@ -5826,7 +7833,7 @@ function mainapi:Save(newprofile)
 	end
 
 	for i, v in self.Modules do
-		savedata.Modules[i] = {
+		savedata.Modules[i:gsub(' ', '')] = {
 			Enabled = v.Enabled,
 			Bind = v.Bind.Button and {Mobile = true, X = v.Bind.Button.Position.X.Offset, Y = v.Bind.Button.Position.Y.Offset} or v.Bind,
 			Options = mainapi:SaveOptions(v, true)
@@ -5834,15 +7841,33 @@ function mainapi:Save(newprofile)
 	end
 
 	for i, v in self.Legit.Modules do
-		savedata.Legit[i] = {
+		savedata.Legit[i:gsub(' ', '')] = {
 			Enabled = v.Enabled,
 			Position = v.Children and {X = v.Children.Position.X.Offset, Y = v.Children.Position.Y.Offset} or nil,
 			Options = mainapi:SaveOptions(v, v.Options)
 		}
 	end
 
-	writefile('catrewrite/profiles/'..game.GameId..'.gui.txt', httpService:JSONEncode(guidata))
-	writefile('catrewrite/profiles/'..self.Profile..self.Place..'.txt', httpService:JSONEncode(savedata))
+	local function writeSave(path, data)
+		if self.SaveCache[path] ~= data then
+			self.SaveCache[path] = data
+			writefile(path, data)
+		end
+	end
+
+	writeSave('mxtionv4/profiles/'..game.GameId..'.gui.txt', httpService:JSONEncode(guidata))
+	writeSave('mxtionv4/profiles/'..self.Profile..self.Place..'.txt', httpService:JSONEncode(savedata))
+end
+
+function mainapi:QueueSave()
+	if self.SaveQueued or not self.Loaded then return end
+	self.SaveQueued = true
+	task.delay(2, function()
+		self.SaveQueued = nil
+		if self.Loaded then
+			self:Save()
+		end
+	end)
 end
 
 function mainapi:SaveOptions(object, savedoptions)
@@ -5885,6 +7910,7 @@ function mainapi:Uninject()
 	end
 	mainapi.gui:ClearAllChildren()
 	mainapi.gui:Destroy()
+	table.clear(mainapi.Connections)
 	table.clear(mainapi.Libraries)
 	loopClean(mainapi)
 	shared.vape = nil
@@ -5899,7 +7925,7 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 gui.IgnoreGuiInset = true
 gui.OnTopOfCoreBlur = true
 if false then
-	gui.Parent = cloneref(game:GetService('CoreGui'))--(gethui and gethui()) or cloneref(game:GetService('CoreGui'))
+	gui.Parent = cloneref(game:GetService('CoreGui'))
 else
 	gui.Parent = cloneref(game:GetService('Players')).LocalPlayer.PlayerGui
 	gui.ResetOnSpawn = false
@@ -5920,7 +7946,7 @@ local scarcitybanner = Instance.new('TextLabel')
 scarcitybanner.Size = UDim2.fromScale(1, 0.02)
 scarcitybanner.Position = UDim2.fromScale(0, 0.97)
 scarcitybanner.BackgroundTransparency = 1
-scarcitybanner.Text = 'Thank you for choosing catvape! join discord.gg/catvape or click the discord button to join.'
+scarcitybanner.Text = 'Thanks for using MOTION V4 more stuff will be added soon.'
 scarcitybanner.TextScaled = true
 scarcitybanner.TextColor3 = Color3.new(1, 1, 1)
 scarcitybanner.TextStrokeTransparency = 0.5
@@ -5968,6 +7994,9 @@ scale.Scale = math.max(gui.AbsoluteSize.X / 1920, 0.6)
 scale.Parent = scaledgui
 mainapi.guiscale = scale
 scaledgui.Size = UDim2.fromScale(1 / scale.Scale, 1 / scale.Scale)
+mainapi.Libraries.clickgui = clickgui
+mainapi.Libraries.scaledgui = scaledgui
+mainapi.Libraries.scale = scale
 
 mainapi:Clean(gui:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
 	if mainapi.Scale.Enabled then
@@ -5987,6 +8016,9 @@ end))
 
 mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
 	mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value, true)
+	if not clickgui.Visible then
+		mainapi:QueueSave()
+	end
 	if clickgui.Visible and inputService.MouseEnabled then
 		repeat
 			local visibleCheck = clickgui.Visible
@@ -6011,52 +8043,39 @@ mainapi:CreateGUI()
 mainapi.Categories.Main:CreateDivider()
 mainapi:CreateCategory({
 	Name = 'Combat',
-	Icon = getcustomasset('catrewrite/assets/new/combaticon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/combaticon.png'),
 	Size = UDim2.fromOffset(13, 14)
 })
 mainapi:CreateCategory({
 	Name = 'Blatant',
-	Icon = getcustomasset('catrewrite/assets/new/blatanticon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/blatanticon.png'),
 	Size = UDim2.fromOffset(14, 14)
 })
 mainapi:CreateCategory({
 	Name = 'Render',
-	Icon = getcustomasset('catrewrite/assets/new/rendericon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/rendericon.png'),
 	Size = UDim2.fromOffset(15, 14)
 })
 mainapi:CreateCategory({
 	Name = 'Utility',
-	Icon = getcustomasset('catrewrite/assets/new/utilityicon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/utilityicon.png'),
 	Size = UDim2.fromOffset(15, 14)
 })
 mainapi:CreateCategory({
 	Name = 'World',
-	Icon = getcustomasset('catrewrite/assets/new/worldicon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/worldicon.png'),
 	Size = UDim2.fromOffset(14, 14)
 })
 mainapi:CreateCategory({
 	Name = 'Inventory',
-	Icon = getcustomasset('catrewrite/assets/new/inventoryicon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/inventoryicon.png'),
 	Size = UDim2.fromOffset(15, 14)
 })
 mainapi:CreateCategory({
 	Name = 'Minigames',
-	Icon = getcustomasset('catrewrite/assets/new/miniicon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/miniicon.png'),
 	Size = UDim2.fromOffset(19, 12)
 })
-if game.GameId == 2619619496 then
-	mainapi:CreateCategory({
-		Name = 'Kits',
-		Icon = getcustomasset('catrewrite/assets/new/friendstab.png'),
-		Size = UDim2.fromOffset(15, 15)
-	})
-end
-mainapi:CreateCategory({
-	Name = 'Legit',
-	Icon = getcustomasset('catrewrite/assets/new/legittab.png'),
-	Size = UDim2.fromOffset(16, 16)
-})
-
 mainapi.Categories.Main:CreateDivider('misc')
 
 --[[
@@ -6070,7 +8089,7 @@ local friendscolor = {
 }
 local friendssettings = {
 	Name = 'Friends',
-	Icon = getcustomasset('catrewrite/assets/new/friendstab.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/friendstab.png'),
 	Size = UDim2.fromOffset(17, 16),
 	Placeholder = 'Roblox username',
 	Color = Color3.fromRGB(5, 134, 105),
@@ -6121,34 +8140,50 @@ mainapi:Clean(friends.ColorUpdate)
 --[[
 	Profiles
 ]]
-local profiles = mainapi:CreateCategoryList({
+local Profiles = mainapi:CreateCategoryList({
 	Name = 'Profiles',
-	Icon = getcustomasset('catrewrite/assets/new/profilesicon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/profilesicon.png'),
 	Size = UDim2.fromOffset(17, 10),
 	Position = UDim2.fromOffset(12, 16),
 	Placeholder = 'Type name',
 	Profiles = true
 })
-local json = profiles:CreateTextBox({
-	Name = 'JSON Config',
-	Placeholder = '[]'
-})
-profiles:CreateButton({
-	Name = 'Import json',
+Profiles:CreateButton({
+	Name = 'Sync to "default" profile',
+	LayoutOrder = 6,
 	Function = function()
-		local success, result = pcall(function() 
-			return httpService:JSONDecode(json.Value) 
-		end)
-		if success and result then
-			local awesome = `imported ({#mainapi.Profiles + 1})`
-			table.insert(mainapi.Profiles, {Name = awesome, Bind = {}})
-			mainapi:Save(awesome)
-			writefile('catrewrite/profiles/'..awesome..mainapi.Place..'.txt', result.config)
-			writefile('catrewrite/profiles/'..game.GameId..'.gui.txt', result.gui)
-			mainapi:Load(true, awesome)
+		local profile = mainapi.Profile
+		mainapi:Save()
+
+		local current = 'mxtionv4/profiles/'..profile..mainapi.Place..'.txt'
+		local target = 'mxtionv4/profiles/default'..mainapi.Place..'.txt'
+		if profile ~= 'default' and isfile(current) then
+			local data = readfile(current)
+			mainapi.SaveCache[target] = data
+			writefile(target, data)
 		end
+
+		mainapi:Load(true, 'default')
+		mainapi:CreateNotification('MXTION V4', `Synced "{profile}" to the default profile`, 5, 'info')
 	end
 })
+Profiles:CreateButton({
+	Name = 'Reset current profile',
+	LayoutOrder = 7,
+	Function = function()
+		mainapi.Save = function() end
+		if isfile('mxtionv4/profiles/'..mainapi.Profile..mainapi.Place..'.txt') and delfile then
+			delfile('mxtionv4/profiles/'..mainapi.Profile..mainapi.Place..'.txt')
+		end
+		shared.vapereload = true
+		if shared.VapeDeveloper then
+			loadstring(readfile('mxtionv4/init.lua'), 'init')(license)
+		else
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
+		end
+	end,
+	Tooltip = 'This will set your profile to the default settings of Cat Vape'
+})	
 
 --[[
 	Targets
@@ -6156,7 +8191,7 @@ profiles:CreateButton({
 local targets
 targets = mainapi:CreateCategoryList({
 	Name = 'Targets',
-	Icon = getcustomasset('catrewrite/assets/new/friendstab.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/friendstab.png'),
 	Size = UDim2.fromOffset(17, 16),
 	Placeholder = 'Roblox username',
 	Function = function()
@@ -6167,6 +8202,7 @@ targets.Update = Instance.new('BindableEvent')
 mainapi:Clean(targets.Update)
 
 mainapi:CreateLegit()
+mainapi:CreateChangelogs()
 mainapi:CreateSearch()
 mainapi.Categories.Main:CreateOverlayBar()
 mainapi.Categories.Main:CreateSettingsDivider()
@@ -6176,40 +8212,18 @@ mainapi.Categories.Main:CreateSettingsDivider()
 ]]
 
 local general = mainapi.Categories.Main:CreateSettingsPane({Name = 'General'})
+general:CreateButton({
+	Name = 'View changelogs',
+	Function = function()
+		if mainapi.Changelogs then
+			mainapi.Changelogs:Open()
+		end
+	end,
+	Tooltip = 'Shows what changed in the latest update'
+})
 mainapi.MultiKeybind = general:CreateToggle({
 	Name = 'Enable Multi-Keybinding',
 	Tooltip = 'Allows multiple keys to be bound to a module (eg. G + H)'
-})
-general:CreateButton({
-	Name = 'Reset current profile',
-	Function = function()
-	mainapi.Save = function() end
-		if isfile('catrewrite/profiles/'..mainapi.Profile..mainapi.Place..'.txt') and delfile then
-			delfile('catrewrite/profiles/'..mainapi.Profile..mainapi.Place..'.txt')
-		end
-		shared.vapereload = true
-		if shared.VapeDeveloper then
-			loadstring(readfile('catrewrite/loader.lua'), 'loader')()
-		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('catrewrite/profiles/commit.txt')..'/loader.lua', true))()
-		end
-	end,
-	Tooltip = 'This will set your profile to the default settings of Vape'
-})
-general:CreateButton({
-	Name = 'Export to JSON',
-	Function = function()
-		local tab = {}
-		if isfile('catrewrite/profiles/'..mainapi.Profile..mainapi.Place..'.txt') then
-			tab.config = readfile('catrewrite/profiles/'..mainapi.Profile..mainapi.Place..'.txt')
-		end
-		if isfile('catrewrite/profiles/'..game.GameId..'.gui.txt') then
-			tab.gui = readfile('catrewrite/profiles/'..game.GameId..'.gui.txt')
-		end
-		tab.game = tostring(mainapi.Place or 'universal'.. game.PlaceId)
-		setclipboard(httpService:JSONEncode(tab))
-	end,
-	Tooltip = 'Converts ur config to json format'
 })
 general:CreateButton({
 	Name = 'Self destruct',
@@ -6223,9 +8237,9 @@ general:CreateButton({
 	Function = function()
 		shared.vapereload = true
 		if shared.VapeDeveloper then
-			loadstring(readfile('catrewrite/main.lua'), 'main')()
+			loadstring(readfile('mxtionv4/init.lua'), 'init')()
 		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('catrewrite/profiles/commit.txt')..'/init.lua', true))(license)
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))()
 		end
 	end,
 	Tooltip = 'Reloads vape for debugging purposes'
@@ -6261,7 +8275,7 @@ modules:CreateToggle({
 	GUI Settings
 ]]
 
-guipane = mainapi.Categories.Main:CreateSettingsPane({Name = 'GUI'})
+local guipane = mainapi.Categories.Main:CreateSettingsPane({Name = 'GUI'})
 mainapi.Blur = guipane:CreateToggle({
 	Name = 'Blur background',
 	Function = function()
@@ -6276,15 +8290,6 @@ guipane:CreateToggle({
 	Tooltip = "Displays a message indicating your GUI upon injecting.\nI.E. 'Press RSHIFT to open GUI'"
 })
 guipane:CreateToggle({
-	Name = 'No module spacing',
-	Tooltip = 'Removes module\'s text spacing',
-	Function = function(callback)
-		for _, v in mainapi.Modules do
-			v.Object.Text = '            '..(callback and v.Name:gsub(' ', '') or v.Name)
-		end
-	end
-})
-guipane:CreateToggle({
 	Name = 'Show tooltips',
 	Function = function(enabled)
 		tooltip.Visible = false
@@ -6293,6 +8298,21 @@ guipane:CreateToggle({
 	Default = true,
 	Tooltip = 'Toggles visibility of these'
 })
+if not inputService.KeyboardEnabled or shared.VapeDeveloper then
+	guipane:CreateToggle({
+		Name = 'Hide Vape Button',
+		Default = isfile('mxtionv4/profiles/hide.txt') and readfile('mxtionv4/profiles/hide.txt') == 'true' or false,
+		Function = function(enabled)
+			local button = mainapi.VapeButton
+			if button then
+				button.BackgroundTransparency = enabled and 1 or 0.35
+				button.ImageLabel.ImageTransparency = enabled and 1 or 0
+			end
+			writefile('mxtionv4/profiles/hide.txt', tostring(enabled))
+		end,
+		Tooltip = 'Hides the button that opens the GUI'
+	})
+end
 guipane:CreateToggle({
 	Name = 'Show legit mode',
 	Function = function(enabled)
@@ -6337,22 +8357,16 @@ guipane:CreateDropdown({
 	List = inputService.TouchEnabled and {'new', 'old'} or {'new', 'old', 'rise'},
 	Function = function(val, mouse)
 		if mouse then
-			writefile('catrewrite/profiles/gui.txt', val)
+			writefile('mxtionv4/profiles/gui.txt', val)
 			shared.vapereload = true
 			if shared.VapeDeveloper then
-				loadstring(readfile('catrewrite/loader.lua'), 'loader')()
+				loadstring(readfile('mxtionv4/init.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('catrewrite/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))()
 			end
 		end
 	end,
 	Tooltip = 'new - The newest vape theme to since v4.05\nold - The vape theme pre v4.05\nrise - Rise 6.0'
-})
-mainapi.ToggleMode = guipane:CreateDropdown({
-	Name = 'Keybind mode',
-	List = {'Toggle', 'Held'},
-	Tooltip = 'Toggle - Keybind always activates when input starts or end\nHeld - Activates when input starts, Deactivate when input ends',
-	Default = 'Toggle'
 })
 mainapi.RainbowMode = guipane:CreateDropdown({
 	Name = 'Rainbow Mode',
@@ -6456,7 +8470,7 @@ mainapi.Categories.Main:CreateBind()
 
 local textgui = mainapi:CreateOverlay({
 	Name = 'Text GUI',
-	Icon = getcustomasset('catrewrite/assets/new/textguiicon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/textguiicon.png'),
 	Size = UDim2.fromOffset(16, 12),
 	Position = UDim2.fromOffset(12, 14),
 	Function = function()
@@ -6590,8 +8604,8 @@ local textguimodules = textgui:CreateToggle({
 textguimoduleslist = textgui:CreateTextList({
 	Name = 'Blacklist',
 	Tooltip = 'Name of module to hide.',
-	Icon = getcustomasset('catrewrite/assets/new/blockedicon.png'),
-	Tab = getcustomasset('catrewrite/assets/new/blockedtab.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/blockedicon.png'),
+	Tab = getcustomasset('mxtionv4/assets/new/blockedtab.png'),
 	TabSize = UDim2.fromOffset(21, 16),
 	Color = Color3.fromRGB(250, 50, 56),
 	Function = function()
@@ -6668,7 +8682,7 @@ VapeLogo.BackgroundTransparency = 1
 VapeLogo.BorderSizePixel = 0
 VapeLogo.Visible = false
 VapeLogo.BackgroundColor3 = Color3.new()
-VapeLogo.Image = getcustomasset('catrewrite/assets/new/textvape.png')
+VapeLogo.Image = getcustomasset('mxtionv4/assets/new/textvape.png')
 VapeLogo.Parent = textgui.Children
 
 local lastside = textgui.Children.AbsolutePosition.X > (gui.AbsoluteSize.X / 2)
@@ -6690,7 +8704,7 @@ VapeLogoV4.Position = UDim2.new(1, 1, 0, 1)
 VapeLogoV4.BackgroundColor3 = Color3.new()
 VapeLogoV4.BackgroundTransparency = 1
 VapeLogoV4.BorderSizePixel = 0
-VapeLogoV4.Image = getcustomasset('catrewrite/assets/new/textv4.png')
+VapeLogoV4.Image = getcustomasset('mxtionv4/assets/new/textv4.png')
 VapeLogoV4.Parent = VapeLogo
 local VapeLogoShadow = VapeLogo:Clone()
 VapeLogoShadow.Position = UDim2.fromOffset(1, 1)
@@ -6758,9 +8772,11 @@ VapeLabelSorter.Parent = VapeLabelHolder
 local targetinfo
 local targetinfoobj
 local targetinfobcolor
+local targetinfobkg
+local targetinfofollow
 targetinfoobj = mainapi:CreateOverlay({
 	Name = 'Target Info',
-	Icon = getcustomasset('catrewrite/assets/new/targetinfoicon.png'),
+	Icon = getcustomasset('mxtionv4/assets/new/targetinfoicon.png'),
 	Size = UDim2.fromOffset(14, 14),
 	Position = UDim2.fromOffset(12, 14),
 	CategorySize = 240,
@@ -6768,21 +8784,38 @@ targetinfoobj = mainapi:CreateOverlay({
 		if callback then
 			task.spawn(function()
 				repeat
-					targetinfo:UpdateInfo()
-					task.wait()
+					local target = targetinfo:UpdateInfo()
+					if targetinfofollow and targetinfofollow.Enabled and target then
+						local vec, screen = workspace.CurrentCamera:WorldToViewportPoint(target.Position)
+						if screen then
+							targetinfobkg.Parent.Parent.Parent.Position = UDim2.fromOffset(vec.X, vec.Y)
+						end
+					end
+					task.wait(0)
 				until not targetinfoobj.Button or not targetinfoobj.Button.Enabled
 			end)
 		end
 	end
 })
 
-local targetinfobkg = Instance.new('Frame')
+--[[
+	New
+]]
+
+local handler = Instance.new('Frame')
+handler.Size = UDim2.fromOffset(240, 89)
+handler.BackgroundColor3 = color.Dark(uipallet.Main, 0.1)
+handler.BackgroundTransparency = 1
+handler.Parent = targetinfoobj.Children
+
+targetinfobkg = Instance.new('Frame')
 targetinfobkg.Size = UDim2.fromOffset(240, 89)
 targetinfobkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.1)
 targetinfobkg.BackgroundTransparency = 0.5
-targetinfobkg.Parent = targetinfoobj.Children
+targetinfobkg.Parent = handler
+
 local targetinfoblurobj = addBlur(targetinfobkg)
-targetinfoblurobj.Visible = false
+targetinfoblurobj.Visible = true
 addCorner(targetinfobkg)
 local targetinfoshot = Instance.new('ImageLabel')
 targetinfoshot.Size = UDim2.fromOffset(26, 27)
@@ -6797,7 +8830,7 @@ targetinfoshotflash.BackgroundColor3 = Color3.new(1, 0, 0)
 targetinfoshotflash.Parent = targetinfoshot
 addCorner(targetinfoshotflash)
 local targetinfoshotblur = addBlur(targetinfoshot)
-targetinfoshotblur.Visible = false
+targetinfoshotblur.Visible = true
 addCorner(targetinfoshot)
 local targetinfoname = Instance.new('TextLabel')
 targetinfoname.Size = UDim2.fromOffset(145, 20)
@@ -6855,17 +8888,146 @@ end)
 local targetinfohealthblur = addBlur(targetinfohealthbkg)
 targetinfohealthblur.SliceCenter = Rect.new(52, 31, 261, 510)
 targetinfohealthblur.ImageColor3 = Color3.new()
-targetinfohealthblur.Visible = false
+targetinfohealthblur.Visible = true
 local targetinfob = Instance.new('UIStroke')
 targetinfob.Enabled = false
 targetinfob.Color = Color3.fromHSV(0.44, 1, 1)
 targetinfob.Parent = targetinfobkg
 
+--[[
+	Old
+]]
+
+local TargetInfoMainFrame = Instance.new('Frame')
+TargetInfoMainFrame.BackgroundColor3 = Color3.fromRGB(26, 25, 26)
+TargetInfoMainFrame.BorderSizePixel = 0
+TargetInfoMainFrame.BackgroundTransparency = 1
+TargetInfoMainFrame.Size = UDim2.new(0, 220, 0, 72)
+TargetInfoMainFrame.Position = UDim2.new(0, 0, 0, 5)
+TargetInfoMainFrame.Parent = targetinfoobj.Children
+TargetInfoMainFrame.Visible = false
+
+local TargetInfoFrameShadow = Instance.new('ImageLabel')
+TargetInfoFrameShadow.BackgroundTransparency = 1
+TargetInfoFrameShadow.Position = UDim2.fromScale(-0.041, -0.125)
+TargetInfoFrameShadow.Size = UDim2.fromOffset(237, 97)
+TargetInfoFrameShadow.ZIndex = -1
+TargetInfoFrameShadow.Image = 'rbxassetid://123343128195297'
+TargetInfoFrameShadow.Parent = TargetInfoMainFrame
+
+local TargetInfoMainInfo = Instance.new('Frame')
+TargetInfoMainInfo.BackgroundColor3 = Color3.fromRGB(31, 30, 31)
+TargetInfoMainInfo.Size = UDim2.new(0, 220, 0, 80)
+TargetInfoMainInfo.BackgroundTransparency = 0.5
+TargetInfoMainInfo.Position = UDim2.new(0, 0, 0, 0)
+TargetInfoMainInfo.Name = 'MainInfo'
+TargetInfoMainInfo.Parent = TargetInfoMainFrame
+local TargetInfoName = Instance.new('TextLabel')
+TargetInfoName.Font = Enum.Font.Arial
+TargetInfoName.TextColor3 = Color3.fromRGB(182, 182, 182)
+TargetInfoName.Position = UDim2.new(0, 70, 0, 13)
+TargetInfoName.TextStrokeTransparency = 1
+TargetInfoName.BackgroundTransparency = 1
+TargetInfoName.TextSize = 14
+TargetInfoName.Size = UDim2.new(0, 80, 0, 20)
+TargetInfoName.Text = 'None'
+TargetInfoName.ZIndex = 2
+TargetInfoName.TextXAlignment = Enum.TextXAlignment.Left
+TargetInfoName.TextYAlignment = Enum.TextYAlignment.Top
+TargetInfoName.Parent = TargetInfoMainInfo
+local TargetInfoNameShadow = TargetInfoName:Clone()
+TargetInfoNameShadow.Size = UDim2.new(1, 0, 1, 0)
+TargetInfoNameShadow.TextTransparency = 0.5
+TargetInfoNameShadow.TextColor3 = Color3.new()
+TargetInfoNameShadow.ZIndex = 1
+TargetInfoNameShadow.Position = UDim2.new(0, 1, 0, 1)
+TargetInfoName:GetPropertyChangedSignal('Text'):Connect(function()
+	TargetInfoNameShadow.Text = TargetInfoName.Text
+end)
+TargetInfoNameShadow.Parent = TargetInfoName
+local TargetInfoHealthBackground = Instance.new('Frame')
+TargetInfoHealthBackground.BackgroundColor3 = Color3.fromRGB(26, 25, 26)
+TargetInfoHealthBackground.Size = UDim2.new(0, 140, 0, 4)
+TargetInfoHealthBackground.Position = UDim2.new(0, 71, 0, 35)
+TargetInfoHealthBackground.Parent = TargetInfoMainInfo
+local TargetInfoHealthBackgroundShadow = Instance.new('ImageLabel')
+TargetInfoHealthBackgroundShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+TargetInfoHealthBackgroundShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+TargetInfoHealthBackgroundShadow.Image = 'rbxassetid://13350795660'
+TargetInfoHealthBackgroundShadow.BackgroundTransparency = 1
+TargetInfoHealthBackgroundShadow.ImageTransparency = 0.6
+TargetInfoHealthBackgroundShadow.ZIndex = -1
+TargetInfoHealthBackgroundShadow.Size = UDim2.new(1, 6, 1, 6)
+TargetInfoHealthBackgroundShadow.ImageColor3 = Color3.new()
+TargetInfoHealthBackgroundShadow.ScaleType = Enum.ScaleType.Slice
+TargetInfoHealthBackgroundShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+TargetInfoHealthBackgroundShadow.Parent = TargetInfoHealthBackground
+local TargetInfoHealth = Instance.new('Frame')
+TargetInfoHealth.BackgroundColor3 = Color3.fromRGB(115, 255, 110)
+TargetInfoHealth.Size = UDim2.new(1, 0, 1, 0)
+TargetInfoHealth.ZIndex = 3
+TargetInfoHealth.BorderSizePixel = 0
+TargetInfoHealth.Parent = TargetInfoHealthBackground
+local TargetInfoHealthExtra = Instance.new('Frame')
+TargetInfoHealthExtra.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+TargetInfoHealthExtra.Size = UDim2.new(0, 0, 1, 0)
+TargetInfoHealthExtra.ZIndex = 4
+TargetInfoHealthExtra.BorderSizePixel = 0
+TargetInfoHealthExtra.AnchorPoint = Vector2.new(1, 0)
+TargetInfoHealthExtra.Position = UDim2.new(1, 0, 0, 0)
+TargetInfoHealthExtra.Parent = TargetInfoHealth
+local TargetInfoImage = Instance.new('ImageLabel')
+TargetInfoImage.Size = UDim2.new(0, 50, 0, 50)
+TargetInfoImage.BackgroundTransparency = 0
+TargetInfoImage.BackgroundColor3 = Color3.fromRGB(26, 25, 26)
+TargetInfoImage.Image = 'rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420'
+TargetInfoImage.Position = UDim2.new(0, 10, 0, 16)
+
+local targetinfoshotflashold = Instance.new('Frame')
+targetinfoshotflashold.Size = UDim2.fromScale(1, 1)
+targetinfoshotflashold.BackgroundTransparency = 1
+targetinfoshotflashold.BackgroundColor3 = Color3.new(1, 0, 0)
+targetinfoshotflashold.Parent = TargetInfoImage
+addCorner(targetinfoshotflashold)
+
+TargetInfoImage.Parent = TargetInfoMainInfo
+local TargetInfoMainInfoCorner = Instance.new('UICorner')
+TargetInfoMainInfoCorner.CornerRadius = UDim.new(0, 6)
+TargetInfoMainInfoCorner.Parent = TargetInfoMainInfo
+local TargetInfoHealthBackgroundCorner = Instance.new('UICorner')
+TargetInfoHealthBackgroundCorner.CornerRadius = UDim.new(0, 2048)
+TargetInfoHealthBackgroundCorner.Parent = TargetInfoHealthBackground
+local TargetInfoHealthCorner = Instance.new('UICorner')
+TargetInfoHealthCorner.CornerRadius = UDim.new(0, 2048)
+TargetInfoHealthCorner.Parent = TargetInfoHealth
+local TargetInfoHealthCorner2 = Instance.new('UICorner')
+TargetInfoHealthCorner2.CornerRadius = UDim.new(0, 2048)
+TargetInfoHealthCorner2.Parent = TargetInfoHealthExtra
+local TargetInfoHealthExtraCorner = Instance.new('UICorner')
+TargetInfoHealthExtraCorner.CornerRadius = UDim.new(0, 8)
+TargetInfoHealthExtraCorner.Parent = TargetInfoImage
+
+local TargetInfoHud = isfile('mxtionv4/profiles/hud.txt') and readfile('mxtionv4/profiles/hud.txt') or 'new'
+targetinfoobj:CreateDropdown({
+	Name = 'Gui Mode',
+	List = {'old', 'new'},
+	Default = 'new',
+	Function = function(val)
+		TargetInfoHud = val
+		writefile('mxtionv4/profiles/hud.txt', val)
+		TargetInfoMainFrame.Visible = val == 'old'
+		handler.Visible = val == 'new'
+	end
+})
+TargetInfoMainFrame.Visible = TargetInfoHud == 'old'
+handler.Visible = TargetInfoHud == 'new'
 targetinfoobj:CreateFont({
 	Name = 'Font',
 	Blacklist = 'Arial',
 	Function = function(val)
 		targetinfoname.FontFace = val
+		TargetInfoName.FontFace = val
+		TargetInfoNameShadow.FontFace = val
 	end
 })
 local targetinfobackgroundtransparency = {
@@ -6880,12 +9042,16 @@ targetinfoobj:CreateToggle({
 	Name = 'Render Background',
 	Function = function(callback)
 		targetinfobkg.BackgroundTransparency = callback and targetinfobackgroundtransparency.Value or 1
+		TargetInfoMainInfo.BackgroundTransparency = targetinfobkg.BackgroundTransparency
 		targetinfoshadow.Visible = not callback
 		targetinfoblurobj.Visible = callback
-		targetinfohealthblur.Visible = not callback
-		targetinfoshotblur.Visible = not callback
 		targetinfobackgroundtransparency.Object.Visible = callback
 	end,
+	Default = true
+})
+targetinfofollow = targetinfoobj:CreateToggle({
+	Name = 'Follow Player',
+	Function = function(callback) end,
 	Default = true
 })
 targetinfobackgroundtransparency = targetinfoobj:CreateSlider({
@@ -6949,6 +9115,7 @@ local lastmaxhealth = 0
 targetinfo = {
 	Targets = {},
 	Object = targetinfobkg,
+	oldparent = TargetInfoMainFrame,
 	UpdateInfo = function(self)
 		local entitylib = mainapi.Libraries
 		if not entitylib then return end
@@ -6968,9 +9135,14 @@ targetinfo = {
 		end
 
 		targetinfobkg.Visible = v ~= nil or mainapi.gui.ScaledGui.ClickGui.Visible
+		TargetInfoMainInfo.Visible = targetinfobkg.Visible
+		TargetInfoFrameShadow.Visible = targetinfobkg.Visible
 		if v then
 			targetinfoname.Text = v.Player and (targetinfodisplay.Enabled and v.Player.DisplayName or v.Player.Name) or v.Character and v.Character.Name or targetinfoname.Text
+			TargetInfoName.Text = targetinfoname.Text
+			TargetInfoNameShadow.Text = targetinfoname.Text
 			targetinfoshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(v.Player and v.Player.UserId or 1)..'&w=420&h=420'
+			TargetInfoImage.Image = targetinfoshot.Image
 
 			if not v.Character then
 				v.Health = v.Health or 0
@@ -6978,28 +9150,41 @@ targetinfo = {
 			end
 
 			if v.Health ~= lasthealth or v.MaxHealth ~= lastmaxhealth then
-				local percent = math.max(v.Health / v.MaxHealth, 0)
-				tween:Tween(targetinfohealth, TweenInfo.new(0.3), {
-					Size = UDim2.fromScale(math.min(percent, 1), 1), BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
-				})
-				tween:Tween(targetinfohealthextra, TweenInfo.new(0.3), {
-					Size = UDim2.fromScale(math.clamp(percent - 1, 0, 0.8), 1)
-				})
-				if lasthealth > v.Health and self.LastTarget == v then
-					tween:Cancel(targetinfoshotflash)
-					targetinfoshotflash.BackgroundTransparency = 0.3
-					tween:Tween(targetinfoshotflash, TweenInfo.new(0.5), {
-						BackgroundTransparency = 1
+				task.spawn(function()
+					local percent = math.max(v.Health / v.MaxHealth, 0)
+					tween:Tween(targetinfohealth, TweenInfo.new(0.3), {
+						Size = UDim2.fromScale(math.min(percent, 1), 1), BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
 					})
-				end
-				lasthealth = v.Health
-				lastmaxhealth = v.MaxHealth
+					tween:Tween(targetinfohealthextra, TweenInfo.new(0.3), {
+						Size = UDim2.fromScale(math.clamp(percent - 1, 0, 0.8), 1)
+					})
+					tween:Tween(TargetInfoHealth, TweenInfo.new(0.3), {
+						Size = UDim2.fromScale(math.min(percent, 1), 1), BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
+					})
+					tween:Tween(TargetInfoHealthExtra, TweenInfo.new(0.3), {
+						Size = UDim2.fromScale(math.clamp(percent - 1, 0, 0.8), 1)
+					})
+					if lasthealth > v.Health and self.LastTarget == v then
+						tween:Cancel(targetinfoshotflash)
+						tween:Cancel(targetinfoshotflashold)
+						targetinfoshotflash.BackgroundTransparency = 0.3
+						targetinfoshotflashold.BackgroundTransparency = 0.3
+						tween:Tween(targetinfoshotflash, TweenInfo.new(0.5), {
+							BackgroundTransparency = 1
+						})
+						tween:Tween(targetinfoshotflashold, TweenInfo.new(0.5), {
+							BackgroundTransparency = 1
+						})
+					end
+					lasthealth = v.Health
+					lastmaxhealth = v.MaxHealth
+				end)
 			end
 
 			if not v.Character then table.clear(v) end
 			self.LastTarget = v
 		end
-		return v
+		return v and v.Head
 	end
 }
 mainapi.Libraries.targetinfo = targetinfo
@@ -7074,7 +9259,7 @@ function mainapi:UpdateTextGUI(afterload)
 				holdertext.Position = UDim2.fromOffset(right and 3 or 6, 2)
 				holdertext.BackgroundTransparency = 1
 				holdertext.BorderSizePixel = 0
-				holdertext.Text = ({i:gsub(' ', '')})[1]..(v.ExtraText and " <font color='#A8A8A8'>"..v.ExtraText()..'</font>' or '')
+				holdertext.Text = i..(v.ExtraText and " <font color='#A8A8A8'>"..v.ExtraText()..'</font>' or '')
 				holdertext.TextSize = 15
 				holdertext.FontFace = textguifont.Value
 				holdertext.RichText = true
@@ -7162,7 +9347,16 @@ function mainapi:UpdateGUI(hue, sat, val, default)
 		end
 	end
 
-	if not clickgui.Visible and not mainapi.Legit.Window.Visible then return end
+	if mainapi.PublicProfiles then
+		for _, accent in mainapi.PublicProfiles.Accents do
+			accent.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			if accent:IsA('TextButton') and accent.BackgroundTransparency == 0 then
+				accent.TextColor3 = mainapi:TextColor(hue, sat, val)
+			end
+		end
+	end
+
+	if not clickgui.Visible and not mainapi.Legit.Window.Visible and not (mainapi.PublicProfiles and mainapi.PublicProfiles.Window.Visible) then return end
 	local rainbow = mainapi.GUIColor.Rainbow and mainapi.RainbowMode.Value ~= 'Retro'
 
 	for i, v in mainapi.Categories do
@@ -7187,7 +9381,21 @@ function mainapi:UpdateGUI(hue, sat, val, default)
 		end
 
 		if v.Type == 'CategoryList' then
-			v.Object.Children.Add.AddButton.ImageColor3 = rainbow and Color3.fromHSV(mainapi:Color(hue % 1)) or Color3.fromHSV(hue, sat, val)
+			local accent = rainbow and Color3.fromHSV(mainapi:Color(hue % 1)) or Color3.fromHSV(hue, sat, val)
+			for _, addbutton in v.Object:GetDescendants() do
+				if addbutton.Name == 'AddButton' and addbutton:IsA('ImageButton') then
+					addbutton.ImageColor3 = accent
+				end
+			end
+			local addrow = v.Object.Children:FindFirstChild('AddRow')
+			if addrow then
+				for _, button in addrow:GetChildren() do
+					local buttonicon = button:FindFirstChild('Icon', true)
+					if buttonicon then
+						buttonicon.ImageColor3 = accent
+					end
+				end
+			end
 			if v.Selected then
 				v.Selected.BackgroundColor3 = rainbow and Color3.fromHSV(mainapi:Color(hue % 1)) or Color3.fromHSV(hue, sat, val)
 				v.Selected.Title.TextColor3 = mainapi.GUIColor.Rainbow and Color3.new(0.19, 0.19, 0.19) or mainapi:TextColor(hue, sat, val)
@@ -7265,16 +9473,8 @@ mainapi:Clean(notifications.ChildRemoved:Connect(function()
 	end
 end))
 
-local whitelist = {Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3}
-local function convert(input)
-	return {KeyCode = {Name = input == Enum.UserInputType.MouseButton2 and 'MB2' or input == Enum.UserInputType.MouseButton1 and 'MB1' or 'MB3'}}
-end
-local function keybindStart(inputObj)
-	if not inputService:GetFocusedTextBox() and (inputObj.KeyCode ~= Enum.KeyCode.Unknown or table.find(whitelist, inputObj.UserInputType)) then
-		if table.find(whitelist, inputObj.UserInputType) then
-			inputObj = convert(inputObj.UserInputType)
-		end
-		
+mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
+	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then
 		table.insert(mainapi.HeldKeybinds, inputObj.KeyCode.Name)
 		if mainapi.Binding then return end
 
@@ -7295,7 +9495,7 @@ local function keybindStart(inputObj)
 			if checkKeybinds(mainapi.HeldKeybinds, v.Bind, inputObj.KeyCode.Name) then
 				toggled = true
 				if mainapi.ToggleNotifications.Enabled then
-					mainapi:CreateNotification('Module Toggled', i.."<font color='#FFFFFF'> has been </font>"..(not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>").."<font color='#FFFFFF'>!</font>", 0.75)
+					mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
 				end
 				v:Toggle(true)
 			end
@@ -7312,12 +9512,10 @@ local function keybindStart(inputObj)
 			end
 		end
 	end
-end
-local function keybindEnd(inputObj)
-	if not inputService:GetFocusedTextBox() and (inputObj.KeyCode ~= Enum.KeyCode.Unknown or table.find(whitelist, inputObj.UserInputType)) then
-		if table.find(whitelist, inputObj.UserInputType) then
-			inputObj = convert(inputObj.UserInputType)
-		end
+end))
+
+mainapi:Clean(inputService.InputEnded:Connect(function(inputObj)
+	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then
 		if mainapi.Binding then
 			if not mainapi.MultiKeybind.Enabled then
 				mainapi.HeldKeybinds = {inputObj.KeyCode.Name}
@@ -7331,18 +9529,22 @@ local function keybindEnd(inputObj)
 	if ind then
 		table.remove(mainapi.HeldKeybinds, ind)
 	end
-end
-mainapi:Clean(inputService.InputBegan:Connect(keybindStart))
 
-mainapi:Clean(inputService.InputEnded:Connect(function(inputObj)
-	if table.find(whitelist, inputObj.UserInputType) then
-		inputObj = convert(inputObj.UserInputType)
+	if mainapi.ThreadFix then
+		setthreadidentity(8)
 	end
-	if mainapi.ToggleMode.Value == "Held" and not table.find(mainapi.Keybind, ({tostring(inputObj.KeyCode):gsub("Enum.KeyCode.", "")})[1]) then
-		keybindStart(inputObj)
-	else
-		keybindEnd(inputObj)
+	if clickgui.Visible then
+		mainapi:QueueSave()
 	end
 end))
+
+if not shared.updated then
+	local prompted = false
+	mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
+		if prompted or not clickgui.Visible then return end
+		prompted = true
+		mainapi:PromptPresets()
+	end))
+end
 
 return mainapi
