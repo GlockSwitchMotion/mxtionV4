@@ -20,13 +20,19 @@ downloader.TextStrokeTransparency = 0
 downloader.TextSize = 20
 downloader.TextColor3 = Color3.new(1, 1, 1)
 downloader.Font = Enum.Font.Arial
-downloader.Text = ''
+downloader.Text = 'Downloading files 0/100'
 downloader.Parent = Instance.new('ScreenGui', gethui and gethui() or cloneref(game:GetService('CoreGui')))
+
+local downloadCount = 0
+local function setDownloadProgress()
+	downloadCount = math.min(downloadCount + 1, 100)
+	downloader.Text = 'Downloading files '..downloadCount..'/100'
+end
 
 local function downloadFile(path, func)
 	if not isfile(path) then
 		if not license.Closet then
-			downloader.Text = 'Downloading '.. path
+			setDownloadProgress()
 		end
 		local suc, res = pcall(function()
 			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
@@ -59,13 +65,15 @@ end
 
 for _, folder in {'mxtionv4', 'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/assets', 'mxtionv4/libraries', 'mxtionv4/guis'} do
 	if not isfolder(folder) then
-		downloader.Text = 'Downloading '.. folder
+		setDownloadProgress()
 		makefolder(folder)
 	end
 end
 
 if not shared.VapeDeveloper then
-	local commit = license.Commit or nil
+	-- Reuse the installed revision when available so normal launches do not wait
+	-- for a second network request before loading the cached files.
+	local commit = license.Commit or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or nil)
 	if not commit then
 		local _, subbed = pcall(function() 
 			return game:HttpGet('https://github.com/GlockSwitchMotion/mxtionV4') 
