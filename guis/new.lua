@@ -54,7 +54,7 @@ local tween = {
 	tweenstwo = {}
 }
 local uipallet = {
-	Main = Color3.fromRGB(26, 25, 26),
+	Main = Color3.fromRGB(9, 8, 7),
 	Text = Color3.fromRGB(200, 200, 200),
 	Font = Font.fromEnum(Enum.Font.Arial),
 	FontSemiBold = Font.fromEnum(Enum.Font.Arial, Enum.FontWeight.SemiBold),
@@ -7127,7 +7127,7 @@ function mainapi:PromptPresets()
 		Function = function(result)
 			if result == 'dismiss' then
 				pcall(writefile, presetPromptFile, getCommit() or 'main')
-				self:CreateNotification('Vape', 'Preset configs wont be offered again until the next update.', 8)
+				self:CreateNotification('MXTION V4', 'Preset configs wont be offered again until the next update.', 8)
 				return
 			end
 			if not result then return end
@@ -7137,13 +7137,13 @@ function mainapi:PromptPresets()
 
 				if not installPresets() then
 					self.Loaded = loaded
-					self:CreateNotification('Vape', 'Failed to download preset configs.', 8, 'alert')
+					self:CreateNotification('MXTION V4', 'Failed to download preset configs.', 8, 'alert')
 					return
 				end
 
 				table.clear(self.SaveCache)
 				self:Load(true)
-				self:CreateNotification('Vape', `Loaded the preset config for {self.Profile}`, 8)
+				self:CreateNotification('MXTION V4', `Loaded the preset config for {self.Profile}`, 8)
 			end)
 		end
 	})
@@ -7320,7 +7320,7 @@ function mainapi:CreateChangelogs()
 			if empty.Visible then return end
 
 			changelogapi:Open()
-			self:CreateNotification('Cat', `Script updated from {shared.updated:sub(1, 7)}, here is what changed`, 10, 'info')
+			self:CreateNotification('MXTION V4', `Script updated from {shared.updated:sub(1, 7)}, here is what changed`, 10, 'info')
 		end
 
 		local pending
@@ -7576,7 +7576,7 @@ function mainapi:Load(skipgui, profile)
 		guidata = loadJson('mxtionv4/profiles/'..game.GameId..'.gui.txt')
 		if not guidata then
 			guidata = {Categories = {}}
-			self:CreateNotification('Vape', 'Failed to load GUI settings.', 10, 'alert')
+			self:CreateNotification('MXTION V4', 'Failed to load GUI settings.', 10, 'alert')
 			savecheck = false
 		end
 
@@ -7626,7 +7626,7 @@ function mainapi:Load(skipgui, profile)
 		local savedata = loadJson('mxtionv4/profiles/'..self.Profile..self.Place..'.txt')
 		if not savedata then
 			savedata = {Categories = {}, Modules = {}, Legit = {}}
-			self:CreateNotification('Vape', 'Failed to load '..self.Profile..' profile.', 10, 'alert')
+			self:CreateNotification('MXTIONV4', 'Failed to load '..self.Profile..' profile.', 10, 'alert')
 			savecheck = false
 		end
 
@@ -7946,7 +7946,7 @@ local scarcitybanner = Instance.new('TextLabel')
 scarcitybanner.Size = UDim2.fromScale(1, 0.02)
 scarcitybanner.Position = UDim2.fromScale(0, 0.97)
 scarcitybanner.BackgroundTransparency = 1
-scarcitybanner.Text = 'ill add more to dis ight .'
+scarcitybanner.Text = 'Thanks for using MOTION V4 more stuff will be added soon.'
 scarcitybanner.TextScaled = true
 scarcitybanner.TextColor3 = Color3.new(1, 1, 1)
 scarcitybanner.TextStrokeTransparency = 0.5
@@ -8164,7 +8164,7 @@ Profiles:CreateButton({
 		end
 
 		mainapi:Load(true, 'default')
-		mainapi:CreateNotification('Cat', `Synced "{profile}" to the default profile`, 5, 'info')
+		mainapi:CreateNotification('MXTION V4', `Synced "{profile}" to the default profile`, 5, 'info')
 	end
 })
 Profiles:CreateButton({
