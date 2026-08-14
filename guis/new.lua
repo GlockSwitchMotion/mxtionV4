@@ -7320,7 +7320,7 @@ function mainapi:CreateChangelogs()
 			if empty.Visible then return end
 
 			changelogapi:Open()
-			self:CreateNotification('Cat', `Script updated from {shared.updated:sub(1, 7)}, here is what changed`, 10, 'info')
+			self:CreateNotification('MXTION V4', `Script updated from {shared.updated:sub(1, 7)}, here is what changed`, 10, 'info')
 		end
 
 		local pending
