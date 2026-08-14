@@ -2552,7 +2552,7 @@ function mainapi:CreateGUI()
 	makeDraggable(window)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
-	logo.Size = UDim2.fromOffset(62, 160)
+	logo.Size = UDim2.fromOffset(140, 42)
     logo.Position = UDim2.fromOffset(11, 10)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
