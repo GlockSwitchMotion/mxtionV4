@@ -90,8 +90,8 @@ local getcustomassets = {
 	['mxtionv4/assets/new/guisettings.png'] = 'rbxassetid://14368318994',
 	['mxtionv4/assets/new/guislider.png'] = 'rbxassetid://14368320020',
 	['mxtionv4/assets/new/guisliderrain.png'] = 'rbxassetid://14368321228',
-	['mxtionv4/assets/new/guiv4.png'] = 'rbxassetid://138935172340460',
-	['mxtionv4/assets/new/guivape.png'] = 'rbxassetid://108672093407887',
+	['mxtionv4/assets/new/guiv4.png'] = 'rbxassetid://10134996962', -- Applied camo overlay
+	['mxtionv4/assets/new/guivape.png'] = 'rbxassetid://10134996962', -- Applied camo overlay
 	['mxtionv4/assets/new/info.png'] = 'rbxassetid://14368324807',
 	['mxtionv4/assets/new/inventoryicon.png'] = 'rbxassetid://14928011633',
 	['mxtionv4/assets/new/legit.png'] = 'rbxassetid://14425650534',
@@ -141,29 +141,6 @@ local getfontsize = function(text, size, font)
 		fontsize.Font = font
 	end
 	return textService:GetTextBoundsAsync(fontsize)
-end
-
--- Helper function to add the Camo Overlay to UI containers/windows
-local function addCamoOverlay(parent)
-	local overlay = Instance.new('ImageLabel')
-	overlay.Name = 'CamoOverlay'
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.Position = UDim2.fromScale(0, 0)
-	overlay.BackgroundTransparency = 1
-	overlay.Image = 'rbxassetid://81366222918936'
-	overlay.ImageTransparency = 0.78
-	overlay.ScaleType = Enum.ScaleType.Crop
-	overlay.ZIndex = 0
-	overlay.Parent = parent
-
-	-- Apply UICorner matching parent if present
-	local parentCorner = parent:FindFirstChildOfClass('UICorner')
-	if parentCorner then
-		local overlayCorner = parentCorner:Clone()
-		overlayCorner.Parent = overlay
-	end
-
-	return overlay
 end
 
 local function addBlur(parent, notif)
@@ -553,7 +530,6 @@ mainapi.Libraries = {
 	addBlur = addBlur,
 	addCloseButton = addCloseButton,
 	addCorner = addCorner,
-	addCamoOverlay = addCamoOverlay,
 	color = color,
 	getcustomasset = getcustomasset,
 	getfontsize = getfontsize,
@@ -1489,7 +1465,6 @@ components = {
 		optionapi.Window = window
 		addBlur(window)
 		addCorner(window)
-		addCamoOverlay(window)
 		local icon = Instance.new('ImageLabel')
 		icon.Name = 'Icon'
 		icon.Size = UDim2.fromOffset(18, 12)
@@ -1898,7 +1873,6 @@ components = {
 		optionapi.Window = window
 		addBlur(window)
 		addCorner(window)
-		addCamoOverlay(window)
 		local icon = Instance.new('ImageLabel')
 		icon.Name = 'Icon'
 		icon.Size = optionsettings.TabSize or UDim2.fromOffset(19, 16)
@@ -2212,7 +2186,7 @@ components = {
 		end
 		
 		function optionapi:Load(tab)
-			if self.Enabled ~= tab.Enabled dread
+			if self.Enabled ~= tab.Enabled then
 				self:Toggle()
 			end
 		end
@@ -2438,6 +2412,7 @@ components = {
 			then
 				local maxCheck = (inputObj.Position.X - knobholdermax.AbsolutePosition.X) > -10
 				local newPosition = math.clamp((inputObj.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1)
+				optionapi:SetValue(maxCheck, math.floor((optionsettings.Min + (optionsettings.Max - optionsettings.Min) * newPosition) * optionsettings.Decimal) / optionsettings.Decimal)
 			end
 		end)
 
