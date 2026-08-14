@@ -4743,6 +4743,7 @@ run(function()
 	local Targets
 	local Color
 	local Background
+	local Stroke
 	local DisplayName
 	local Health
 	local Distance
@@ -4786,6 +4787,7 @@ run(function()
 			nametag.AnchorPoint = Vector2.new(0.5, 1)
 			nametag.BackgroundColor3 = Color3.new()
 			nametag.BackgroundTransparency = Background.Value
+			nametag.TextStrokeTransparency = Stroke.Value
 			nametag.BorderSizePixel = 0
 			nametag.Visible = false
 			nametag.Text = Strings[ent]
@@ -5083,6 +5085,19 @@ run(function()
 		Max = 1,
 		Decimal = 10
 	})
+	Stroke = NameTags:CreateSlider({
+		Name = 'Stroke Transparency',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end,
+		Default = 1,
+		Min = 0,
+		Max = 1,
+		Decimal = 10
+	})
 	Health = NameTags:CreateToggle({
 		Name = 'Health',
 		Function = function()
@@ -5147,6 +5162,7 @@ run(function()
 		Visible = false
 	})
 end)
+
 run(function()
 	local PlayerModel
 	local Scale
