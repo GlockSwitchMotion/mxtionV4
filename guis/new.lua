@@ -2563,7 +2563,7 @@ function mainapi:CreateGUI()
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
 	logov4.Size = UDim2.fromOffset(36, 28)
-	logov4.Position = UDim2.fromOffset(101, 2)
+	logov4.Position = UDim2.fromOffset(104, 2)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
@@ -6721,8 +6721,8 @@ function mainapi:CreateLegit()
 
 	local window = Instance.new('Frame')
 	window.Name = 'LegitGUI'
-	window.Size = UDim2.fromOffset(220, 601)
-	window.Position = UDim2.fromOffset(236, 60)
+	window.Size = UDim2.fromOffset(700, 389)
+	window.Position = UDim2.new(0.5, -350, 0.5, -194)
 	window.BackgroundColor3 = uipallet.Main
 	window.Visible = false
 	window.Parent = scaledgui
@@ -6742,31 +6742,22 @@ function mainapi:CreateLegit()
 	icon.Image = getcustomasset('mxtionv4/assets/new/legittab.png')
 	icon.ImageColor3 = uipallet.Text
 	icon.Parent = window
-	local title = Instance.new('TextLabel')
-	title.Name = 'Title'
-	title.Size = UDim2.new(1, -72, 0, 41)
-	title.Position = UDim2.fromOffset(42, 0)
-	title.BackgroundTransparency = 1
-	title.Text = 'Legit'
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.TextColor3 = uipallet.Text
-	title.TextSize = 13
-	title.FontFace = uipallet.Font
-	title.Parent = window
 	local close = addCloseButton(window)
 	local children = Instance.new('ScrollingFrame')
 	children.Name = 'Children'
-	children.Size = UDim2.new(1, 0, 1, -41)
-	children.Position = UDim2.fromOffset(0, 41)
+	children.Size = UDim2.fromOffset(684, 340)
+	children.Position = UDim2.fromOffset(14, 41)
 	children.BackgroundTransparency = 1
 	children.BorderSizePixel = 0
 	children.ScrollBarThickness = 2
 	children.ScrollBarImageTransparency = 0.75
 	children.CanvasSize = UDim2.new()
 	children.Parent = window
-	local windowlist = Instance.new('UIListLayout')
+	local windowlist = Instance.new('UIGridLayout')
 	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	windowlist.FillDirectionMaxCells = 4
+	windowlist.CellSize = UDim2.fromOffset(163, 114)
+	windowlist.CellPadding = UDim2.fromOffset(6, 5)
 	windowlist.Parent = children
 	legitapi.Window = window
 	table.insert(mainapi.Windows, window)
@@ -6782,7 +6773,6 @@ function mainapi:CreateLegit()
 
 		local module = Instance.new('TextButton')
 		module.Name = modulesettings.Name
-		module.Size = UDim2.fromOffset(220, 40)
 		module.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 		module.Text = ''
 		module.AutoButtonColor = false
@@ -6791,8 +6781,8 @@ function mainapi:CreateLegit()
 		addCorner(module)
 		local title = Instance.new('TextLabel')
 		title.Name = 'Title'
-		title.Size = UDim2.new(1, -72, 0, 40)
-		title.Position = UDim2.fromOffset(16, 0)
+		title.Size = UDim2.new(1, -16, 0, 20)
+		title.Position = UDim2.fromOffset(16, 81)
 		title.BackgroundTransparency = 1
 		title.Text = modulesettings.Name
 		title.TextXAlignment = Enum.TextXAlignment.Left
