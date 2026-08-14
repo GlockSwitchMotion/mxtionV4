@@ -1,3 +1,4 @@
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local license = ...
 local mainapi = {
 	Categories = {},
@@ -321,6 +322,9 @@ local function downloadFile(path, func)
 		if not suc or res == '404: Not Found' then
 			error(res)
 		end
+		if path:find('.lua') then
+			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+		end
 		writefile(path, res)
 	end
 	return (func or readfile)(path)
@@ -363,33 +367,14 @@ local function loadJson(path)
 	return suc and type(res) == 'table' and res or nil
 end
 
+-- Changelogs feature loader disabled so changelogs popup won't show
 local function loadFeatures()
-	local suc, res = pcall(downloadFile, 'mxtionv4/features.json')
-	if not suc or type(res) ~= 'string' then return nil end
-
-	local decoded, payload = pcall(function()
-		return httpService:JSONDecode(res)
-	end)
-	return decoded and type(payload) == 'table' and payload or nil
+	return nil
 end
 
 local featureTags
 local function getFeatureTag(name)
-	if not featureTags then
-		featureTags = {}
-		local features = loadFeatures()
-		for tag, key in {updated = 'updated', new = 'added'} do
-			local list = features and features[key]
-			if type(list) == 'table' then
-				for _, module in list do
-					if type(module) == 'string' then
-						featureTags[module] = tag
-					end
-				end
-			end
-		end
-	end
-	return featureTags[name]
+	return nil
 end
 
 local function makeDraggable(gui, window)
@@ -1455,6 +1440,7 @@ components = {
 		window.BackgroundColor3 = uipallet.Main
 		window.BorderSizePixel = 0
 		window.AutoButtonColor = false
+		-- Set window to hidden initially so target settings won't pop up
 		window.Visible = false
 		window.Text = ''
 		window.Parent = clickgui
@@ -2182,7 +2168,7 @@ components = {
 		end
 		
 		function optionapi:Load(tab)
-			if self.Enabled ~= tab.Enabled then
+			if self.Enabled ~= tab.Enabled dread
 				self:Toggle()
 			end
 		end
@@ -2408,4 +2394,4 @@ components = {
 			then
 				local maxCheck = (inputObj.Position.X - knobholdermax.AbsolutePosition.X) > -10
 				local newPosition = math.clamp((inputObj.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1)
-				optionapi:SetValue(maxCheck, math.floor((optionsettings.Min + (optionsettings.Max -
+				optionapi:SetValue(maxCheck, math.floor((optionsettings.Min + (
