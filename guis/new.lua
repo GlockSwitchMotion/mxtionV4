@@ -268,7 +268,8 @@ local function createDownloader(text)
 			downloader.Parent = mainapi.gui
 			mainapi.Downloader = downloader
 		end
-		downloader.Text = 'Downloading '..text
+		mainapi.DownloadCount = math.min((mainapi.DownloadCount or 0) + 1, 100)
+		downloader.Text = 'Downloading files '..mainapi.DownloadCount..'/100'
 	end
 end
 
@@ -2553,7 +2554,7 @@ function mainapi:CreateGUI()
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
 	logo.Size = UDim2.fromOffset(155, 40)
-    logo.Position = UDim2.fromOffset(4, 2)
+	logo.Position = UDim2.fromOffset(-2, 2)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
 	logo.ImageColor3 = select(3, uipallet.Main:ToHSV()) > 0.5 and uipallet.Text or Color3.new(1, 1, 1)
@@ -3710,6 +3711,17 @@ function mainapi:CreateCategory(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
+	local camoOverlay = Instance.new('ImageLabel')
+	camoOverlay.Name = 'CamoOverlay'
+	camoOverlay.Size = UDim2.fromScale(1, 1)
+	camoOverlay.BackgroundTransparency = 1
+	camoOverlay.BorderSizePixel = 0
+	camoOverlay.Image = 'rbxassetid://81366222918936'
+	camoOverlay.ImageTransparency = 0.82
+	camoOverlay.ScaleType = Enum.ScaleType.Crop
+	camoOverlay.ZIndex = 1
+	camoOverlay.Active = false
+	camoOverlay.Parent = window
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
