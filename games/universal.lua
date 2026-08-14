@@ -5147,6 +5147,7 @@ run(function()
 		Visible = false
 	})
 end)
+
 run(function()
 	local PlayerModel
 	local Scale
