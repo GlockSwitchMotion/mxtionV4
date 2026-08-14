@@ -2554,7 +2554,7 @@ function mainapi:CreateGUI()
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
 	logo.Size = UDim2.fromOffset(155, 40)
-	logo.Position = UDim2.fromOffset(-2, 2)
+	logo.Position = UDim2.fromOffset(-16, 2)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
 	logo.ImageColor3 = select(3, uipallet.Main:ToHSV()) > 0.5 and uipallet.Text or Color3.new(1, 1, 1)
@@ -3717,7 +3717,8 @@ function mainapi:CreateCategory(categorysettings)
 	camoOverlay.BackgroundTransparency = 1
 	camoOverlay.BorderSizePixel = 0
 	camoOverlay.Image = 'rbxassetid://81366222918936'
-	camoOverlay.ImageTransparency = 0.82
+	-- Keep the pattern clearly visible on the dark category backgrounds.
+	camoOverlay.ImageTransparency = 0.38
 	camoOverlay.ScaleType = Enum.ScaleType.Crop
 	camoOverlay.ZIndex = 1
 	camoOverlay.Active = false
