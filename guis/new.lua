@@ -2553,7 +2553,7 @@ function mainapi:CreateGUI()
 	makeDraggable(window)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
-	logo.Size = UDim2.fromOffset(118, 28)
+	logo.Size = UDim2.fromOffset(155, 40)
 	logo.Position = UDim2.fromOffset(-16, 2)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
@@ -2562,13 +2562,12 @@ function mainapi:CreateGUI()
 	logo.Parent = window
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(36, 28)
-	logov4.Position = UDim2.fromOffset(104, 2)
+	logov4.Size = UDim2.fromOffset(36, 20)
+	logov4.Position = UDim2.new(1, 4, 0, 2)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
-	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
 	logov4.ScaleType = Enum.ScaleType.Fit
-	logov4.Parent = window
+	logov4.Parent = logo
 	local children = Instance.new('Frame')
 	children.Name = 'Children'
 	children.Size = UDim2.new(1, 0, 1, -33)
@@ -3712,6 +3711,18 @@ function mainapi:CreateCategory(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
+	local camoOverlay = Instance.new('ImageLabel')
+	camoOverlay.Name = 'CamoOverlay'
+	camoOverlay.Size = UDim2.fromScale(1, 1)
+	camoOverlay.BackgroundTransparency = 1
+	camoOverlay.BorderSizePixel = 0
+	camoOverlay.Image = 'rbxassetid://81366222918936'
+	-- Keep the pattern clearly visible on the dark category backgrounds.
+	camoOverlay.ImageTransparency = 0.38
+	camoOverlay.ScaleType = Enum.ScaleType.Crop
+	camoOverlay.ZIndex = 1
+	camoOverlay.Active = false
+	camoOverlay.Parent = window
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -9353,7 +9364,7 @@ function mainapi:UpdateGUI(hue, sat, val, default)
 
 	for i, v in mainapi.Categories do
 		if i == 'Main' then
-			v.Object.V4Logo.ImageColor3 = Color3.fromHSV(hue, sat, val)
+			v.Object.VapeLogo.V4Logo.ImageColor3 = Color3.fromHSV(hue, sat, val)
 			for _, button in v.Buttons do
 				if button.Enabled then
 					button.Object.TextColor3 = rainbow and Color3.fromHSV(mainapi:Color((hue - (button.Index * 0.025)) % 1)) or Color3.fromHSV(hue, sat, val)
