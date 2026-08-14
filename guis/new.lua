@@ -2553,7 +2553,7 @@ function mainapi:CreateGUI()
 	makeDraggable(window)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
-	logo.Size = UDim2.fromOffset(155, 40)
+	logo.Size = UDim2.fromOffset(118, 28)
 	logo.Position = UDim2.fromOffset(-16, 2)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
@@ -2562,12 +2562,13 @@ function mainapi:CreateGUI()
 	logo.Parent = window
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(36, 20)
-	logov4.Position = UDim2.new(1, 4, 0, 2)
+	logov4.Size = UDim2.fromOffset(36, 28)
+	logov4.Position = UDim2.fromOffset(101, 2)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
+	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
 	logov4.ScaleType = Enum.ScaleType.Fit
-	logov4.Parent = logo
+	logov4.Parent = window
 	local children = Instance.new('Frame')
 	children.Name = 'Children'
 	children.Size = UDim2.new(1, 0, 1, -33)
@@ -3711,18 +3712,6 @@ function mainapi:CreateCategory(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-	local camoOverlay = Instance.new('ImageLabel')
-	camoOverlay.Name = 'CamoOverlay'
-	camoOverlay.Size = UDim2.fromScale(1, 1)
-	camoOverlay.BackgroundTransparency = 1
-	camoOverlay.BorderSizePixel = 0
-	camoOverlay.Image = 'rbxassetid://81366222918936'
-	-- Keep the pattern clearly visible on the dark category backgrounds.
-	camoOverlay.ImageTransparency = 0.38
-	camoOverlay.ScaleType = Enum.ScaleType.Crop
-	camoOverlay.ZIndex = 1
-	camoOverlay.Active = false
-	camoOverlay.Parent = window
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -6732,8 +6721,8 @@ function mainapi:CreateLegit()
 
 	local window = Instance.new('Frame')
 	window.Name = 'LegitGUI'
-	window.Size = UDim2.fromOffset(700, 389)
-	window.Position = UDim2.new(0.5, -350, 0.5, -194)
+	window.Size = UDim2.fromOffset(220, 601)
+	window.Position = UDim2.fromOffset(236, 60)
 	window.BackgroundColor3 = uipallet.Main
 	window.Visible = false
 	window.Parent = scaledgui
@@ -6753,22 +6742,31 @@ function mainapi:CreateLegit()
 	icon.Image = getcustomasset('mxtionv4/assets/new/legittab.png')
 	icon.ImageColor3 = uipallet.Text
 	icon.Parent = window
+	local title = Instance.new('TextLabel')
+	title.Name = 'Title'
+	title.Size = UDim2.new(1, -72, 0, 41)
+	title.Position = UDim2.fromOffset(42, 0)
+	title.BackgroundTransparency = 1
+	title.Text = 'Legit'
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextColor3 = uipallet.Text
+	title.TextSize = 13
+	title.FontFace = uipallet.Font
+	title.Parent = window
 	local close = addCloseButton(window)
 	local children = Instance.new('ScrollingFrame')
 	children.Name = 'Children'
-	children.Size = UDim2.fromOffset(684, 340)
-	children.Position = UDim2.fromOffset(14, 41)
+	children.Size = UDim2.new(1, 0, 1, -41)
+	children.Position = UDim2.fromOffset(0, 41)
 	children.BackgroundTransparency = 1
 	children.BorderSizePixel = 0
 	children.ScrollBarThickness = 2
 	children.ScrollBarImageTransparency = 0.75
 	children.CanvasSize = UDim2.new()
 	children.Parent = window
-	local windowlist = Instance.new('UIGridLayout')
+	local windowlist = Instance.new('UIListLayout')
 	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.FillDirectionMaxCells = 4
-	windowlist.CellSize = UDim2.fromOffset(163, 114)
-	windowlist.CellPadding = UDim2.fromOffset(6, 5)
+	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	windowlist.Parent = children
 	legitapi.Window = window
 	table.insert(mainapi.Windows, window)
@@ -6784,6 +6782,7 @@ function mainapi:CreateLegit()
 
 		local module = Instance.new('TextButton')
 		module.Name = modulesettings.Name
+		module.Size = UDim2.fromOffset(220, 40)
 		module.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 		module.Text = ''
 		module.AutoButtonColor = false
@@ -6792,8 +6791,8 @@ function mainapi:CreateLegit()
 		addCorner(module)
 		local title = Instance.new('TextLabel')
 		title.Name = 'Title'
-		title.Size = UDim2.new(1, -16, 0, 20)
-		title.Position = UDim2.fromOffset(16, 81)
+		title.Size = UDim2.new(1, -72, 0, 40)
+		title.Position = UDim2.fromOffset(16, 0)
 		title.BackgroundTransparency = 1
 		title.Text = modulesettings.Name
 		title.TextXAlignment = Enum.TextXAlignment.Left
@@ -9364,7 +9363,7 @@ function mainapi:UpdateGUI(hue, sat, val, default)
 
 	for i, v in mainapi.Categories do
 		if i == 'Main' then
-			v.Object.VapeLogo.V4Logo.ImageColor3 = Color3.fromHSV(hue, sat, val)
+			v.Object.V4Logo.ImageColor3 = Color3.fromHSV(hue, sat, val)
 			for _, button in v.Buttons do
 				if button.Enabled then
 					button.Object.TextColor3 = rainbow and Color3.fromHSV(mainapi:Color((hue - (button.Index * 0.025)) % 1)) or Color3.fromHSV(hue, sat, val)
