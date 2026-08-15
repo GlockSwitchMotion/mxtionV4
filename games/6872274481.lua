@@ -2348,6 +2348,8 @@ end)
 run(function()
 	local HitregAdjuster
 	local Hitreg
+	local AttackSpeed
+	local SwingTime
 	local swordSpeed, swordSwingTime, swingSpeed, swingRestore
 	
 	HitregAdjuster = vape.Categories.Combat:CreateModule({
@@ -2359,9 +2361,9 @@ run(function()
 					swordSwingTime = event.swingTime
 
 					local hitInterval = 10 / math.max(Hitreg.Value - 1, 1)
-					event.attackSpeed = hitInterval
+					event.attackSpeed = AttackSpeed.Value > 0 and AttackSpeed.Value or hitInterval
 					if typeof(event.swingTime) == 'number' then
-						event.swingTime = hitInterval
+						event.swingTime = SwingTime.Value > 0 and SwingTime.Value or hitInterval
 					end
 				end)
 				swingRestore = bedwars.SyncEvents.SwordSwing:setPriority(300):connect(function(event)
@@ -2387,6 +2389,28 @@ run(function()
 			return val == 1 and 'hit / 10s' or 'hits / 10s'
 		end,
 		Tooltip = 'Spacing your manual and autoclicker hits fire at, 35 is the killaura spacing'
+	})
+	AttackSpeed = HitregAdjuster:CreateSlider({
+		Name = 'Attack speed',
+		Min = 0,
+		Max = 1,
+		Default = 0,
+		Decimal = 100,
+		Suffix = function(val)
+			return val == 0 and 'Hitreg value' or string.format('%.2fs', val)
+		end,
+		Tooltip = 'Overrides the attack cooldown. Set to 0 to use the Hitreg value.'
+	})
+	SwingTime = HitregAdjuster:CreateSlider({
+		Name = 'Swing time',
+		Min = 0,
+		Max = 1,
+		Default = 0,
+		Decimal = 100,
+		Suffix = function(val)
+			return val == 0 and 'Hitreg value' or string.format('%.2fs', val)
+		end,
+		Tooltip = 'Overrides the sword swing time. Set to 0 to use the Hitreg value.'
 	})
 end)
 
