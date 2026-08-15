@@ -20372,6 +20372,213 @@ run(function()
 end)
 
 run(function()
+	local NameTagSpoofer
+	local CustomNameBox
+	local nametagConnection = nil
+	local trackedElements = {}
+	local fakeLabels = {}
+
+	local function getCustomName()
+		if CustomNameBox and type(CustomNameBox.Value) == "string" and CustomNameBox.Value ~= "" then
+			return CustomNameBox.Value
+		end
+		return "Me"
+	end
+
+	local function trackElement(element)
+		if not element then return end
+		if not element:IsA("TextLabel") then return end
+		if element.Name ~= "PlayerName" and element.Name ~= "EntityName" then return end
+		if trackedElements[element] then
+			pcall(function() element.Text = getCustomName() end)
+			return
+		end
+		pcall(function()
+			local t = element.Text
+			if type(t) ~= "string" then return end
+			if t:find(lplr.Name, 1, true) or t:find(lplr.DisplayName, 1, true) then
+				trackedElements[element] = t
+				element.Text = getCustomName()
+			end
+		end)
+	end
+
+	local function handlePlayerUsername(element)
+		if not element or not element:IsA("TextBox") then return end
+		if element.Name ~= "PlayerUsername" then return end
+		if fakeLabels[element] then
+			fakeLabels[element].Text = "@" .. getCustomName()
+			return
+		end
+		pcall(function()
+			local t = element.Text
+			if type(t) ~= "string" then return end
+			if t:find(lplr.Name, 1, true) or t:find(lplr.DisplayName, 1, true) then
+				element.Visible = false
+				element.TextTransparency = 1
+				element.TextStrokeTransparency = 1
+				local fake = Instance.new("TextLabel")
+				fake.Name = "FakeUsername"
+				fake.Size = element.Size
+				fake.Position = element.Position
+				fake.BackgroundTransparency = 1
+				fake.TextColor3 = element.TextColor3
+				fake.TextScaled = element.TextScaled
+				fake.Font = element.Font
+				fake.TextXAlignment = element.TextXAlignment
+				fake.TextYAlignment = element.TextYAlignment
+				fake.Text = "@" .. getCustomName()
+				fake.ZIndex = element.ZIndex + 1
+				fake.Parent = element.Parent
+				fakeLabels[element] = fake
+			end
+		end)
+	end
+
+	local function hideAtLabel(element)
+		if not element then return end
+		if not element:IsA("TextLabel") then return end
+		if element.Name ~= "@" then return end
+		pcall(function()
+			local parent = element.Parent
+			if parent and parent.Name == "PlayerUsername" then
+				element.Visible = false
+			end
+		end)
+	end
+
+	local function processGui(gui)
+		if not gui then return end
+		pcall(function()
+			for _, desc in pairs(gui:GetDescendants()) do
+				trackElement(desc)
+				handlePlayerUsername(desc)
+				hideAtLabel(desc)
+			end
+		end)
+	end
+
+	NameTagSpoofer = vape.Categories.Render:CreateModule({
+		Name = 'NameTagHider',
+		Tooltip = 'hide your nametag & customize',
+		Function = function(callback)
+			if callback then
+				NameTagSpoofer:Clean(lplr.PlayerGui.ChildAdded:Connect(function(gui)
+					if gui.Name == "TabListScreenGui" then
+						task.wait(0.3)
+						processGui(gui)
+						NameTagSpoofer:Clean(gui.DescendantAdded:Connect(function(desc)
+							task.wait()
+							trackElement(desc)
+							handlePlayerUsername(desc)
+							hideAtLabel(desc)
+						end))
+					end
+					if gui.Name == "KillFeedGui" then
+						processGui(gui)
+						NameTagSpoofer:Clean(gui.DescendantAdded:Connect(function(desc)
+							task.wait()
+							trackElement(desc)
+						end))
+					end
+				end))
+
+				local killFeed = lplr.PlayerGui:FindFirstChild("KillFeedGui")
+				if killFeed then
+					processGui(killFeed)
+					NameTagSpoofer:Clean(killFeed.DescendantAdded:Connect(function(desc)
+						task.wait()
+						trackElement(desc)
+					end))
+				end
+
+				nametagConnection = runService.RenderStepped:Connect(function()
+					if not NameTagSpoofer.Enabled then return end
+					pcall(function()
+						local customName = getCustomName()
+
+						for element, original in pairs(trackedElements) do
+							if not element or not element.Parent then
+								trackedElements[element] = nil
+							else
+								pcall(function() element.Text = customName end)
+							end
+						end
+
+						for element, fake in pairs(fakeLabels) do
+							if not element or not element.Parent then
+								if fake then fake:Destroy() end
+								fakeLabels[element] = nil
+							else
+								pcall(function() fake.Text = "@" .. customName end)
+							end
+						end
+
+						local tl = lplr.PlayerGui:FindFirstChild("TabListScreenGui")
+						if tl then processGui(tl) end
+
+						local kf = lplr.PlayerGui:FindFirstChild("KillFeedGui")
+						if kf then processGui(kf) end
+
+						if lplr.Character then
+							local head = lplr.Character:FindFirstChild("Head")
+							if not head then return end
+							local nametag = head:FindFirstChild("Nametag")
+							if not nametag then return end
+							local dc = nametag:FindFirstChild("DisplayNameContainer")
+							if not dc then return end
+							local dn = dc:FindFirstChild("DisplayName")
+							if not dn or not dn:IsA("TextLabel") then return end
+							pcall(function() dn.Text = customName end)
+						end
+					end)
+				end)
+
+			else
+				if nametagConnection then
+					nametagConnection:Disconnect()
+					nametagConnection = nil
+				end
+				for element, original in pairs(trackedElements) do
+					if element and element.Parent then
+						pcall(function() element.Text = original end)
+					end
+				end
+				table.clear(trackedElements)
+				for element, fake in pairs(fakeLabels) do
+					if fake then pcall(function() fake:Destroy() end) end
+					if element and element.Parent then
+						pcall(function()
+							element.Visible = true
+							element.TextTransparency = 0
+							element.TextStrokeTransparency = 0
+						end)
+					end
+				end
+				table.clear(fakeLabels)
+				local tl = lplr.PlayerGui:FindFirstChild("TabListScreenGui")
+				if tl then
+					for _, desc in pairs(tl:GetDescendants()) do
+						if desc:IsA("TextLabel") and desc.Name == "@" then
+							pcall(function() desc.Visible = true end)
+						end
+					end
+				end
+			end
+		end,
+		Tooltip = 'customize ur name in varius places'
+	})
+
+	CustomNameBox = NameTagSpoofer:CreateTextBox({
+		Name = 'Custom Name',
+		Default = 'MxtionV4',
+		Placeholder = 'Enter name...',
+		Function = function(value)
+		end
+	})
+end)
+
+run(function()
 	local KnitInit, Knit
 	repeat
 		KnitInit, Knit = pcall(function()
