@@ -2396,7 +2396,7 @@ run(function()
 	end
 	
 	BowAssist = vape.Categories.Combat:CreateModule({
-		Name = 'BowAssist',
+		Name = 'ProjectileAssist',
 		Function = function(callback)
 			if callback then
 				oldStart = bedwars.DefaultProjectileSourceController.onStartCharging
