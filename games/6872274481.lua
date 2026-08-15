@@ -20583,6 +20583,7 @@ run(function()
     local TargetUser
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
+    local charAddedConn = nil
 
     local function clearVisuals(character)
         for _, v in ipairs(character:GetChildren()) do
@@ -20597,7 +20598,6 @@ run(function()
         local handle = clone:FindFirstChild("Handle")
         if not handle then return end
 
-        -- Remove old welds linked to the temporary model
         for _, item in ipairs(clone:GetDescendants()) do
             if item:IsA("JointInstance") or item:IsA("WeldConstraint") then
                 item:Destroy()
@@ -20607,7 +20607,6 @@ run(function()
         handle.CanCollide = false
         clone.Parent = character
 
-        -- Find matching attachment on local character
         local handleAtt = handle:FindFirstChildOfClass("Attachment")
         local targetPart, targetAtt
 
@@ -20624,7 +20623,6 @@ run(function()
             end
         end
 
-        -- Fallback to Head if attachment isn't found
         if not targetPart then
             targetPart = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
         end
@@ -20715,14 +20713,32 @@ run(function()
         end)
     end
 
+    -- Listener function for when character respawns
+    local function onCharacterAdded(newChar)
+        if AvatarMock and AvatarMock.Enabled and TargetUser and TargetUser.Value ~= "" then
+            newChar:WaitForChild("Humanoid", 5)
+            task.wait(0.5) -- Brief yield to allow Roblox default loading to settle
+            replaceFullAvatar(TargetUser.Value)
+        end
+    end
+
     AvatarMock = vape.Categories.Utility:CreateModule({
         Name = 'AvatarChanger',
         Function = function(callback)
             if callback then
+                -- Connect respawn handler
+                if not charAddedConn then
+                    charAddedConn = localPlayer.CharacterAdded:Connect(onCharacterAdded)
+                end
                 if TargetUser and TargetUser.Value ~= "" then
                     replaceFullAvatar(TargetUser.Value)
                 end
             else
+                -- Disconnect handler and revert avatar
+                if charAddedConn then
+                    charAddedConn:Disconnect()
+                    charAddedConn = nil
+                end
                 replaceFullAvatar(localPlayer.Name)
             end
         end,
