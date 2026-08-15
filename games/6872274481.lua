@@ -12705,6 +12705,75 @@ run(function()
 end)
 
 run(function()
+    local ChatMover
+    local ChatPosition
+    local guiService = game:GetService("GuiService")
+    local textChatService = game:GetService("TextChatService")
+
+    -- Positions map based on ChatWindowConfiguration or legacy Chat Gui
+    local function updateChatPosition(posName)
+        -- Support for modern TextChatService (New Chat System)
+        if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+            local chatWindow = textChatService:FindFirstChildOfClass("ChatWindowConfiguration")
+            if chatWindow then
+                if posName == "Top Left" then
+                    chatWindow.HorizontalAlignment = Enum.HorizontalAlignment.Left
+                    chatWindow.VerticalAlignment = Enum.VerticalAlignment.Top
+                elseif posName == "Top Right" then
+                    chatWindow.HorizontalAlignment = Enum.HorizontalAlignment.Right
+                    chatWindow.VerticalAlignment = Enum.VerticalAlignment.Top
+                elseif posName == "Bottom Left" then
+                    chatWindow.HorizontalAlignment = Enum.HorizontalAlignment.Left
+                    chatWindow.VerticalAlignment = Enum.VerticalAlignment.Bottom
+                elseif posName == "Bottom Right" then
+                    chatWindow.HorizontalAlignment = Enum.HorizontalAlignment.Right
+                    chatWindow.VerticalAlignment = Enum.VerticalAlignment.Bottom
+                end
+            end
+        else
+            -- Support for Legacy Chat System
+            local playerGui = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+            local chatGui = playerGui and playerGui:FindFirstChild("Chat")
+            if chatGui and chatGui:FindFirstChild("Frame") then
+                local frame = chatGui.Frame
+                if posName == "Top Left" then
+                    frame.Position = UDim2.new(0, 0, 0, 0)
+                elseif posName == "Top Right" then
+                    frame.Position = UDim2.new(1, -frame.AbsoluteSize.X, 0, 0)
+                elseif posName == "Bottom Left" then
+                    frame.Position = UDim2.new(0, 0, 1, -frame.AbsoluteSize.Y)
+                elseif posName == "Bottom Right" then
+                    frame.Position = UDim2.new(1, -frame.AbsoluteSize.X, 1, -frame.AbsoluteSize.Y)
+                end
+            end
+        end
+    end
+
+    ChatMover = vape.Categories.Utility:CreateModule({
+        Name = 'ChatMover',
+        Function = function(callback)
+            if callback then
+                updateChatPosition(ChatPosition.Value)
+            else
+                -- Revert back to default Top Left position on disable
+                updateChatPosition("Top Left")
+            end
+        end,
+    })
+
+    ChatPosition = ChatMover:CreateDropdown({
+        Name = 'Position',
+        List = {'Top Left', 'Top Right', 'Bottom Left', 'Bottom Right'},
+        Default = 'Bottom Left',
+        Function = function(val)
+            if ChatMover.Enabled then
+                updateChatPosition(val)
+            end
+        end
+    })
+end)
+
+run(function()
 	local AutoCaitlyn
 	local Mode
 	local Range
