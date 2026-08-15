@@ -118,6 +118,6 @@ run(function()
 				until not AutoGamble.Enabled
 			end
 		end,
-		Tooltip = 'Automatically opens lucky crates, piston inspired!'
+		Tooltip = 'Automatically opens lucky crates'
 	})
 end)
