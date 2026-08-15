@@ -8407,8 +8407,23 @@ run(function()
                             elseif mode == 'PushAway' then
                                 if entitylib.isAlive and entitylib.character.RootPart then
                                     local dir = (root.Position - entitylib.character.RootPart.Position).Unit
-                                    root.AssemblyLinearVelocity = dir * SpeedValue.Value
+                                    localVelocity = dir * SpeedValue.Value
                                 end
+
+                            elseif mode == 'Desync' then
+                                -- Visual client-sided positional and rotational desync
+                                local desyncTime = tick() * (SpeedValue.Value / 5)
+                                local desyncOffset = Vector3.new(
+                                    math.sin(desyncTime) * (RadiusValue.Value / 2),
+                                    math.cos(desyncTime * 2) * 2,
+                                    math.cos(desyncTime) * (RadiusValue.Value / 2)
+                                )
+                                local desyncAngle = CFrame.Angles(
+                                    math.rad(math.sin(desyncTime * 3) * 45),
+                                    math.rad(tick() * 360 % 360),
+                                    math.rad(math.cos(desyncTime * 3) * 45)
+                                )
+                                root.CFrame = (root.CFrame + desyncOffset) * desyncAngle
                             end
                         end
                     end
@@ -8425,9 +8440,9 @@ run(function()
     
     HackMode = FalseBan:CreateDropdown({
         Name = 'Hack Mode',
-        List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway'},
+        List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway', 'Desync'},
         Default = 'Fly',
-        Tooltip = 'Fly: Upward | Spin: Rotate | Orbit: Circle around you | Shake: Jitter | PushAway: Repel'
+        Tooltip = 'Fly: Upward | Spin: Rotate | Orbit: Circle around you | Shake: Jitter | PushAway: Repel | Desync: Visual server-offset'
     })
     
     SpeedValue = FalseBan:CreateSlider({
@@ -8446,4 +8461,4 @@ run(function()
             return val == 1 and 'stud' or 'studs'
         end
     })
-end)																																						
+end)
