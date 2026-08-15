@@ -20716,7 +20716,7 @@ run(function()
     end
 
     AvatarMock = vape.Categories.Utility:CreateModule({
-        Name = 'AvatarMock',
+        Name = 'AvatarChanger',
         Function = function(callback)
             if callback then
                 if TargetUser and TargetUser.Value ~= "" then
