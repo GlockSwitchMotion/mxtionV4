@@ -2348,7 +2348,7 @@ end)
 run(function()
 	local HitregAdjuster
 	local Hitreg
-	local swordSpeed, swingSpeed, swingRestore
+	local swordSpeed, swordSwingTime, swingSpeed, swingRestore
 	
 	HitregAdjuster = vape.Categories.Combat:CreateModule({
 		Name = 'HitregAdjuster',
@@ -2356,10 +2356,19 @@ run(function()
 			if callback then
 				swingSpeed = bedwars.SyncEvents.SwordSwing:setPriority(150):connect(function(event)
 					swordSpeed = event.attackSpeed
-					event.attackSpeed = 10 / math.max(Hitreg.Value - 1, 1)
+					swordSwingTime = event.swingTime
+
+					local hitInterval = 10 / math.max(Hitreg.Value - 1, 1)
+					event.attackSpeed = hitInterval
+					if typeof(event.swingTime) == 'number' then
+						event.swingTime = hitInterval
+					end
 				end)
 				swingRestore = bedwars.SyncEvents.SwordSwing:setPriority(300):connect(function(event)
 					event.attackSpeed = swordSpeed
+					if typeof(swordSwingTime) == 'number' then
+						event.swingTime = swordSwingTime
+					end
 				end)
 				HitregAdjuster:Clean(function()
 					swingSpeed:Destroy()
@@ -2379,7 +2388,6 @@ run(function()
 		end,
 		Tooltip = 'Spacing your manual and autoclicker hits fire at, 35 is the killaura spacing'
 	})
-
 end)
 
 run(function()
