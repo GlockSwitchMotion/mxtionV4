@@ -1,5 +1,7 @@
 local license = ... or {}
-repeat task.wait() until game:IsLoaded()
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
@@ -18,16 +20,33 @@ local isfile = isfile or function(file)
 	end)
 	return suc and res ~= nil and res ~= ''
 end
+local isfolder = isfolder or function(folder)
+	local suc, res = pcall(listfiles, folder)
+	return suc and res ~= nil
+end
 local cloneref = cloneref or function(obj)
 	return obj
 end
 local playersService = cloneref(game:GetService('Players'))
 local httpService = cloneref(game:GetService("HttpService"))
 
+local commitCache = nil
+local function getCommit()
+	if commitCache then return commitCache end
+	if isfile('mxtionv4/profiles/commit.txt') then
+		local cached = readfile('mxtionv4/profiles/commit.txt')
+		if cached and #cached > 0 then
+			commitCache = cached
+			return cached
+		end
+	end
+	return 'main'
+end
+
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..getCommit()..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -93,7 +112,7 @@ end
 if not isfile('mxtionv4/profiles/gui.txt') then
 	writefile('mxtionv4/profiles/gui.txt', 'new')
 end
-local gui = 'new'--readfile('mxtionv4/profiles/gui.txt')
+local gui = 'new'
 
 if not isfolder('mxtionv4/assets/'..gui) then
 	makefolder('mxtionv4/assets/'..gui)
@@ -118,15 +137,17 @@ end
 
 if not shared.VapeIndependent then
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
-		loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+	local placeScript = 'mxtionv4/games/'..game.PlaceId..'.lua'
+	if isfile(placeScript) then
+		loadstring(readfile(placeScript), tostring(game.PlaceId))(license)
 	else
 		if not shared.VapeDeveloper then
 			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..getCommit()..'/games/'..game.PlaceId..'.lua', true)
 			end)
 			if suc and res ~= '404: Not Found' then
-				loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+				writefile(placeScript, '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res)
+				loadstring(res, tostring(game.PlaceId))(license)
 			end
 		end
 	end
