@@ -9,10 +9,6 @@ local isfile = isfile or function(file)
 	end)
 	return suc and res ~= nil and res ~= ''
 end
-local isfolder = isfolder or function(folder)
-	local suc, res = pcall(listfiles, folder)
-	return suc and res ~= nil
-end
 local delfile = delfile or function(file)
 	writefile(file, '')
 end
@@ -33,26 +29,13 @@ local function setDownloadProgress()
 	downloader.Text = 'Downloading files '..downloadCount..'/100'
 end
 
-local commitCache = nil
-local function getCommit()
-	if commitCache then return commitCache end
-	if isfile('mxtionv4/profiles/commit.txt') then
-		local cached = readfile('mxtionv4/profiles/commit.txt')
-		if cached and #cached > 0 then
-			commitCache = cached
-			return cached
-		end
-	end
-	return 'main'
-end
-
 local function downloadFile(path, func)
 	if not isfile(path) then
 		if not license.Closet then
 			setDownloadProgress()
 		end
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..getCommit()..'/'..select(1, path:gsub('mxtionv4/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -69,7 +52,8 @@ end
 local function wipeFolder(path)
 	if not isfolder(path) then return end
 	for _, file in listfiles(path) do
-		if file:find('init') or file:find('profile') then continue end
+		if file:find('init') then continue end
+		if file:find('profile') then continue end
 		if isfile(file) then
 			delfile(file)
 		elseif isfolder(file) then
@@ -78,39 +62,36 @@ local function wipeFolder(path)
 	end
 end
 
-if not isfolder('mxtionv4') then
-	makefolder('mxtionv4')
-end
-for _, folder in {'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/assets', 'mxtionv4/libraries', 'mxtionv4/guis'} do
+
+for _, folder in {'mxtionv4', 'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/assets', 'mxtionv4/libraries', 'mxtionv4/guis'} do
 	if not isfolder(folder) then
+		setDownloadProgress()
 		makefolder(folder)
 	end
 end
 
 if not shared.VapeDeveloper then
+	-- Reuse the installed revision when available so normal launches do not wait
+	-- for a second network request before loading the cached files.
 	local commit = license.Commit or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or nil)
 	if not commit then
 		local _, subbed = pcall(function() 
 			return game:HttpGet('https://github.com/GlockSwitchMotion/mxtionV4') 
 		end)
-		commit = subbed and subbed:find('currentOid')
+		commit = subbed:find('currentOid')
 		commit = commit and subbed:sub(commit + 13, commit + 52) or nil
 		commit = commit and #commit == 40 and commit or 'main'
 	end
-	commitCache = commit
-
-	local currentSaved = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or ''
-	if commit ~= 'main' and currentSaved ~= '' and currentSaved ~= commit then
-		shared.updated = currentSaved
+	if commit == 'main' or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or '') ~= commit then
+		if commit ~= 'main' and isfile('mxtionv4/profiles/commit.txt') then
+			shared.updated = readfile('mxtionv4/profiles/commit.txt')
+		end
 		wipeFolder('mxtionv4')
 		wipeFolder('mxtionv4/games')
 		wipeFolder('mxtionv4/guis')
 		wipeFolder('mxtionv4/libraries')
 	end
-	if currentSaved ~= commit then
-		writefile('mxtionv4/profiles/commit.txt', commit)
-	end
-
+	writefile('mxtionv4/profiles/commit.txt', commit)
 	if shared.updated or #listfiles('mxtionv4/profiles') < 4 then
 		shared.VapePresetInstall = function()
 			local suc, req = pcall(request, {
