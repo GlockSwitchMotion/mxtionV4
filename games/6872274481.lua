@@ -20579,6 +20579,61 @@ run(function()
 end)
 
 run(function()
+    local AvatarMock
+    local TargetUser
+    local Players = game:GetService("Players")
+    local localPlayer = Players.LocalPlayer
+
+    local function applyAvatar(username)
+        if not username or username == "" then return end
+        
+        task.spawn(function()
+            -- Resolve Username to UserId
+            local idSuccess, userId = pcall(function()
+                return Players:GetUserIdFromNameAsync(username)
+            end)
+
+            if not idSuccess or not userId then return end
+
+            -- Fetch Target Avatar Description
+            local descSuccess, humanoidDesc = pcall(function()
+                return Players:GetHumanoidDescriptionFromUserIdAsync(userId)
+            end)
+
+            -- Apply to Local Character
+            if descSuccess and humanoidDesc then
+                local character = localPlayer.Character
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid:ApplyDescriptionClientServer(humanoidDesc)
+                end
+            end
+        end)
+    end
+
+    AvatarMock = vape.Categories.Utility:CreateModule({
+        Name = 'AvatarChanger',
+        Function = function(callback)
+            if callback then
+                if TargetUser and TargetUser.Value ~= "" then
+                    applyAvatar(TargetUser.Value)
+                end
+            end
+        end,
+    })
+
+    TargetUser = AvatarMock:CreateTextBox({
+        Name = 'Username',
+        Default = '',
+        Function = function(val)
+            if AvatarMock.Enabled and val ~= "" then
+                applyAvatar(val)
+            end
+        end
+    })
+end)
+
+run(function()
 	local KnitInit, Knit
 	repeat
 		KnitInit, Knit = pcall(function()
