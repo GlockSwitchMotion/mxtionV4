@@ -6271,7 +6271,7 @@ run(function()
 	
 				local index = 1
 				repeat
-					local message = 'vxpe on top'
+					local message = 'mxtion on top'
 					if #Lines.ListEnabled > 0 then
 						if Mode.Value == 'Order' then
 							message = Lines.ListEnabled[index] or Lines.ListEnabled[1]
@@ -8415,7 +8415,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'client side shit that kind made to false ban people'
+        Tooltip = 'client sided'
     })
     
     TargetList = FalseBan:CreateTextList({
