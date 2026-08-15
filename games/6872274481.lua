@@ -20112,7 +20112,7 @@ run(function()
 
 	shared.ACMODVIEWENABLED = false
 	AC_MOD_View.moduleInstance = vape.Categories.World:CreateModule({
-		Name = "ACMODView",
+		Name = "AC MOD",
 		Function = function(call)
 			shared.ACMODVIEWENABLED = call
 			if call then
