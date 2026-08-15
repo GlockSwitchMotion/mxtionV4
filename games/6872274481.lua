@@ -14150,7 +14150,7 @@ run(function()
 		return 1
 	end
 
-	KaidaKillaura = vape.Categories.Kits:CreateModule({
+	KaidaKillaura = vape.Categories.Minigames:CreateModule({
 		Name = 'AutoKaida',
 		Function = function(callback)
 			if callback then
