@@ -20689,3 +20689,176 @@ run(function()
 		Default = true
 	})
 end)
+
+run(function()
+    local MouseTP
+    local Mode
+    local Movement
+
+    local projectileRemote = {InvokeServer = function() end}
+    task.spawn(function()
+        projectileRemote = bedwars.Client:Get(remotes.FireProjectile).instance
+    end)
+
+
+    local function getNearestPlayer(selfpos)
+        if not selfpos or not entitylib.isAlive then return nil end
+        local nearestPlayer, nearestDistance = nil, math.huge
+
+        for _, plr in ipairs(playersService:GetPlayers()) do
+            if plr ~= lplr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (plr.Character.HumanoidRootPart.Position - selfpos).Magnitude
+                if dist < nearestDistance then
+                    nearestDistance = dist
+                    nearestPlayer = plr
+                end
+            end
+        end
+        return nearestPlayer
+    end
+
+    local function aimCannon(cannon, targetPos)
+        if not cannon or not targetPos then return end
+        
+        local cannonPos = cannon.Position
+        local dist = (targetPos - cannonPos).Magnitude
+        
+        local heightOffset = (dist * 0.095) + (dist * dist * 0.0011)
+        local aimPoint = targetPos + Vector3.new(0, heightOffset, 0)
+        
+        local Delta = CFrame.lookAt(cannonPos, aimPoint)
+        local playerDist = (targetPos - lplr.Character.HumanoidRootPart.Position).Magnitude
+        
+        local lookVector = Delta.LookVector * (1 + playerDist * 0.007) / math.pi
+        
+        bedwars.Client:Get('AimCannon'):SendToServer({
+            cannonBlockPos = bedwars.BlockController:getBlockPosition(cannonPos),
+            lookVector = lookVector
+        })
+    end
+
+    local function getCannonNear(pos)
+        local worldFolder = getWorldFolder()
+        if not worldFolder then return end
+        local blocks = worldFolder:WaitForChild("Blocks", 1)
+        if not blocks then return end
+
+        for _, v in blocks:GetChildren() do
+            if v.Name == "cannon" and v:IsA("BasePart") then
+                if (v.Position - pos).Magnitude <= 12 then
+                    return v
+                end
+            end
+        end
+        return nil
+    end
+
+
+    local function doTeleport()
+        local targetPos = nil
+
+        if Mode.Value == 'Players' then
+            local plr = getNearestPlayer(lplr.Character.HumanoidRootPart.Position)
+            if not plr then
+                vape:CreateNotification("MouseTP", "No nearest players near Me.", 6)
+                return
+            end
+            targetPos = plr.Character.HumanoidRootPart.Position
+
+        elseif Mode.Value == 'Mouse' then
+            local rayCheck = RaycastParams.new()
+            rayCheck.RespectCanCollide = true
+            rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+
+            local mouse = cloneref(lplr:GetMouse())
+            local result = workspace:Raycast(mouse.UnitRay.Origin, mouse.UnitRay.Direction * 10000, rayCheck)
+
+            if result then
+                targetPos = result.Position + Vector3.new(0, entitylib.character.HipHeight or 2, 0)
+            else
+                vape:CreateNotification('MouseTP', 'No position found.', 6)
+                return
+            end
+
+        elseif Mode.Value == 'Camera' then
+            targetPos = gameCamera.CFrame.Position + gameCamera.CFrame.LookVector * 200
+        else
+            vape:CreateNotification('MouseTP', 'Mode is currently nil. Report to aero or soryed', 6, 'warning')
+            return
+        end
+
+        if Movement.Value == 'Me' then
+            local root = entitylib.character.RootPart
+            if root then
+                local lookVec = root.CFrame.LookVector
+                root.CFrame = CFrame.lookAt(targetPos, targetPos + lookVec)
+            end
+
+        elseif Movement.Value == 'Kits' and store.equippedKit == 'davey' then
+            local cannon = getCannonNear(lplr.Character.HumanoidRootPart.Position)
+            if cannon then
+                aimCannon(cannon, targetPos)
+            end
+
+        elseif Movement.Value == 'Items' then
+            local pearl = getItem('telepearl')
+            local fireball = getItem('fireball')
+            local tool = store.hand.tool
+
+            if pearl and tool and tool.Name == 'telepearl' then
+                local meta = bedwars.ProjectileMeta.telepearl
+                local dir = CFrame.lookAt(lplr.Character.HumanoidRootPart.Position, targetPos).LookVector * meta.launchVelocity
+
+                projectileRemote:InvokeServer(
+                    tool, 'telepearl', 'telepearl',
+                    lplr.Character.HumanoidRootPart.Position,
+                    lplr.Character.HumanoidRootPart.Position,
+                    dir,
+                    httpService:GenerateGUID(true),
+                    {drawDurationSeconds = 1, shotId = httpService:GenerateGUID(false)},
+                    workspace:GetServerTimeNow() - 0.045
+                )
+
+            elseif fireball and tool and tool.Name == 'fireball' then
+                local meta = bedwars.ProjectileMeta.fireball 
+                local dir = CFrame.lookAt(lplr.Character.HumanoidRootPart.Position, targetPos).LookVector * meta.launchVelocity
+
+                projectileRemote:InvokeServer(
+                    tool, 'fireball', 'fireball',
+                    lplr.Character.HumanoidRootPart.Position,
+                    lplr.Character.HumanoidRootPart.Position,
+                    dir,
+                    httpService:GenerateGUID(true),
+                    {drawDurationSeconds = 1, shotId = httpService:GenerateGUID(false)},
+                    workspace:GetServerTimeNow() - 0.045
+                )
+            end
+        else
+            vape:CreateNotification('MouseTP', 'Movement is currently nil. Report to aero or soryed', 6, 'warning')
+            return
+        end
+    end
+
+    MouseTP = vape.Categories.Blatant:CreateModule({
+        Name = "MouseTP",
+        Tooltip = 'allows you to teleport with various methods',
+        Function = function(callback)
+            if callback then
+                doTeleport()
+            end
+        end
+    })
+
+    Mode = MouseTP:CreateDropdown({
+        Name = 'Mode',
+        List = {'Players', 'Mouse', 'Camera'},
+        Default = 'Players'
+    })
+
+    Movement = MouseTP:CreateDropdown({
+        Name = "Movement",
+        List = {'Me', 'Kits', 'Items'},
+        Default = 'Me',
+        Tooltip = 'Me-uses you to teleport\nKits-uses kits abilities to tp\nitems-uses items to telport'
+    })
+end)
