@@ -20584,40 +20584,74 @@ run(function()
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
 
-    local function applyAvatar(username)
+    local function clearVisuals(character)
+        for _, v in ipairs(character:GetChildren()) do
+            if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("BodyColors") or v:IsA("CharacterMesh") then
+                v:Destroy()
+            end
+        end
+        local head = character:FindFirstChild("Head")
+        if head then
+            local face = head:FindFirstChildOfClass("Decal")
+            if face then face:Destroy() end
+        end
+    end
+
+    local function applyAvatarLocally(username)
         if not username or username == "" then return end
-        
+
         task.spawn(function()
-            -- Resolve Username to UserId
+            -- Get UserId from Username
             local idSuccess, userId = pcall(function()
                 return Players:GetUserIdFromNameAsync(username)
             end)
 
             if not idSuccess or not userId then return end
 
-            -- Fetch Target Avatar Description
-            local descSuccess, humanoidDesc = pcall(function()
-                return Players:GetHumanoidDescriptionFromUserIdAsync(userId)
+            -- Get full appearance model via native client API
+            local appSuccess, appModel = pcall(function()
+                return Players:GetCharacterAppearanceAsync(userId)
             end)
 
-            -- Apply to Local Character
-            if descSuccess and humanoidDesc then
-                local character = localPlayer.Character
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    humanoid:ApplyDescriptionClientServer(humanoidDesc)
+            if not appSuccess or not appModel then return end
+
+            local character = localPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if not character or not humanoid then return end
+
+            -- Strip current local items
+            clearVisuals(character)
+
+            -- Attach cloned elements from target appearance
+            for _, item in ipairs(appModel:GetChildren()) do
+                if item:IsA("Accessory") then
+                    humanoid:AddAccessory(item:Clone())
+                elseif item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") or item:IsA("BodyColors") or item:IsA("CharacterMesh") then
+                    item:Clone().Parent = character
+                elseif item:IsA("Decal") then
+                    local head = character:FindFirstChild("Head")
+                    if head then
+                        local face = item:Clone()
+                        face.Name = "face"
+                        face.Parent = head
+                    end
                 end
             end
+
+            appModel:Destroy()
         end)
     end
 
     AvatarMock = vape.Categories.Utility:CreateModule({
-        Name = 'AvatarChanger',
+        Name = 'AvatarMock',
         Function = function(callback)
             if callback then
                 if TargetUser and TargetUser.Value ~= "" then
-                    applyAvatar(TargetUser.Value)
+                    applyAvatarLocally(TargetUser.Value)
                 end
+            else
+                -- Restore your own avatar on disable
+                applyAvatarLocally(localPlayer.Name)
             end
         end,
     })
@@ -20627,7 +20661,7 @@ run(function()
         Default = '',
         Function = function(val)
             if AvatarMock.Enabled and val ~= "" then
-                applyAvatar(val)
+                applyAvatarLocally(val)
             end
         end
     })
