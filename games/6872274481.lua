@@ -2379,6 +2379,7 @@ run(function()
 		end,
 		Tooltip = 'Spacing your manual and autoclicker hits fire at, 35 is the killaura spacing'
 	})
+
 end)
 
 run(function()
