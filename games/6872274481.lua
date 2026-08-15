@@ -2530,7 +2530,7 @@ run(function()
 	local swordSpeed, swingSpeed, swingRestore, oldSwingFunction
 	
 	HitregAdjuster = vape.Categories.Combat:CreateModule({
-		Name = 'HitregAdjuster',
+		Name = 'Hitreg',
 		Function = function(callback)
 			if callback then
 				swingSpeed = bedwars.SyncEvents.SwordSwing:setPriority(150):connect(function(event)
@@ -3322,7 +3322,7 @@ run(function()
 	local old
 
 	AutoChargeProj = vape.Categories.Blatant:CreateModule({
-		Name = 'AutoChargeProj',
+		Name = 'ChargeProjectile',
 		Function = function(callback)
 			if callback then
 				old = bedwars.ProjectileController.calculateImportantLaunchValues
@@ -5046,7 +5046,7 @@ run(function()
 	end
 	
 	Headless = vape.Categories.Render:CreateModule({
-		Name = 'Headless',
+		Name = 'RemoveHead',
 		Function = function(callback)
 			if callback then
 				Headless:Clean(runService.PreRender:Connect(function()
@@ -5768,7 +5768,7 @@ run(function()
 	end
 	
 	KitDisplay = vape.Categories.Render:CreateModule({
-		Name = 'KitDisplay',
+		Name = 'KitRender',
 		Function = function(callback)
 			if callback then
 				local bodyContainer
@@ -6741,7 +6741,7 @@ run(function()
 	end
 	
 	NoTextures = vape.Categories.Render:CreateModule({
-		Name = 'NoTextures',
+		Name = 'RemoveTexture',
 		Function = function(callback)
 			if callback then
 				repeat task.wait() until store.map or not NoTextures.Enabled
@@ -6828,7 +6828,7 @@ run(function()
 	end
 	
 	OverlayEditor = vape.Categories.Render:CreateModule({
-		Name = 'OverlayEditor',
+		Name = 'OverlayChanger',
 		Function = function(callback)
 			if callback then
 				overlay = Instance.new('Part')
@@ -17955,7 +17955,7 @@ run(function()
 	end
 	
 	Breaker = vape.Categories.Minigames:CreateModule({
-		Name = 'Breaker',
+		Name = 'Nuker',
 		Function = function(callback)
 			if callback then
 				for _ = 1, 30 do
@@ -18714,7 +18714,7 @@ run(function()
 	local lastClutch = 0
 	
 	VoidRegentAutoClutch = vape.Categories.Minigames:CreateModule({
-		Name = 'VoidRegentAutoClutch',
+		Name = 'VoidRegentClutch',
 		Function = function(callback)
 			if callback then
 				VoidRegentAutoClutch:Clean(runService.Heartbeat:Connect(function()
@@ -18778,7 +18778,7 @@ run(function()
 	local old
 	
 	VoidRegentExtender = vape.Categories.Minigames:CreateModule({
-		Name = 'VoidRegentExtender',
+		Name = 'RegentExtender',
 		Function = function(callback)
 			if callback then
 				old = bedwars.VoidAxeController.useVoidAxe
@@ -18892,7 +18892,7 @@ run(function()
 				bedwars.CatController.leap = old
 			end
 		end,
-		Tooltip = 'Extends how far the Cat/Yamini pounce launches you'
+		Tooltip = 'Extends how far the pounce launches you'
 	})
 	Multiplier = YaminiExtender:CreateSlider({
 		Name = 'Multiplier',
@@ -18911,7 +18911,7 @@ run(function()
 	local old
 	
 	YuziExtender = vape.Categories.Minigames:CreateModule({
-		Name = 'YuziExtender',
+		Name = 'DaoExtender',
 		Function = function(callback)
 			if callback then
 				old = bedwars.DaoController.dashForward
