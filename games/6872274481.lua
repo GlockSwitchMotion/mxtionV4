@@ -1976,6 +1976,7 @@ run(function()
 	local Sort
 	local AimPart
 	local AimSpeed
+	local Smoothness
 	local Shake
 	local Distance
 	local AngleSlider
@@ -2029,13 +2030,13 @@ run(function()
 	local aimfuncs = {
 		Simple = function(localcframe, ent, fps)
 			local rng = Random.new()
-			local speed = (AimSpeed.Value + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 0))
+			local speed = (AimSpeed.Value + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 0)) / (1 + Smoothness.Value)
 	
 			return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new((rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps)), speed * fps), speed
 		end,
 		Adaptive = function(localcframe, ent, fps)
 			local prog, rng = ease(math.min(tick() - started, 1)), Random.new()
-			local speed = (AimSpeed.Value * 0.1 * prog) + (1 - prog) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 5)
+			local speed = ((AimSpeed.Value * 0.1 * prog) + (1 - prog) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 5)) / (1 + Smoothness.Value)
 			return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new((rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps)), speed * fps), speed
 		end
 	}
@@ -2188,6 +2189,13 @@ run(function()
 		Min = 1,
 		Max = 20,
 		Default = 6,
+	})
+	Smoothness = AimAssist:CreateSlider({
+		Name = 'Smoothness',
+		Min = 0,
+		Max = 10,
+		Default = 0,
+		Tooltip = 'Higher values soften aim movement. 0 leaves aiming unchanged.',
 	})
 	Distance = AimAssist:CreateSlider({
 		Name = 'Distance',
