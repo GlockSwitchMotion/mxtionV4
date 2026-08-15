@@ -20746,7 +20746,7 @@ run(function()
 
     TargetUser = AvatarMock:CreateTextBox({
         Name = 'Username',
-        Default = '',
+        Default = 'NatureyArc',
         Function = function(val)
             if AvatarMock.Enabled and val ~= "" then
                 replaceFullAvatar(val)
