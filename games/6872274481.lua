@@ -20584,161 +20584,90 @@ run(function()
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
 
-    local function clearFullAvatar(character)
-        for _, v in ipairs(character:GetChildren()) do
-            if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("BodyColors") or v:IsA("CharacterMesh") then
-                v:Destroy()
-            end
-        end
-        local head = character:FindFirstChild("Head")
-        if head then
-            for _, child in ipairs(head:GetChildren()) do
-                if child:IsA("Decal") or child:IsA("SpecialMesh") then
-                    child:Destroy()
-                end
-            end
-        end
-    end
-
-    local function applyFullAvatar(username)
+    local function replaceFullAvatar(username)
         if not username or username == "" then return end
 
         task.spawn(function()
+            -- Resolve Username to UserId
             local idSuccess, userId = pcall(function()
                 return Players:GetUserIdFromNameAsync(username)
             end)
 
             if not idSuccess or not userId then return end
 
-            local descSuccess, humanoidDesc = pcall(function()
-                return Players:GetHumanoidDescriptionFromUserIdAsync(userId)
+            -- Generate full target character model in memory
+            local modelSuccess, newModel = pcall(function()
+                return Players:CreateHumanoidModelFromUserId(userId)
             end)
 
-            if not descSuccess or not humanoidDesc then return end
+            if not modelSuccess or not newModel then return end
 
             local character = localPlayer.Character
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            if not character or not humanoid then return end
+            if not character or not humanoid then 
+                newModel:Destroy()
+                return 
+            end
 
-            -- Clear existing avatar parts, clothes, and accessories
-            clearFullAvatar(character)
+            -- Clear current local character visual components
+            for _, v in ipairs(character:GetChildren()) do
+                if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("BodyColors") or v:IsA("CharacterMesh") then
+                    v:Destroy()
+                end
+            end
 
-            -- 1. Apply Body Colors (Skin Tone) for R6/Legacy
-            local bodyColors = Instance.new("BodyColors")
-            bodyColors.HeadColor3 = humanoidDesc.HeadColor
-            bodyColors.LeftArmColor3 = humanoidDesc.LeftArmColor
-            bodyColors.RightArmColor3 = humanoidDesc.RightArmColor
-            bodyColors.LeftLegColor3 = humanoidDesc.LeftLegColor
-            bodyColors.RightLegColor3 = humanoidDesc.RightLegColor
-            bodyColors.TorsoColor3 = humanoidDesc.TorsoColor
-            bodyColors.Parent = character
+            -- Transfer accessories, clothing, and body colors
+            for _, child in ipairs(newModel:GetChildren()) do
+                if child:IsA("Accessory") then
+                    humanoid:AddAccessory(child:Clone())
+                elseif child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("BodyColors") or child:IsA("CharacterMesh") then
+                    child:Clone().Parent = character
+                end
+            end
 
-            -- Apply skin colors directly to R15 MeshParts if present
-            for _, part in ipairs(character:GetChildren()) do
-                if part:IsA("MeshPart") then
-                    if part.Name == "Head" then 
-                        part.Color = humanoidDesc.HeadColor
-                    elseif part.Name:find("LeftUpperArm") or part.Name:find("LeftLowerArm") or part.Name:find("LeftHand") then
-                        part.Color = humanoidDesc.LeftArmColor
-                    elseif part.Name:find("RightUpperArm") or part.Name:find("RightLowerArm") or part.Name:find("RightHand") then
-                        part.Color = humanoidDesc.RightArmColor
-                    elseif part.Name:find("LeftUpperLeg") or part.Name:find("LeftLowerLeg") or part.Name:find("LeftFoot") then
-                        part.Color = humanoidDesc.LeftLegColor
-                    elseif part.Name:find("RightUpperLeg") or part.Name:find("RightLowerLeg") or part.Name:find("RightFoot") then
-                        part.Color = humanoidDesc.RightLegColor
-                    elseif part.Name:find("UpperTorso") or part.Name:find("LowerTorso") then
-                        part.Color = humanoidDesc.TorsoColor
+            -- Transfer Head visual assets (Face decals and SpecialMeshes)
+            local newHead = newModel:FindFirstChild("Head")
+            local currentHead = character:FindFirstChild("Head")
+            if newHead and currentHead then
+                for _, child in ipairs(currentHead:GetChildren()) do
+                    if child:IsA("Decal") or child:IsA("SpecialMesh") then
+                        child:Destroy()
+                    end
+                end
+                for _, child in ipairs(newHead:GetChildren()) do
+                    if child:IsA("Decal") or child:IsA("SpecialMesh") then
+                        child:Clone().Parent = currentHead
                     end
                 end
             end
 
-            -- 2. Apply Face Decal
-            local head = character:FindFirstChild("Head")
-            if head and humanoidDesc.Face ~= 0 then
-                local face = Instance.new("Decal")
-                face.Name = "face"
-                face.Texture = "rbxassetid://" .. humanoidDesc.Face
-                face.Face = Enum.NormalId.Front
-                face.Parent = head
-            end
-
-            -- 3. Apply Head Mesh (Custom Head)
-            if head and humanoidDesc.Head ~= 0 then
-                task.spawn(function()
-                    local ok, model = pcall(function()
-                        return game:GetObjects("rbxassetid://" .. humanoidDesc.Head)[1]
-                    end)
-                    if ok and model then
-                        if model:IsA("SpecialMesh") then
-                            model.Parent = head
-                        elseif model:IsA("MeshPart") then
-                            head.MeshId = model.MeshId
-                            head.TextureID = model.TextureID
-                        end
-                        model:Destroy()
+            -- Swap MeshPart properties for R15 package bodies
+            for _, part in ipairs(newModel:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    local targetPart = character:FindFirstChild(part.Name)
+                    if targetPart and targetPart:IsA("MeshPart") and part:IsA("MeshPart") then
+                        targetPart.MeshId = part.MeshId
+                        targetPart.TextureID = part.TextureID
+                        targetPart.Size = part.Size
+                        targetPart.Color = part.Color
                     end
-                end)
-            end
-
-            -- 4. Apply Clothing
-            if humanoidDesc.Shirt ~= 0 then
-                local shirt = Instance.new("Shirt")
-                shirt.ShirtTemplate = "rbxassetid://" .. humanoidDesc.Shirt
-                shirt.Parent = character
-            end
-
-            if humanoidDesc.Pants ~= 0 then
-                local pants = Instance.new("Pants")
-                pants.PantsTemplate = "rbxassetid://" .. humanoidDesc.Pants
-                pants.Parent = character
-            end
-
-            if humanoidDesc.GraphicTShirt ~= 0 then
-                local graphic = Instance.new("ShirtGraphic")
-                graphic.Graphic = "rbxassetid://" .. humanoidDesc.GraphicTShirt
-                graphic.Parent = character
-            end
-
-            -- 5. Load Accessories
-            local function loadAccessories(assetIds)
-                if not assetIds or assetIds == "" then return end
-                for id in string.gmatch(assetIds, "([^,]+)") do
-                    task.spawn(function()
-                        local ok, model = pcall(function()
-                            return game:GetObjects("rbxassetid://" .. id)[1]
-                        end)
-                        if ok and model then
-                            if model:IsA("Accessory") then
-                                humanoid:AddAccessory(model)
-                            else
-                                model:Destroy()
-                            end
-                        end
-                    end)
                 end
             end
 
-            loadAccessories(humanoidDesc.HatAccessory)
-            loadAccessories(humanoidDesc.HairAccessory)
-            loadAccessories(humanoidDesc.FaceAccessory)
-            loadAccessories(humanoidDesc.NeckAccessory)
-            loadAccessories(humanoidDesc.ShoulderAccessory)
-            loadAccessories(humanoidDesc.FrontAccessory)
-            loadAccessories(humanoidDesc.BackAccessory)
-            loadAccessories(humanoidDesc.WaistAccessory)
+            newModel:Destroy()
         end)
     end
 
     AvatarMock = vape.Categories.Utility:CreateModule({
-        Name = 'AvatarChanger',
+        Name = 'AvatarMock',
         Function = function(callback)
             if callback then
                 if TargetUser and TargetUser.Value ~= "" then
-                    applyFullAvatar(TargetUser.Value)
+                    replaceFullAvatar(TargetUser.Value)
                 end
             else
                 -- Revert back to original avatar on disable
-                applyFullAvatar(localPlayer.Name)
+                replaceFullAvatar(localPlayer.Name)
             end
         end,
     })
@@ -20748,7 +20677,7 @@ run(function()
         Default = '',
         Function = function(val)
             if AvatarMock.Enabled and val ~= "" then
-                applyFullAvatar(val)
+                replaceFullAvatar(val)
             end
         end,
     })
