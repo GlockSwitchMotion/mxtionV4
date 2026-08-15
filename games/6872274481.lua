@@ -8515,6 +8515,75 @@ run(function()
 end)
 
 run(function()
+	local AutoReset
+	local OwlCheckReset
+	local PearlCheckReset
+	local cachedLowestPointReset
+	local pearlLastInHandTick = 0  
+
+	AutoReset = vape.Categories.Utility:CreateModule({
+		Name = 'AutoReset',
+		Function = function(callback)
+			if callback then
+				repeat task.wait() until store.matchState ~= 0 or (not AutoReset.Enabled)
+				if not AutoReset.Enabled then return end
+
+				cachedLowestPointReset = math.huge
+				for _, v in pairs(store.blocks) do
+					local point = (v.Position.Y - (v.Size.Y / 2)) - 75
+					if point < cachedLowestPointReset then
+						cachedLowestPointReset = point
+					end
+				end
+				if cachedLowestPointReset == math.huge then
+					cachedLowestPointReset = -100
+				end
+
+				repeat
+					if entitylib.isAlive then
+						local root = entitylib.character.RootPart
+						if not root then task.wait(0.1) continue end
+
+						local handItem = store.inventory and store.inventory.inventory and store.inventory.inventory.hand
+						if handItem and handItem.itemType == 'telepearl' then
+							pearlLastInHandTick = tick()
+						end
+
+						if root.Position.Y < cachedLowestPointReset 
+							and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0 
+							and not getItem('balloon') then
+
+							local owlBlock = OwlCheckReset.Enabled and root:FindFirstChild('OwlLiftForce')
+							if not owlBlock then
+								local pearlBlock = PearlCheckReset.Enabled and (tick() - pearlLastInHandTick) < 4
+								if not pearlBlock then
+									local hum = lplr.Character and lplr.Character:FindFirstChildOfClass('Humanoid')
+									if hum then hum.Health = -1 end
+								end
+							end
+						end
+					end
+					task.wait(0.1)
+				until not AutoReset.Enabled
+			end
+		end,
+		Tooltip = 'Resets your character when you fall into the void'
+	})
+
+	OwlCheckReset = AutoReset:CreateToggle({
+		Name = 'Owl check',
+		Default = true,
+		Tooltip = 'Does not reset if being picked up by an owl'
+	})
+
+	PearlCheckReset = AutoReset:CreateToggle({
+		Name = 'Pearl check',
+		Default = false,
+		Tooltip = 'Does not reset if holding a pearl or recently threw one (4 sec cooldown)'
+	})
+end)
+
+run(function()
 	local DeviceSpoofer
 	local Device
 	local oldDevice, old
