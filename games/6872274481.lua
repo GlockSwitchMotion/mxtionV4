@@ -20584,7 +20584,7 @@ run(function()
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
 
-    local function clearVisuals(character)
+    local function clearFullAvatar(character)
         for _, v in ipairs(character:GetChildren()) do
             if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("BodyColors") or v:IsA("CharacterMesh") then
                 v:Destroy()
@@ -20592,66 +20592,153 @@ run(function()
         end
         local head = character:FindFirstChild("Head")
         if head then
-            local face = head:FindFirstChildOfClass("Decal")
-            if face then face:Destroy() end
+            for _, child in ipairs(head:GetChildren()) do
+                if child:IsA("Decal") or child:IsA("SpecialMesh") then
+                    child:Destroy()
+                end
+            end
         end
     end
 
-    local function applyAvatarLocally(username)
+    local function applyFullAvatar(username)
         if not username or username == "" then return end
 
         task.spawn(function()
-            -- Get UserId from Username
             local idSuccess, userId = pcall(function()
                 return Players:GetUserIdFromNameAsync(username)
             end)
 
             if not idSuccess or not userId then return end
 
-            -- Get full appearance model via native client API
-            local appSuccess, appModel = pcall(function()
-                return Players:GetCharacterAppearanceAsync(userId)
+            local descSuccess, humanoidDesc = pcall(function()
+                return Players:GetHumanoidDescriptionFromUserIdAsync(userId)
             end)
 
-            if not appSuccess or not appModel then return end
+            if not descSuccess or not humanoidDesc then return end
 
             local character = localPlayer.Character
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             if not character or not humanoid then return end
 
-            -- Strip current local items
-            clearVisuals(character)
+            -- Clear existing avatar parts, clothes, and accessories
+            clearFullAvatar(character)
 
-            -- Attach cloned elements from target appearance
-            for _, item in ipairs(appModel:GetChildren()) do
-                if item:IsA("Accessory") then
-                    humanoid:AddAccessory(item:Clone())
-                elseif item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") or item:IsA("BodyColors") or item:IsA("CharacterMesh") then
-                    item:Clone().Parent = character
-                elseif item:IsA("Decal") then
-                    local head = character:FindFirstChild("Head")
-                    if head then
-                        local face = item:Clone()
-                        face.Name = "face"
-                        face.Parent = head
+            -- 1. Apply Body Colors (Skin Tone) for R6/Legacy
+            local bodyColors = Instance.new("BodyColors")
+            bodyColors.HeadColor3 = humanoidDesc.HeadColor
+            bodyColors.LeftArmColor3 = humanoidDesc.LeftArmColor
+            bodyColors.RightArmColor3 = humanoidDesc.RightArmColor
+            bodyColors.LeftLegColor3 = humanoidDesc.LeftLegColor
+            bodyColors.RightLegColor3 = humanoidDesc.RightLegColor
+            bodyColors.TorsoColor3 = humanoidDesc.TorsoColor
+            bodyColors.Parent = character
+
+            -- Apply skin colors directly to R15 MeshParts if present
+            for _, part in ipairs(character:GetChildren()) do
+                if part:IsA("MeshPart") then
+                    if part.Name == "Head" then 
+                        part.Color = humanoidDesc.HeadColor
+                    elseif part.Name:find("LeftUpperArm") or part.Name:find("LeftLowerArm") or part.Name:find("LeftHand") then
+                        part.Color = humanoidDesc.LeftArmColor
+                    elseif part.Name:find("RightUpperArm") or part.Name:find("RightLowerArm") or part.Name:find("RightHand") then
+                        part.Color = humanoidDesc.RightArmColor
+                    elseif part.Name:find("LeftUpperLeg") or part.Name:find("LeftLowerLeg") or part.Name:find("LeftFoot") then
+                        part.Color = humanoidDesc.LeftLegColor
+                    elseif part.Name:find("RightUpperLeg") or part.Name:find("RightLowerLeg") or part.Name:find("RightFoot") then
+                        part.Color = humanoidDesc.RightLegColor
+                    elseif part.Name:find("UpperTorso") or part.Name:find("LowerTorso") then
+                        part.Color = humanoidDesc.TorsoColor
                     end
                 end
             end
 
-            appModel:Destroy()
+            -- 2. Apply Face Decal
+            local head = character:FindFirstChild("Head")
+            if head and humanoidDesc.Face ~= 0 then
+                local face = Instance.new("Decal")
+                face.Name = "face"
+                face.Texture = "rbxassetid://" .. humanoidDesc.Face
+                face.Face = Enum.NormalId.Front
+                face.Parent = head
+            end
+
+            -- 3. Apply Head Mesh (Custom Head)
+            if head and humanoidDesc.Head ~= 0 then
+                task.spawn(function()
+                    local ok, model = pcall(function()
+                        return game:GetObjects("rbxassetid://" .. humanoidDesc.Head)[1]
+                    end)
+                    if ok and model then
+                        if model:IsA("SpecialMesh") then
+                            model.Parent = head
+                        elseif model:IsA("MeshPart") then
+                            head.MeshId = model.MeshId
+                            head.TextureID = model.TextureID
+                        end
+                        model:Destroy()
+                    end
+                end)
+            end
+
+            -- 4. Apply Clothing
+            if humanoidDesc.Shirt ~= 0 then
+                local shirt = Instance.new("Shirt")
+                shirt.ShirtTemplate = "rbxassetid://" .. humanoidDesc.Shirt
+                shirt.Parent = character
+            end
+
+            if humanoidDesc.Pants ~= 0 then
+                local pants = Instance.new("Pants")
+                pants.PantsTemplate = "rbxassetid://" .. humanoidDesc.Pants
+                pants.Parent = character
+            end
+
+            if humanoidDesc.GraphicTShirt ~= 0 then
+                local graphic = Instance.new("ShirtGraphic")
+                graphic.Graphic = "rbxassetid://" .. humanoidDesc.GraphicTShirt
+                graphic.Parent = character
+            end
+
+            -- 5. Load Accessories
+            local function loadAccessories(assetIds)
+                if not assetIds or assetIds == "" then return end
+                for id in string.gmatch(assetIds, "([^,]+)") do
+                    task.spawn(function()
+                        local ok, model = pcall(function()
+                            return game:GetObjects("rbxassetid://" .. id)[1]
+                        end)
+                        if ok and model then
+                            if model:IsA("Accessory") then
+                                humanoid:AddAccessory(model)
+                            else
+                                model:Destroy()
+                            end
+                        end
+                    end)
+                end
+            end
+
+            loadAccessories(humanoidDesc.HatAccessory)
+            loadAccessories(humanoidDesc.HairAccessory)
+            loadAccessories(humanoidDesc.FaceAccessory)
+            loadAccessories(humanoidDesc.NeckAccessory)
+            loadAccessories(humanoidDesc.ShoulderAccessory)
+            loadAccessories(humanoidDesc.FrontAccessory)
+            loadAccessories(humanoidDesc.BackAccessory)
+            loadAccessories(humanoidDesc.WaistAccessory)
         end)
     end
 
     AvatarMock = vape.Categories.Utility:CreateModule({
-        Name = 'AvatarMock',
+        Name = 'AvatarChanger',
         Function = function(callback)
             if callback then
                 if TargetUser and TargetUser.Value ~= "" then
-                    applyAvatarLocally(TargetUser.Value)
+                    applyFullAvatar(TargetUser.Value)
                 end
             else
-                -- Restore your own avatar on disable
-                applyAvatarLocally(localPlayer.Name)
+                -- Revert back to original avatar on disable
+                applyFullAvatar(localPlayer.Name)
             end
         end,
     })
@@ -20661,9 +20748,9 @@ run(function()
         Default = '',
         Function = function(val)
             if AvatarMock.Enabled and val ~= "" then
-                applyAvatarLocally(val)
+                applyFullAvatar(val)
             end
-        end
+        end,
     })
 end)
 
