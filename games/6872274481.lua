@@ -20584,18 +20584,75 @@ run(function()
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
 
+    local function clearVisuals(character)
+        for _, v in ipairs(character:GetChildren()) do
+            if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("BodyColors") or v:IsA("CharacterMesh") then
+                v:Destroy()
+            end
+        end
+    end
+
+    local function attachAccessorySafely(humanoid, character, acc)
+        local clone = acc:Clone()
+        local handle = clone:FindFirstChild("Handle")
+        if not handle then return end
+
+        -- Remove old welds linked to the temporary model
+        for _, item in ipairs(clone:GetDescendants()) do
+            if item:IsA("JointInstance") or item:IsA("WeldConstraint") then
+                item:Destroy()
+            end
+        end
+
+        handle.CanCollide = false
+        clone.Parent = character
+
+        -- Find matching attachment on local character
+        local handleAtt = handle:FindFirstChildOfClass("Attachment")
+        local targetPart, targetAtt
+
+        if handleAtt then
+            for _, part in ipairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    local att = part:FindFirstChild(handleAtt.Name)
+                    if att and att:IsA("Attachment") then
+                        targetPart = part
+                        targetAtt = att
+                        break
+                    end
+                end
+            end
+        end
+
+        -- Fallback to Head if attachment isn't found
+        if not targetPart then
+            targetPart = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+        end
+
+        if targetPart then
+            if handleAtt and targetAtt then
+                handle.CFrame = targetAtt.WorldCFrame * handleAtt.CFrame:Inverse()
+            else
+                handle.CFrame = targetPart.CFrame
+            end
+
+            local weld = Instance.new("WeldConstraint")
+            weld.Part0 = handle
+            weld.Part1 = targetPart
+            weld.Parent = handle
+        end
+    end
+
     local function replaceFullAvatar(username)
         if not username or username == "" then return end
 
         task.spawn(function()
-            -- Resolve Username to UserId
             local idSuccess, userId = pcall(function()
                 return Players:GetUserIdFromNameAsync(username)
             end)
 
             if not idSuccess or not userId then return end
 
-            -- Generate full target character model in memory
             local modelSuccess, newModel = pcall(function()
                 return Players:CreateHumanoidModelFromUserId(userId)
             end)
@@ -20609,23 +20666,23 @@ run(function()
                 return 
             end
 
-            -- Clear current local character visual components
-            for _, v in ipairs(character:GetChildren()) do
-                if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") or v:IsA("BodyColors") or v:IsA("CharacterMesh") then
-                    v:Destroy()
-                end
-            end
+            clearVisuals(character)
 
-            -- Transfer accessories, clothing, and body colors
+            -- Transfer clothing and body colors
             for _, child in ipairs(newModel:GetChildren()) do
-                if child:IsA("Accessory") then
-                    humanoid:AddAccessory(child:Clone())
-                elseif child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("BodyColors") or child:IsA("CharacterMesh") then
+                if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("BodyColors") or child:IsA("CharacterMesh") then
                     child:Clone().Parent = character
                 end
             end
 
-            -- Transfer Head visual assets (Face decals and SpecialMeshes)
+            -- Re-weld accessories and hair manually
+            for _, child in ipairs(newModel:GetChildren()) do
+                if child:IsA("Accessory") then
+                    attachAccessorySafely(humanoid, character, child)
+                end
+            end
+
+            -- Transfer face decals and head meshes
             local newHead = newModel:FindFirstChild("Head")
             local currentHead = character:FindFirstChild("Head")
             if newHead and currentHead then
@@ -20641,7 +20698,7 @@ run(function()
                 end
             end
 
-            -- Swap MeshPart properties for R15 package bodies
+            -- Update MeshPart geometries for R15 body packages
             for _, part in ipairs(newModel:GetChildren()) do
                 if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                     local targetPart = character:FindFirstChild(part.Name)
@@ -20666,7 +20723,6 @@ run(function()
                     replaceFullAvatar(TargetUser.Value)
                 end
             else
-                -- Revert back to original avatar on disable
                 replaceFullAvatar(localPlayer.Name)
             end
         end,
