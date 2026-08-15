@@ -2350,7 +2350,7 @@ run(function()
 	local Hitreg
 	local AttackSpeed
 	local SwingTime
-	local swordSpeed, swordSwingTime, swingSpeed, swingRestore
+	local swordSpeed, swingSpeed, swingRestore, oldSwingFunction
 	
 	HitregAdjuster = vape.Categories.Combat:CreateModule({
 		Name = 'HitregAdjuster',
@@ -2358,23 +2358,28 @@ run(function()
 			if callback then
 				swingSpeed = bedwars.SyncEvents.SwordSwing:setPriority(150):connect(function(event)
 					swordSpeed = event.attackSpeed
-					swordSwingTime = event.swingTime
 
 					local hitInterval = 10 / math.max(Hitreg.Value - 1, 1)
 					event.attackSpeed = AttackSpeed.Value > 0 and AttackSpeed.Value or hitInterval
-					if typeof(event.swingTime) == 'number' then
-						event.swingTime = SwingTime.Value > 0 and SwingTime.Value or hitInterval
-					end
 				end)
 				swingRestore = bedwars.SyncEvents.SwordSwing:setPriority(300):connect(function(event)
 					event.attackSpeed = swordSpeed
-					if typeof(swordSwingTime) == 'number' then
-						event.swingTime = swordSwingTime
+				end)
+				oldSwingFunction = hookfunction(bedwars.SwordController.swingSwordAtMouse, function(self, ...)
+					local args = table.pack(...)
+					if SwingTime.Value > 0 then
+						args[1] = SwingTime.Value
+						args.n = math.max(args.n, 1)
 					end
+					return oldSwingFunction(self, table.unpack(args, 1, args.n))
 				end)
 				HitregAdjuster:Clean(function()
 					swingSpeed:Destroy()
 					swingRestore:Destroy()
+					if oldSwingFunction then
+						hookfunction(bedwars.SwordController.swingSwordAtMouse, oldSwingFunction)
+						oldSwingFunction = nil
+					end
 				end)
 			end
 		end,
@@ -2410,112 +2415,7 @@ run(function()
 		Suffix = function(val)
 			return val == 0 and 'Hitreg value' or string.format('%.2fs', val)
 		end,
-		Tooltip = 'Overrides the sword swing time. Set to 0 to use the Hitreg value.'
-	})
-end)
-
-run(function()
-	local BlockReach
-	local BlockRange
-	local BreakReach
-	local BreakRange
-	local SwordReach
-	local SwordRange
-	
-	local old
-	
-	Reach = vape.Categories.Combat:CreateModule({
-		Name = 'Reach',
-		Tooltip = 'Allows you to place, attack, and break further',
-		Function = function(callback)
-			bedwars.CombatConstant.RAYCAST_SWORD_CHARACTER_DISTANCE = callback and SwordReach.Enabled and SwordRange.Value + 2 or 14.4
-			if callback then
-				old = bedwars.BlockSelector.getMouseInfo
-				bedwars.BlockSelector.getMouseInfo = function(...)
-					local Self, Select, Args = ...
-					if not Args then
-						Args = {}
-					end
-					if Select == 0 then
-						Args.range = BlockReach.Enabled and BlockRange.Value or 24
-					elseif Select == 1 then
-						Args.range = BreakReach.Enabled and BreakRange.Value or 18
-					end
-					return old(Self, Select, Args)
-				end
-			else
-				bedwars.BlockSelector.getMouseInfo = old
-				old = nil
-			end
-		end,
-	})
-	SwordReach = Reach:CreateToggle({
-		Name = 'Sword Reach',
-		Function = function(callback)
-			bedwars.CombatConstant.RAYCAST_SWORD_CHARACTER_DISTANCE = Reach.Enabled and callback and SwordRange.Value + 2 or 14.4
-			pcall(function()
-				SwordRange.Object.Visible = callback
-			end)
-		end,
-		Default = true
-	})
-	SwordRange = Reach:CreateSlider({
-		Name = 'Sword Range',
-		Min = 1,
-		Max = 18,
-		Default = 18,
-		Decimal = 5,
-		Darker = true,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end,
-		Function = function(val)
-			bedwars.CombatConstant.RAYCAST_SWORD_CHARACTER_DISTANCE = Reach.Enabled and SwordReach.Enabled and val or 14.4
-		end
-	})
-	BlockReach = Reach:CreateToggle({
-		Name = 'Placement Reach',
-		Function = function(callback)
-			BlockRange.Object.Visible = callback
-		end
-	})
-	BlockRange = Reach:CreateSlider({
-		Name = 'Placement Range',
-		Min = 1,
-		Max = 60,
-		Default = 18,
-		Darker = true,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end,
-		Visible = false
-	})
-	BreakReach = Reach:CreateToggle({
-		Name = 'Break Reach',
-		Function = function(callback)
-			BreakRange.Object.Visible = callback
-		end
-	})
-	BreakRange = Reach:CreateSlider({
-		Name = 'Break Range',
-		Min = 1,
-		Max = 30,
-		Default = 30,
-		Decimal = 5,
-		Darker = true,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end,
-		Visible = false
-	})
-	Reach:CreateButton({
-		Name = 'Reset to default reach',
-		Tooltip = 'Resets every range back to default',
-		Function = function()
-			BreakRange:SetValue(18)
-			BlockRange:SetValue(24)
-			SwordRange:SetValue(12.4)
-		end
+		Tooltip = 'Overrides the time passed to the sword swing controller. Set to 0 to leave the game default unchanged.'
 	})
 end)
 
