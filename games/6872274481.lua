@@ -8443,6 +8443,75 @@ run(function()
 end)
 
 run(function()
+	local AutoReset
+	local OwlCheckReset
+	local PearlCheckReset
+	local cachedLowestPointReset
+	local pearlLastInHandTick = 0  
+
+	AutoReset = vape.Categories.Utility:CreateModule({
+		Name = 'AutoReset',
+		Function = function(callback)
+			if callback then
+				repeat task.wait() until store.matchState ~= 0 or (not AutoReset.Enabled)
+				if not AutoReset.Enabled then return end
+
+				cachedLowestPointReset = math.huge
+				for _, v in pairs(store.blocks) do
+					local point = (v.Position.Y - (v.Size.Y / 2)) - 50
+					if point < cachedLowestPointReset then
+						cachedLowestPointReset = point
+					end
+				end
+				if cachedLowestPointReset == math.huge then
+					cachedLowestPointReset = -100
+				end
+
+				repeat
+					if entitylib.isAlive then
+						local root = entitylib.character.RootPart
+						if not root then task.wait(0.1) continue end
+
+						local handItem = store.inventory and store.inventory.inventory and store.inventory.inventory.hand
+						if handItem and handItem.itemType == 'telepearl' then
+							pearlLastInHandTick = tick()
+						end
+
+						if root.Position.Y < cachedLowestPointReset 
+							and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0 
+							and not getItem('balloon') then
+
+							local owlBlock = OwlCheckReset.Enabled and root:FindFirstChild('OwlLiftForce')
+							if not owlBlock then
+								local pearlBlock = PearlCheckReset.Enabled and (tick() - pearlLastInHandTick) < 4
+								if not pearlBlock then
+									local hum = lplr.Character and lplr.Character:FindFirstChildOfClass('Humanoid')
+									if hum then hum.Health = -1 end
+								end
+							end
+						end
+					end
+					task.wait(0.1)
+				until not AutoReset.Enabled
+			end
+		end,
+		Tooltip = 'Resets your character when you fall into the void'
+	})
+
+	OwlCheckReset = AutoReset:CreateToggle({
+		Name = 'Owl check',
+		Default = true,
+		Tooltip = 'Does not reset if being picked up by an owl'
+	})
+
+	PearlCheckReset = AutoReset:CreateToggle({
+		Name = 'Pearl check',
+		Default = false,
+		Tooltip = 'Does not reset if holding a pearl or recently threw one (4 sec cooldown)'
+	})
+end)
+
+run(function()
 	local AutoVoidDrop
 	local OwlCheck
 	local Delay
@@ -13096,6 +13165,176 @@ run(function()
 		Name = 'Limit to items',
 		Tooltip = 'Only breaks when tools are held'
 	})
+end)
+
+run(function()
+    local anim
+    local asset
+    local trackingConnection
+    local lastPosition
+    local NightmareEmote
+    local cachedRootPart
+    local cachedHumanoid
+    local lastValidationCheck = 0
+    
+    NightmareEmote = vape.Categories.World:CreateModule({
+        Name = "NightmareEmote",
+        Function = function(call)
+            if call then
+                local l__GameQueryUtil__8
+                if (not shared.CheatEngineMode) then 
+                    l__GameQueryUtil__8 = require(game:GetService("ReplicatedStorage")['rbxts_include']['node_modules']['@easy-games']['game-core'].out).GameQueryUtil 
+                else
+                    local backup = {}; function backup:setQueryIgnored() end; l__GameQueryUtil__8 = backup;
+                end
+                local l__TweenService__9 = tweenService
+                local player = playersService.LocalPlayer
+                local character = player.Character
+                
+                if not character then 
+                    NightmareEmote:Toggle() 
+                    return 
+                end
+                
+                local humanoid = character:WaitForChild("Humanoid")
+                local rootPart = character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
+                
+                if not rootPart then 
+                    NightmareEmote:Toggle() 
+                    return 
+                end
+                
+                cachedRootPart = rootPart
+                cachedHumanoid = humanoid
+                lastPosition = rootPart.Position
+                lastValidationCheck = 0
+                
+                local v10 = game:GetService("ReplicatedStorage"):WaitForChild("Assets"):WaitForChild("Effects"):WaitForChild("NightmareEmote"):Clone()
+                asset = v10
+                v10.Parent = game.Workspace
+                
+                local descendants = v10:GetDescendants()
+                for _, part in ipairs(descendants) do
+                    if part:IsA("BasePart") then
+                        l__GameQueryUtil__8:setQueryIgnored(part, true)
+                        part.CanCollide = false
+                        part.Anchored = true
+                    end
+                end
+                
+                local l__Outer__15 = v10:FindFirstChild("Outer")
+                if l__Outer__15 then
+                    l__TweenService__9:Create(l__Outer__15, TweenInfo.new(1.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {
+                        Orientation = l__Outer__15.Orientation + Vector3.new(0, 360, 0)
+                    }):Play()
+                end
+                
+                local l__Middle__16 = v10:FindFirstChild("Middle")
+                if l__Middle__16 then
+                    l__TweenService__9:Create(l__Middle__16, TweenInfo.new(12.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {
+                        Orientation = l__Middle__16.Orientation + Vector3.new(0, -360, 0)
+                    }):Play()
+                end
+                
+                anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://9191822700"
+                anim = humanoid:LoadAnimation(anim)
+                anim:Play()
+                
+                local movementThresholdSq = 0.1 * 0.1
+                
+                trackingConnection = runService.RenderStepped:Connect(function()
+                    if not asset or not asset.Parent then 
+                        if trackingConnection then
+                            trackingConnection:Disconnect()
+                        end
+                        return 
+                    end
+                    
+                    local currentTime = tick()
+                    
+                    if (currentTime - lastValidationCheck) > 0.5 then
+                        if not character or not character.Parent then
+                            asset:Destroy()
+                            asset = nil
+                            if trackingConnection then
+                                trackingConnection:Disconnect()
+                            end
+                            NightmareEmote:Toggle()
+                            return
+                        end
+                        
+                        if not cachedRootPart or not cachedRootPart.Parent then
+                            cachedRootPart = character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
+                        end
+                        
+                        if not cachedHumanoid or not cachedHumanoid.Parent then
+                            cachedHumanoid = character:FindFirstChildOfClass("Humanoid")
+                        end
+                        
+                        if not cachedRootPart or not cachedHumanoid or cachedHumanoid.Health <= 0 then
+                            asset:Destroy()
+                            asset = nil
+                            if trackingConnection then
+                                trackingConnection:Disconnect()
+                            end
+                            NightmareEmote:Toggle()
+                            return
+                        end
+                        
+                        lastValidationCheck = currentTime
+                    end
+                    
+                    if lastPosition and cachedRootPart then
+                        local currentPosition = cachedRootPart.Position
+                        local dx = currentPosition.X - lastPosition.X
+                        local dy = currentPosition.Y - lastPosition.Y
+                        local dz = currentPosition.Z - lastPosition.Z
+                        local distanceMovedSq = dx * dx + dy * dy + dz * dz
+                        
+                        if distanceMovedSq > movementThresholdSq then
+                            asset:Destroy()
+                            asset = nil
+                            if trackingConnection then
+                                trackingConnection:Disconnect()
+                            end
+                            NightmareEmote:Toggle()
+                            return
+                        end
+                        
+                        lastPosition = currentPosition
+                    end
+                    
+                    if cachedRootPart then
+                        v10:SetPrimaryPartCFrame(cachedRootPart.CFrame * CFrame.new(0, -3, 0))
+                    end
+                end)
+                
+                NightmareEmote:Clean(trackingConnection)
+                
+            else 
+                if trackingConnection then
+                    trackingConnection:Disconnect()
+                    trackingConnection = nil
+                end
+                
+                if anim then 
+                    anim:Stop()
+                    anim = nil
+                end
+                
+                if asset then
+                    asset:Destroy() 
+                    asset = nil
+                end
+                
+                lastPosition = nil
+                cachedRootPart = nil
+                cachedHumanoid = nil
+                lastValidationCheck = 0
+            end
+        end
+    })
 end)
 
 run(function()
