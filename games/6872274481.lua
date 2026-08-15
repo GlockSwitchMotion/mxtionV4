@@ -8445,6 +8445,17 @@ end)
 run(function()
 	local AutoVoidDrop
 	local OwlCheck
+	local Delay
+
+	local function shouldDrop(lowestpoint)
+		if not entitylib.isAlive then return false end
+
+		local root = entitylib.character.RootPart
+		return root.Position.Y < lowestpoint
+			and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0
+			and not getItem('balloon')
+			and (not OwlCheck.Enabled or not root:FindFirstChild('OwlLiftForce'))
+	end
 	
 	AutoVoidDrop = vape.Categories.Utility:CreateModule({
 		Name = 'AutoVoidDrop',
@@ -8462,21 +8473,19 @@ run(function()
 				end
 	
 				repeat
-					if entitylib.isAlive then
-						local root = entitylib.character.RootPart
-						if root.Position.Y < lowestpoint and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0 and not getItem('balloon') then
-							if not OwlCheck.Enabled or not root:FindFirstChild('OwlLiftForce') then
-								for _, item in {'iron', 'diamond', 'emerald', 'gold'} do
-									item = getItem(item)
+					if shouldDrop(lowestpoint) then
+						task.wait(Delay.Value)
+						if shouldDrop(lowestpoint) then
+							for _, item in {'iron', 'diamond', 'emerald', 'gold'} do
+								item = getItem(item)
+								if item then
+									item = bedwars.Handler:Get('DropItem'):Fire('CallServer', {
+										item = item.tool,
+										amount = item.amount
+									})
+									
 									if item then
-										item = bedwars.Handler:Get('DropItem'):Fire('CallServer', {
-											item = item.tool,
-											amount = item.amount
-										})
-	
-										if item then
-											item:SetAttribute('ClientDropTime', tick() + 100)
-										end
+										item:SetAttribute('ClientDropTime', tick() + 100)
 									end
 								end
 							end
@@ -8493,6 +8502,15 @@ run(function()
 		Name = 'Owl check',
 		Default = true,
 		Tooltip = 'Refuses to drop items if being picked up by an owl'
+	})
+	Delay = AutoVoidDrop:CreateSlider({
+		Name = 'Delay',
+		Min = 0,
+		Max = 5,
+		Default = 0,
+		Decimal = 10,
+		Suffix = 's',
+		Tooltip = 'Time to wait after falling into the void before dropping resources'
 	})
 end)
 
