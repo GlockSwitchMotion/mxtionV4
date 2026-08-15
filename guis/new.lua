@@ -314,24 +314,11 @@ local function createMobileButton(buttonapi, position)
 	buttonapi.Bind = {Button = button}
 end
 
-local commitCache = nil
-local function getCommit()
-	if commitCache then return commitCache end
-	if isfile('mxtionv4/profiles/commit.txt') then
-		local cached = readfile('mxtionv4/profiles/commit.txt')
-		if cached and #cached > 0 then
-			commitCache = cached
-			return cached
-		end
-	end
-	return 'main'
-end
-
 local function downloadFile(path, func)
 	if not isfile(path) then
 		createDownloader(path)
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..getCommit()..'/'..select(1, path:gsub('mxtionv4/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -347,9 +334,6 @@ end
 getcustomasset = assetfunction and function(path)
 	if isfile(path) then
 		return assetfunction(path)
-	end
-	if getcustomassets[path] and getcustomassets[path] ~= '' then
-		return getcustomassets[path]
 	end
 	pcall(function()
 		downloadFile(path)
