@@ -4555,7 +4555,7 @@ function mainapi:CreateCategoryList(categorysettings)
 
 		local createbkg = Instance.new('TextButton')
 		createbkg.Name = 'CreateNew'
-		createbkg.Size = UDim2.new(1, 0, 1, 0)
+		createbkg.Size = UDim2.new(0.53, -4, 1, 0)
 		createbkg.LayoutOrder = 1
 		createbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 		createbkg.AutoButtonColor = false
@@ -4664,115 +4664,6 @@ function mainapi:CreateCategoryList(categorysettings)
 		newarrowbutton.MouseButton1Click:Connect(function()
 			categoryapi:Expand()
 			newarrow.Rotation = arrow.Rotation
-		end)
-		local importbutton = Instance.new('ImageButton')
-		importbutton.Name = 'ImportJSON'
-		importbutton.Size = UDim2.fromOffset(18, 18)
-		importbutton.Position = UDim2.new(1, -72, 0, 11)
-		importbutton.BackgroundTransparency = 1
-		importbutton.Image = getcustomasset('mxtionv4/assets/new/guisettings.png')
-		importbutton.ImageColor3 = Color3.fromRGB(171, 171, 171)
-		importbutton.ZIndex = 4
-		importbutton.Parent = newprofile
-		local importpanel = Instance.new('Frame')
-		importpanel.Name = 'ImportPanel'
-		importpanel.Size = UDim2.new(1, -16, 0, 144)
-		importpanel.Position = UDim2.fromOffset(8, 34)
-		importpanel.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		importpanel.BorderSizePixel = 0
-		importpanel.Visible = false
-		importpanel.ZIndex = 4
-		importpanel.Parent = newprofile
-		addCorner(importpanel)
-		local importtitle = Instance.new('TextLabel')
-		importtitle.Name = 'Title'
-		importtitle.Size = UDim2.new(1, -20, 0, 18)
-		importtitle.Position = UDim2.fromOffset(10, 8)
-		importtitle.BackgroundTransparency = 1
-		importtitle.Text = 'Export JSON'
-		importtitle.TextXAlignment = Enum.TextXAlignment.Left
-		importtitle.TextColor3 = uipallet.Text
-		importtitle.TextSize = 12
-		importtitle.FontFace = uipallet.FontSemiBold
-		importtitle.ZIndex = 5
-		importtitle.Parent = importpanel
-		local importbox = Instance.new('TextBox')
-		importbox.Name = 'Box'
-		importbox.Size = UDim2.new(1, -16, 0, 78)
-		importbox.Position = UDim2.fromOffset(8, 30)
-		importbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.04)
-		importbox.BorderSizePixel = 0
-		importbox.Text = ''
-		importbox.PlaceholderText = 'Paste exported profile JSON here'
-		importbox.TextWrapped = true
-		importbox.TextXAlignment = Enum.TextXAlignment.Left
-		importbox.TextYAlignment = Enum.TextYAlignment.Top
-		importbox.TextColor3 = uipallet.Text
-		importbox.PlaceholderColor3 = color.Dark(uipallet.Text, 0.31)
-		importbox.TextSize = 11
-		importbox.FontFace = uipallet.Font
-		importbox.ClearTextOnFocus = false
-		importbox.MultiLine = true
-		importbox.ZIndex = 5
-		importbox.Parent = importpanel
-		addCorner(importbox)
-		local importcopy = Instance.new('TextButton')
-		importcopy.Name = 'CopyCurrent'
-		importcopy.Size = UDim2.fromOffset(100, 22)
-		importcopy.Position = UDim2.fromOffset(8, 114)
-		importcopy.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
-		importcopy.AutoButtonColor = false
-		importcopy.Text = 'Copy current'
-		importcopy.TextColor3 = uipallet.Text
-		importcopy.TextSize = 11
-		importcopy.FontFace = uipallet.FontSemiBold
-		importcopy.ZIndex = 5
-		importcopy.Parent = importpanel
-		addCorner(importcopy)
-		local importadd = Instance.new('TextButton')
-		importadd.Name = 'Add'
-		importadd.Size = UDim2.fromOffset(80, 22)
-		importadd.Position = UDim2.new(1, -88, 0, 114)
-		importadd.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-		importadd.AutoButtonColor = false
-		importadd.Text = 'Add'
-		importadd.TextColor3 = mainapi:TextColor(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-		importadd.TextSize = 11
-		importadd.FontFace = uipallet.FontSemiBold
-		importadd.ZIndex = 5
-		importadd.Parent = importpanel
-		addCorner(importadd)
-		importbutton.MouseButton1Click:Connect(function()
-			importpanel.Visible = not importpanel.Visible
-			if importpanel.Visible then
-				importbox.Text = ''
-				importbox:CaptureFocus()
-			end
-		end)
-		importcopy.MouseButton1Click:Connect(function()
-			local payload = exportProfileJson(mainapi.Profile)
-			if payload then
-				importbox.Text = payload
-				if setclipboard then
-					setclipboard(payload)
-				end
-				mainapi:CreateNotification('MXTION V4', 'Current profile JSON copied to the clipboard.', 4, 'info')
-			else
-				mainapi:CreateNotification('MXTION V4', 'No profile data found to export.', 4, 'alert')
-			end
-		end)
-		importadd.MouseButton1Click:Connect(function()
-			if importbox.Text == '' then return end
-			local success, profileName = importProfileFromText(importbox.Text, namebox.Text)
-			if success then
-				importbox.Text = ''
-				importpanel.Visible = false
-				categoryapi:ChangeValue(profileName)
-				namebox.Text = ''
-				mainapi:CreateNotification('MXTION V4', 'Imported profile: '..profileName, 4, 'info')
-			else
-				mainapi:CreateNotification('MXTION V4', profileName, 5, 'alert')
-			end
 		end)
 
 		local namebkg = addbkg:Clone()
@@ -4892,13 +4783,10 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 
 		local function refreshModules()
-			if not newprofile.Visible then
-				return
-			end
 			if mainapi.ThreadFix then
 				setthreadidentity(8)
 			end
-
+			
 			for _, old in modulelist:GetChildren() do
 				if old:IsA('TextButton') then
 					old:Destroy()
@@ -4906,13 +4794,7 @@ function mainapi:CreateCategoryList(categorysettings)
 			end
 
 			local list = listModules('', false)
-			local affected = listModules('', true)
-			countlabel.Text = `<font color="rgb(255,255,255)">{#affected}</font> AFFECTED MODULES`
-
-			if #list == 0 then
-				modulelist.CanvasSize = UDim2.fromOffset(0, 0)
-				return
-			end
+			countlabel.Text = `<font color="rgb(255,255,255)">{#listModules('', true)}</font> AFFECTED MODULES`
 
 			for i, entry in list do
 				local row = Instance.new('TextButton')
@@ -6247,9 +6129,9 @@ function mainapi:CreateCategoryList(categorysettings)
 		end)
 
 		createbkg.MouseButton1Click:Connect(function()
+			refreshModules()
 			namebox.Text = ''
 			newprofile.Visible = true
-			refreshModules()
 			namebox:CaptureFocus()
 		end)
 
@@ -6264,6 +6146,27 @@ function mainapi:CreateCategoryList(categorysettings)
 			newprofile.Visible = false
 		end)
 
+		local publicbkg = Instance.new('TextButton')
+		publicbkg.Name = 'Public'
+		publicbkg.Size = UDim2.new(0.47, -4, 1, 0)
+		publicbkg.LayoutOrder = 2
+		publicbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+		publicbkg.AutoButtonColor = true
+		publicbkg.Text = ''
+		publicbkg.Parent = addrow
+		addCorner(publicbkg)
+		local publicstroke = Instance.new('UIStroke')
+		publicstroke.Color = color.Light(uipallet.Main, 0.02)
+		publicstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		publicstroke.Parent = publicbkg
+		addRowButtonContent(publicbkg, 'mxtionv4/assets/new/profileworld.png', 'PUBLIC', 14)
+
+		publicbkg.MouseButton1Click:Connect(function()
+			local public = mainapi.PublicProfiles
+			if not public then return end
+			public.Window.Position = UDim2.new(0.5, -350, 0.5, -194)
+			public.Window.Visible = true
+		end)
 
 	end
 
@@ -7674,103 +7577,6 @@ function mainapi:CreatePrompt(promptsettings)
 	return answer
 end
 
-local function buildProfileSavePath(profileName)
-	return 'mxtionv4/profiles/'..tostring(profileName or mainapi.Profile or 'default')..mainapi.Place..'.txt'
-end
-
-local function exportProfileJson(profileName)
-	local path = buildProfileSavePath(profileName)
-	if not isfile(path) then
-		mainapi:Save(profileName)
-	end
-	if not isfile(path) then
-		return nil
-	end
-	return readfile(path)
-end
-
-local function normalizeImportedProfileName(proposedName)
-	local cleaned = tostring(proposedName or 'Imported')
-	cleaned = cleaned:gsub('^%s+', ''):gsub('%s+$', '')
-	if cleaned == '' then
-		cleaned = 'Imported'
-	end
-	cleaned = cleaned:gsub('[^%w%-%_ ]', '')
-	if cleaned == '' then
-		cleaned = 'Imported'
-	end
-	return cleaned
-end
-
-local function importProfileFromText(rawText, profileNameHint)
-	local freshText = rawText and tostring(rawText):match('^%s*(.-)%s*$') or ''
-	if freshText == '' then
-		return false, 'Paste a profile JSON or a profile name first.'
-	end
-
-	local decoded, profileTable = pcall(function()
-		return httpService:JSONDecode(freshText)
-	end)
-	if decoded and type(profileTable) == 'table' then
-		freshText = httpService:JSONEncode(profileTable)
-	else
-		local path = buildProfileSavePath(freshText)
-		if isfile(path) then
-			local ok, data = pcall(readfile, path)
-			if ok and type(data) == 'string' and data ~= '' then
-				local ok2, decoded2 = pcall(function()
-					return httpService:JSONDecode(data)
-				end)
-				if ok2 and type(decoded2) == 'table' then
-					profileTable = decoded2
-					freshText = data
-				end
-			end
-		end
-	end
-
-	if type(profileTable) ~= 'table' then
-		return false, 'That does not look like a valid profile JSON.'
-	end
-
-	local proposedName = profileNameHint or profileTable.Profile or profileTable.Name or 'Imported'
-	local profileName = normalizeImportedProfileName(proposedName)
-	if profileName == 'default' then
-		profileName = 'ImportedDefault'
-	end
-
-	local uniqueName = profileName
-	local index = 2
-	while true do
-		local found = false
-		for _, v in (mainapi.Profiles or {}) do
-			if v and v.Name == uniqueName then
-				found = true
-				break
-			end
-		end
-		if not found then
-			break
-		end
-		uniqueName = profileName..' '..index
-		index += 1
-	end
-
-	writefile('mxtionv4/profiles/'..uniqueName..mainapi.Place..'.txt', freshText)
-	mainapi.Profiles = mainapi.Profiles or {}
-	local hasProfile = false
-	for _, v in mainapi.Profiles do
-		if v and v.Name == uniqueName then
-			hasProfile = true
-			break
-		end
-	end
-	if not hasProfile then
-		table.insert(mainapi.Profiles, {Name = uniqueName, Bind = {}})
-	end
-	return true, uniqueName
-end
-
 function mainapi:Load(skipgui, profile)
 	if not skipgui then
 		self.GUIColor:SetValue(nil, nil, nil, 4)
@@ -8421,21 +8227,6 @@ local general = mainapi.Categories.Main:CreateSettingsPane({Name = 'General'})
 mainapi.MultiKeybind = general:CreateToggle({
 	Name = 'Enable Multi-Keybinding',
 	Tooltip = 'Allows multiple keys to be bound to a module (eg. G + H)'
-})
-general:CreateButton({
-	Name = 'Export JSON',
-	Function = function()
-		local exportdata = exportProfileJson(mainapi.Profile)
-		if not exportdata then
-			mainapi:CreateNotification('MXTION V4', 'No profile data found to export.', 5, 'alert')
-			return
-		end
-		if setclipboard then
-			setclipboard(exportdata)
-		end
-		mainapi:CreateNotification('MXTION V4', 'Current profile JSON copied to your clipboard.', 5, 'info')
-	end,
-	Tooltip = 'Copies your current profile config as JSON'
 })
 general:CreateButton({
 	Name = 'Self destruct',
