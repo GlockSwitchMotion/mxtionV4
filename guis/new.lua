@@ -4555,7 +4555,7 @@ function mainapi:CreateCategoryList(categorysettings)
 
 		local createbkg = Instance.new('TextButton')
 		createbkg.Name = 'CreateNew'
-		createbkg.Size = UDim2.new(0.53, -4, 1, 0)
+		createbkg.Size = UDim2.new(1, 0, 1, 0)
 		createbkg.LayoutOrder = 1
 		createbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 		createbkg.AutoButtonColor = false
@@ -4783,10 +4783,13 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 
 		local function refreshModules()
+			if not newprofile.Visible then
+				return
+			end
 			if mainapi.ThreadFix then
 				setthreadidentity(8)
 			end
-			
+
 			for _, old in modulelist:GetChildren() do
 				if old:IsA('TextButton') then
 					old:Destroy()
@@ -4794,7 +4797,13 @@ function mainapi:CreateCategoryList(categorysettings)
 			end
 
 			local list = listModules('', false)
-			countlabel.Text = `<font color="rgb(255,255,255)">{#listModules('', true)}</font> AFFECTED MODULES`
+			local affected = listModules('', true)
+			countlabel.Text = `<font color="rgb(255,255,255)">{#affected}</font> AFFECTED MODULES`
+
+			if #list == 0 then
+				modulelist.CanvasSize = UDim2.fromOffset(0, 0)
+				return
+			end
 
 			for i, entry in list do
 				local row = Instance.new('TextButton')
@@ -6129,9 +6138,9 @@ function mainapi:CreateCategoryList(categorysettings)
 		end)
 
 		createbkg.MouseButton1Click:Connect(function()
-			refreshModules()
 			namebox.Text = ''
 			newprofile.Visible = true
+			refreshModules()
 			namebox:CaptureFocus()
 		end)
 
@@ -6146,27 +6155,6 @@ function mainapi:CreateCategoryList(categorysettings)
 			newprofile.Visible = false
 		end)
 
-		local publicbkg = Instance.new('TextButton')
-		publicbkg.Name = 'Public'
-		publicbkg.Size = UDim2.new(0.47, -4, 1, 0)
-		publicbkg.LayoutOrder = 2
-		publicbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-		publicbkg.AutoButtonColor = true
-		publicbkg.Text = ''
-		publicbkg.Parent = addrow
-		addCorner(publicbkg)
-		local publicstroke = Instance.new('UIStroke')
-		publicstroke.Color = color.Light(uipallet.Main, 0.02)
-		publicstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		publicstroke.Parent = publicbkg
-		addRowButtonContent(publicbkg, 'mxtionv4/assets/new/profileworld.png', 'PUBLIC', 14)
-
-		publicbkg.MouseButton1Click:Connect(function()
-			local public = mainapi.PublicProfiles
-			if not public then return end
-			public.Window.Position = UDim2.new(0.5, -350, 0.5, -194)
-			public.Window.Visible = true
-		end)
 
 	end
 
