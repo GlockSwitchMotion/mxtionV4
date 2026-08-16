@@ -2681,6 +2681,7 @@ mainapi:CreateCategory({
 })
 mainapi.Categories.Minigames = mainapi.Categories.Utility
 mainapi.Categories.Inventory = mainapi.Categories.Utility
+mainapi.Categories.Kits = mainapi.Categories.Utility
 
 --[[
 	Profiles

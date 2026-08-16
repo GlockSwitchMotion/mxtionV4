@@ -7136,7 +7136,7 @@ run(function()
 		end
 	end
 	
-	MurderMystery = vape.Categories.Minigames:CreateModule({
+	MurderMystery = vape.Categories.Kits:CreateModule({
 		Name = 'MurderMystery',
 		Function = function(callback)
 			if callback then
@@ -8462,3 +8462,4 @@ run(function()
         end
     })
 end)
+

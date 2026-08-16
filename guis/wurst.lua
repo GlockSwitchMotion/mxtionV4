@@ -530,7 +530,7 @@ modulegrid:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
 	moduleholder.CanvasSize = UDim2.fromOffset(0, modulegrid.AbsoluteContentSize.Y + 2)
 end)
 
-for _, v in {'Combat', 'Blatant', 'Render', 'Utility', 'World', 'Inventory', 'Minigames'} do
+for _, v in {'Combat', 'Blatant', 'Render', 'Utility', 'World', 'Inventory', 'Minigames', 'Kits'} do
 	mainapi:CreateCategory({Name = v})
 end
 

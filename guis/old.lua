@@ -3498,6 +3498,10 @@ mainapi:CreateCategory({
 	Name = 'Minigames',
 	Icon = getcustomasset('mxtionv4/assets/old/worldicon.png')
 })
+mainapi:CreateCategory({
+	Name = 'Kits',
+	Icon = getcustomasset('mxtionv4/assets/old/worldicon.png')
+})
 mainapi.Legit = mainapi:CreateLegit({
 	Name = 'Legit'
 })

@@ -88,7 +88,7 @@ end)
 run(function()
 	local AutoGamble
 	
-	AutoGamble = vape.Categories.Minigames:CreateModule({
+	AutoGamble = vape.Categories.Kits:CreateModule({
 		Name = 'AutoGamble',
 		Function = function(callback)
 			if callback then
@@ -316,7 +316,7 @@ run(function()
 	end
 
 	local sbsLoop = nil
-	StatsBoardSpoof = vape.Categories.Minigames:CreateModule({
+	StatsBoardSpoof = vape.Categories.Kits:CreateModule({
 		Name = "StatsBoardSpoof",
 		Tooltip = "Spoof your StatsBoard display (client-sided only)",
 		Function = function(enabled)
@@ -497,7 +497,7 @@ run(function()
         end
     end
 
-    LARPKits = vape.Categories.Minigames:CreateModule({
+    LARPKits = vape.Categories.Kits:CreateModule({
         Name = "LARPKits",
         Tooltip = "do u own it or not !!! (client-sided)",
         Function = function(callback)
@@ -527,3 +527,4 @@ run(function()
         end
     })
 end)
+

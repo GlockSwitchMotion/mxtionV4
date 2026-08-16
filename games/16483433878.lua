@@ -562,7 +562,7 @@ end)
 run(function()
 	local AutoCamel
 	
-	AutoCamel = vape.Categories.Minigames:CreateModule({
+	AutoCamel = vape.Categories.Kits:CreateModule({
 		Name = 'AutoCamel',
 		Function = function(callback)
 			if callback then
@@ -590,7 +590,7 @@ end)
 run(function()
 	local AutoCloudGrind
 	
-	AutoCloudGrind = vape.Categories.Minigames:CreateModule({
+	AutoCloudGrind = vape.Categories.Kits:CreateModule({
 		Name = 'AutoCloudGrind',
 		Function = function(callback)
 			if callback then
@@ -627,7 +627,7 @@ run(function()
 	local KeepList
 	local old
 	
-	AutoFish = vape.Categories.Minigames:CreateModule({
+	AutoFish = vape.Categories.Kits:CreateModule({
 		Name = 'AutoFish',
 		Function = function(callback)
 			if callback then
@@ -671,7 +671,7 @@ end)
 run(function()
 	local AutoPaint
 	
-	AutoPaint = vape.Categories.Minigames:CreateModule({
+	AutoPaint = vape.Categories.Kits:CreateModule({
 		Name = 'AutoPaint',
 		Function = function(callback)
 			if callback then

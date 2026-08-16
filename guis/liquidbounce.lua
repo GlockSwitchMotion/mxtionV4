@@ -2722,6 +2722,11 @@ mainapi:CreateCategory({
 	Icon = getcustomasset('mxtionv4/assets/liquidbounce/minigames.png'),
 	Size = UDim2.fromOffset(15, 15)
 })
+mainapi:CreateCategory({
+	Name = 'Kits',
+	Icon = getcustomasset('mxtionv4/assets/liquidbounce/minigames.png'),
+	Size = UDim2.fromOffset(15, 15)
+})
 
 mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
 	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then

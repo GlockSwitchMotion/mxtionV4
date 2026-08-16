@@ -1693,7 +1693,7 @@ run(function()
 		end)
 	end
 	
-	Breaker = vape.Categories.Minigames:CreateModule({
+	Breaker = vape.Categories.Kits:CreateModule({
 		Name = 'Breaker',
 		Function = function(callback)
 			if callback then

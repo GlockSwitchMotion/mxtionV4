@@ -8283,6 +8283,11 @@ mainapi:CreateCategory({
 	Icon = getcustomasset('mxtionv4/assets/new/miniicon.png'),
 	Size = UDim2.fromOffset(19, 12)
 })
+mainapi:CreateCategory({
+	Name = 'Kits',
+	Icon = getcustomasset('mxtionv4/assets/new/miniicon.png'),
+	Size = UDim2.fromOffset(19, 12)
+})
 mainapi.Categories.Main:CreateDivider('misc')
 
 --[[
