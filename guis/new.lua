@@ -9722,7 +9722,7 @@ mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
 				mainapi:Load(true)
 				break
 			end
-		end 
+		end
 	end
 end))
 
