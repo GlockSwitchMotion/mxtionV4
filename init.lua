@@ -71,16 +71,12 @@ for _, folder in {'mxtionv4', 'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/a
 end
 
 if not shared.VapeDeveloper then
-	-- Reuse the installed revision when available so normal launches do not wait
-	-- for a second network request before loading the cached files.
+	-- Reuse the installed revision when available and skip the extra GitHub HTML fetch
+	-- during normal startup. Falling back to 'main' keeps startup responsive and still
+	-- allows the script to fetch missing files without blocking the load.
 	local commit = license.Commit or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or nil)
 	if not commit then
-		local _, subbed = pcall(function() 
-			return game:HttpGet('https://github.com/GlockSwitchMotion/mxtionV4') 
-		end)
-		commit = subbed:find('currentOid')
-		commit = commit and subbed:sub(commit + 13, commit + 52) or nil
-		commit = commit and #commit == 40 and commit or 'main'
+		commit = 'main'
 	end
 	if commit == 'main' or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or '') ~= commit then
 		if commit ~= 'main' and isfile('mxtionv4/profiles/commit.txt') then
