@@ -2455,10 +2455,11 @@ run(function()
 								if Lunge.Enabled and tool.GripUp.X == 0 then break end
 								if delta.Magnitude > AttackRange.Value then continue end
 	
-								Overlay.FilterDescendantsInstances = {v.Character}
-								for _, part in workspace:GetPartBoundsInBox(v.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
-									firetouchinterest(interest.Parent, part, 1)
-									firetouchinterest(interest.Parent, part, 0)
+								for _, part in v.Character:GetChildren() do
+									if part:IsA('BasePart') then
+										firetouchinterest(interest.Parent, part, 1)
+										firetouchinterest(interest.Parent, part, 0)
+									end
 								end
 							end
 						end
@@ -8463,3 +8464,15 @@ run(function()
     })
 end)
 
+
+local UnlockFPS = vape.Categories.Utility:CreateModule({
+	Name = 'UnlockFPS',
+	Function = function(callback)
+		if callback then
+			setfpscap(9999)
+		else
+			setfpscap(60)
+		end
+	end,
+	Tooltip = 'Uncaps your FPS to its maximum limits.'
+})
