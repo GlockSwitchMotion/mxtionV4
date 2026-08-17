@@ -5259,9 +5259,15 @@ run(function()
 		return best
 	end
 	
+	local lastTargetPlayer
+
 	local function refresh()
 		local ent = getTarget()
-		local player = ent and ent.Player or lplr
+		if ent and ent.Player and ent.Player ~= lplr and ent.Player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
+			lastTargetPlayer = ent.Player
+		end
+
+		local player = lastTargetPlayer
 		local inventory = player and store.inventories[player] or nil
 	
 		if not player or (not inventory and not Empty.Enabled) then
@@ -5282,15 +5288,13 @@ run(function()
 			table.insert(displayItems, v)
 		end
 
-		if player == lplr then
-			local personalFolder = replicatedStorage:FindFirstChild('Inventories')
-			personalFolder = personalFolder and personalFolder:FindFirstChild(player.Name .. '_personal') or nil
-			if personalFolder then
-				for _, item in personalFolder:GetChildren() do
-					if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') then
-						local amount = item:GetAttribute('Amount') or 1
-						table.insert(displayItems, {itemType = item.Name, amount = amount})
-					end
+		local personalFolder = replicatedStorage:FindFirstChild('Inventories')
+		personalFolder = personalFolder and personalFolder:FindFirstChild(player.Name .. '_personal') or nil
+		if personalFolder then
+			for _, item in personalFolder:GetChildren() do
+				if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') then
+					local amount = item:GetAttribute('Amount') or 1
+					table.insert(displayItems, {itemType = item.Name, amount = amount})
 				end
 			end
 		end
