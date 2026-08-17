@@ -5103,7 +5103,7 @@ run(function()
 	local window, headshot, nametag, grid, armorholder, armordivider
 	local slots, armorslots = {}, {}
 	
-	local SlotCount = 24
+	local SlotCount = 48
 	local SlotSize = 32
 	local SlotPadding = 4
 	local Columns = 6
@@ -5261,24 +5261,42 @@ run(function()
 	
 	local function refresh()
 		local ent = getTarget()
-		local player = ent and ent.Player or nil
+		local player = ent and ent.Player or lplr
 		local inventory = player and store.inventories[player] or nil
 	
-		if not ent or (not inventory and not Empty.Enabled) then
+		if not player or (not inventory and not Empty.Enabled) then
 			window.Visible = false
 			return
 		end
 	
 		window.Visible = true
-		nametag.Text = player and player.DisplayName or (ent.Character and ent.Character.Name) or ''
+		nametag.Text = player and player.DisplayName or (ent and ent.Character and ent.Character.Name) or ''
 		headshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(player and player.UserId or 1)..'&w=420&h=420'
 	
 		inventory = inventory or {items = {}, armor = {}}
 		local hand = inventory.hand
 		local shown = 0
+
+		local displayItems = {}
+		for _, v in inventory.items do
+			table.insert(displayItems, v)
+		end
+
+		if player == lplr then
+			local personalFolder = replicatedStorage:FindFirstChild('Inventories')
+			personalFolder = personalFolder and personalFolder:FindFirstChild(player.Name .. '_personal') or nil
+			if personalFolder then
+				for _, item in personalFolder:GetChildren() do
+					if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') then
+						local amount = item:GetAttribute('Amount') or 1
+						table.insert(displayItems, {itemType = item.Name, amount = amount})
+					end
+				end
+			end
+		end
 	
 		for i, slot in slots do
-			local item = inventory.items[i]
+			local item = displayItems[i]
 			setSlot(slot, item, item and hand and item.tool == hand.tool)
 			if slot.Visible then
 				shown = i
