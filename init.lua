@@ -71,17 +71,17 @@ for _, folder in {'mxtionv4', 'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/a
 end
 
 if not shared.VapeDeveloper then
-	-- Reuse the installed revision when available so normal launches do not wait
-	-- for a second network request before loading the cached files.
-	local commit = license.Commit or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or nil)
+	local commit = license.Commit
 	if not commit then
 		local _, subbed = pcall(function() 
 			return game:HttpGet('https://github.com/GlockSwitchMotion/mxtionV4') 
 		end)
-		commit = subbed:find('currentOid')
-		commit = commit and subbed:sub(commit + 13, commit + 52) or nil
-		commit = commit and #commit == 40 and commit or 'main'
+		local commitIdx = subbed and type(subbed) == 'string' and subbed:find('currentOid')
+		commit = commitIdx and subbed:sub(commitIdx + 13, commitIdx + 52) or nil
+		commit = commit and #commit == 40 and commit or nil
 	end
+	
+	commit = commit or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or 'main')
 	if commit == 'main' or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or '') ~= commit then
 		if commit ~= 'main' and isfile('mxtionv4/profiles/commit.txt') then
 			shared.updated = readfile('mxtionv4/profiles/commit.txt')
