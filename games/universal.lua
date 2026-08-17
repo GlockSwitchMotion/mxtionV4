@@ -2455,11 +2455,10 @@ run(function()
 								if Lunge.Enabled and tool.GripUp.X == 0 then break end
 								if delta.Magnitude > AttackRange.Value then continue end
 	
-								for _, part in v.Character:GetChildren() do
-									if part:IsA('BasePart') then
-										firetouchinterest(interest.Parent, part, 1)
-										firetouchinterest(interest.Parent, part, 0)
-									end
+								Overlay.FilterDescendantsInstances = {v.Character}
+								for _, part in workspace:GetPartBoundsInBox(v.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
+									firetouchinterest(interest.Parent, part, 1)
+									firetouchinterest(interest.Parent, part, 0)
 								end
 							end
 						end
