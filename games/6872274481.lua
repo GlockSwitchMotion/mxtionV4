@@ -5101,10 +5101,6 @@ run(function()
 end)
 
 run(function()
-    local Players = game:GetService("Players")
-    local Workspace = game:GetService("Workspace")
-    local lplr = Players.LocalPlayer
-
     local ChestESP
     local Empty
     local Color = {}
@@ -5118,23 +5114,10 @@ run(function()
     local Columns = 6
     local HeaderHeight = 46
 
-    -- Fallback UI palette support
-    local palletMain = (uipallet and uipallet.Main) or Color3.fromRGB(20, 20, 20)
-    local palletText = (uipallet and uipallet.Text) or Color3.fromRGB(255, 255, 255)
-    local palletFont = (uipallet and uipallet.Font) or Font.fromEnum(Enum.Font.SourceSans)
-
-    local function getDarkColor(c, factor)
-        return (color and color.Dark) and color.Dark(c, factor) or Color3.fromRGB(15, 15, 15)
-    end
-
-    local function getLightColor(c, factor)
-        return (color and color.Light) and color.Light(c, factor) or Color3.fromRGB(45, 45, 45)
-    end
-
     local function createSlot(parent)
         local slot = Instance.new('Frame')
         slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
-        slot.BackgroundColor3 = getDarkColor(palletMain, 0.02)
+        slot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
         slot.BorderSizePixel = 0
         slot.Visible = false
         slot.Parent = parent
@@ -5144,7 +5127,7 @@ run(function()
         corner.Parent = slot
 
         local stroke = Instance.new('UIStroke')
-        stroke.Color = getLightColor(palletMain, 0.034)
+        stroke.Color = color.Light(uipallet.Main, 0.034)
         stroke.Parent = slot
 
         local icon = Instance.new('ImageLabel')
@@ -5163,10 +5146,10 @@ run(function()
         amount.Text = ''
         amount.TextXAlignment = Enum.TextXAlignment.Right
         amount.TextSize = 11
-        amount.TextColor3 = palletText
+        amount.TextColor3 = uipallet.Text
         amount.TextStrokeColor3 = Color3.new()
         amount.TextStrokeTransparency = 0.4
-        amount.FontFace = palletFont
+        amount.FontFace = uipallet.Font
         amount.Parent = slot
         return slot
     end
@@ -5179,8 +5162,8 @@ run(function()
         label.Text = text
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.TextSize = 11
-        label.TextColor3 = palletText
-        label.FontFace = palletFont
+        label.TextColor3 = uipallet.Text
+        label.FontFace = uipallet.Font
         label.Visible = false
         label.Parent = parent
         return label
@@ -5191,7 +5174,7 @@ run(function()
         window.Name = 'ViewChestInventory'
         window.Size = UDim2.fromOffset(240, HeaderHeight)
         window.Position = UDim2.fromOffset(260, 260)
-        window.BackgroundColor3 = palletMain
+        window.BackgroundColor3 = uipallet.Main
         window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
         window.Visible = false
         window.Parent = vape.gui.ScaledGui
@@ -5206,7 +5189,7 @@ run(function()
         chestIcon.Name = 'ChestIcon'
         chestIcon.Size = UDim2.fromOffset(26, 26)
         chestIcon.Position = UDim2.fromOffset(14, 11)
-        chestIcon.BackgroundColor3 = getDarkColor(palletMain, 0.02)
+        chestIcon.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
         chestIcon.Image = 'rbxassetid://6034052026'
         chestIcon.Parent = window
         
@@ -5222,16 +5205,16 @@ run(function()
         nametag.Text = 'Chest'
         nametag.TextXAlignment = Enum.TextXAlignment.Left
         nametag.TextSize = 13
-        nametag.TextColor3 = palletText
+        nametag.TextColor3 = uipallet.Text
         nametag.TextTruncate = Enum.TextTruncate.AtEnd
-        nametag.FontFace = palletFont
+        nametag.FontFace = uipallet.Font
         nametag.Parent = window
 
         local divider = Instance.new('Frame')
         divider.Name = 'Divider'
         divider.Size = UDim2.new(1, 0, 0, 1)
         divider.Position = UDim2.fromOffset(0, HeaderHeight - 1)
-        divider.BackgroundColor3 = getLightColor(palletMain, 0.04)
+        divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
         divider.BorderSizePixel = 0
         divider.Parent = window
 
@@ -5267,22 +5250,18 @@ run(function()
             slot.Icon.Image = bedwars.getIcon(item, true)
         end
         
-        -- Displays stack amount / value
         slot.Amount.Text = (item.amount and item.amount > 1) and tostring(item.amount) or ''
-        slot.UIStroke.Color = getLightColor(palletMain, 0.034)
+        slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
     end
 
-    -- Directly scans workspace chest instances for ChestOwner and items/values
     local function getChestDirectData()
-        local lplrChar = lplr.Character
-        local root = lplrChar and lplrChar:FindFirstChild("HumanoidRootPart")
+        local root = lplr and lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
         if not root then return nil, nil end
 
         local closestChest = nil
-        local shortestDist = 30 -- Stud interaction radius
+        local shortestDist = 30
 
-        -- Find nearby chest models or blocks in Workspace
-        for _, desc in ipairs(Workspace:GetDescendants()) do
+        for _, desc in ipairs(workspace:GetDescendants()) do
             if desc:IsA("BasePart") or desc:IsA("Model") then
                 local owner = desc:GetAttribute("ChestOwner") 
                     or (desc:FindFirstChild("ChestOwner") and desc.ChestOwner.Value)
@@ -5302,13 +5281,11 @@ run(function()
 
         if not closestChest then return nil, nil end
 
-        -- Read ChestOwner attribute or Value object directly from the chest
         local ownerName = closestChest:GetAttribute("ChestOwner")
             or (closestChest:FindFirstChild("ChestOwner") and closestChest.ChestOwner.Value)
             or closestChest:GetAttribute("Team")
             or closestChest.Name
 
-        -- Read items directly inside the chest model/folder
         local itemsFolder = closestChest:FindFirstChild("Contents") 
             or closestChest:FindFirstChild("Items") 
             or closestChest:FindFirstChild("Inventory") 
@@ -5317,7 +5294,6 @@ run(function()
         local items = {}
         for _, item in ipairs(itemsFolder:GetChildren()) do
             if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') or item:IsA('IntValue') then
-                -- Check for item quantity / value
                 local amount = item:GetAttribute('Amount') 
                     or item:GetAttribute('Quantity')
                     or item:GetAttribute('Value')
@@ -5369,8 +5345,8 @@ run(function()
         end
     end
 
-    ChestESP = vape.Categories.Render:CreateModule({
-        Name = 'ChestESP',
+    ChestESP = vape.Categories.Inventory:CreateModule({
+        Name = 'TeamChestESP',
         Function = function(callback)
             if callback then
                 if not window then buildWindow() end
@@ -5386,7 +5362,7 @@ run(function()
                 window.Visible = false
             end
         end,
-        Tooltip = 'Shows items and values of nearby chests directly reading ChestOwner'
+        Tooltip = 'Shows items and values of nearby chests reading ChestOwner'
     })
 
     Empty = ChestESP:CreateToggle({
@@ -5400,7 +5376,7 @@ run(function()
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
             if window then
-                window.BackgroundColor3 = palletMain
+                window.BackgroundColor3 = uipallet.Main
                 window.BackgroundTransparency = 1 - opacity
             end
         end
