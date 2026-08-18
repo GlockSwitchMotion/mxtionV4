@@ -5473,6 +5473,288 @@ run(function()
 end)
 
 run(function()
+    local TeamchestESP
+    local Empty
+    local Color = {}
+    local window, headerTitle, chestIcon
+    local chestLabel, chestGrid
+    local slots = {}
+    
+    local SlotCount = 24
+    local SlotSize = 32
+    local SlotPadding = 4
+    local Columns = 6
+    local HeaderHeight = 46
+
+    -- Create UI Slot Component
+    local function createSlot(parent)
+        local slot = Instance.new('Frame')
+        slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
+        slot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+        slot.BorderSizePixel = 0
+        slot.Visible = false
+        slot.Parent = parent
+        
+        local corner = Instance.new('UICorner')
+        corner.CornerRadius = UDim.new(0, 4)
+        corner.Parent = slot
+        
+        local stroke = Instance.new('UIStroke')
+        stroke.Color = color.Light(uipallet.Main, 0.034)
+        stroke.Parent = slot
+        
+        local icon = Instance.new('ImageLabel')
+        icon.Name = 'Icon'
+        icon.Size = UDim2.fromOffset(SlotSize - 8, SlotSize - 8)
+        icon.Position = UDim2.fromScale(0.5, 0.5)
+        icon.AnchorPoint = Vector2.new(0.5, 0.5)
+        icon.BackgroundTransparency = 1
+        icon.Parent = slot
+        
+        local amount = Instance.new('TextLabel')
+        amount.Name = 'Amount'
+        amount.Size = UDim2.fromOffset(SlotSize - 4, 11)
+        amount.Position = UDim2.fromOffset(0, SlotSize - 13)
+        amount.BackgroundTransparency = 1
+        amount.Text = ''
+        amount.TextXAlignment = Enum.TextXAlignment.Right
+        amount.TextSize = 11
+        amount.TextColor3 = uipallet.Text
+        amount.TextStrokeColor3 = Color3.new()
+        amount.TextStrokeTransparency = 0.4
+        amount.FontFace = uipallet.Font
+        amount.Parent = slot
+
+        return slot
+    end
+
+    local function createSectionHeader(text, parent)
+        local label = Instance.new('TextLabel')
+        label.Name = text .. 'Header'
+        label.Size = UDim2.new(1, -28, 0, 14)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextSize = 11
+        label.TextColor3 = uipallet.Text
+        label.FontFace = uipallet.Font
+        label.Visible = false
+        label.Parent = parent
+        return label
+    end
+
+    -- Build Window Structure
+    local function buildWindow()
+        window = Instance.new('Frame')
+        window.Name = 'ViewTeamChest'
+        window.Size = UDim2.fromOffset(240, HeaderHeight)
+        window.Position = UDim2.fromOffset(12, 320)
+        window.BackgroundColor3 = uipallet.Main
+        window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
+        window.Visible = false
+        window.Parent = vape.gui.ScaledGui
+        addBlur(window)
+        
+        local corner = Instance.new('UICorner')
+        corner.CornerRadius = UDim.new(0, 5)
+        corner.Parent = window
+
+        chestIcon = Instance.new('ImageLabel')
+        chestIcon.Name = 'ChestIcon'
+        chestIcon.Size = UDim2.fromOffset(26, 26)
+        chestIcon.Position = UDim2.fromOffset(14, 11)
+        chestIcon.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+        chestIcon.Image = 'rbxassetid://6031082533' -- Chest Icon
+        chestIcon.Parent = window
+
+        local headcorner = Instance.new('UICorner')
+        headcorner.CornerRadius = UDim.new(0, 4)
+        headcorner.Parent = chestIcon
+
+        headerTitle = Instance.new('TextLabel')
+        headerTitle.Name = 'Title'
+        headerTitle.Size = UDim2.new(1, -60, 0, 26)
+        headerTitle.Position = UDim2.fromOffset(48, 11)
+        headerTitle.BackgroundTransparency = 1
+        headerTitle.Text = 'Team Chest'
+        headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+        headerTitle.TextSize = 13
+        headerTitle.TextColor3 = uipallet.Text
+        headerTitle.TextTruncate = Enum.TextTruncate.AtEnd
+        headerTitle.FontFace = uipallet.Font
+        headerTitle.Parent = window
+
+        local divider = Instance.new('Frame')
+        divider.Name = 'Divider'
+        divider.Size = UDim2.new(1, 0, 0, 1)
+        divider.Position = UDim2.fromOffset(0, HeaderHeight - 1)
+        divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+        divider.BorderSizePixel = 0
+        divider.Parent = window
+
+        -- Chest Contents Grid
+        chestLabel = createSectionHeader('Chest Contents', window)
+
+        chestGrid = Instance.new('Frame')
+        chestGrid.Name = 'ChestItems'
+        chestGrid.Size = UDim2.new(1, -28, 0, 0)
+        chestGrid.BackgroundTransparency = 1
+        chestGrid.Parent = window
+
+        local layout = Instance.new('UIGridLayout')
+        layout.CellSize = UDim2.fromOffset(SlotSize, SlotSize)
+        layout.CellPadding = UDim2.fromOffset(SlotPadding, SlotPadding)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = chestGrid
+
+        for i = 1, SlotCount do
+            local slot = createSlot(chestGrid)
+            slot.LayoutOrder = i
+            slots[i] = slot
+        end
+    end
+
+    local function setSlot(slot, item)
+        if not item or not item.itemType then
+            slot.Visible = false
+            return
+        end
+
+        slot.Visible = true
+        slot.Icon.Image = bedwars.getIcon(item, true)
+        slot.Amount.Text = (item.amount or 1) > 1 and tostring(item.amount) or ''
+        slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
+    end
+
+    -- Scans workspace or replicated storage for team_crate contents
+    local function getTeamChestData()
+        local chestItems = {}
+        local chestName = "Team Chest"
+
+        -- 1. Check ReplicatedStorage.Inventories for team chest data
+        local teamColor = lplr:GetAttribute('Team') or 'Blue'
+        local inventoriesFolder = game:GetService('ReplicatedStorage'):FindFirstChild('Inventories')
+        
+        local crateFolder = inventoriesFolder and (
+            inventoriesFolder:FindFirstChild('team_crate_' .. tostring(teamColor):lower()) or
+            inventoriesFolder:FindFirstChild('team_crate') or
+            inventoriesFolder:FindFirstChild('chest_team')
+        )
+
+        -- 2. If found in ReplicatedStorage, parse items
+        if crateFolder then
+            for _, item in ipairs(crateFolder:GetChildren()) do
+                if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') or item:IsA('ValueObject') then
+                    local count = item:GetAttribute('Amount') or item:FindFirstChild('Amount') and item.Amount.Value or 1
+                    table.insert(chestItems, {
+                        itemType = item.Name,
+                        amount = count
+                    })
+                end
+            end
+        else
+            -- 3. Fallback: Search Workspace for team_crate Model/Folder
+            for _, obj in ipairs(game:GetService('Workspace'):GetDescendants()) do
+                if obj.Name:lower():find('team_crate') or obj.Name:lower():find('chest_team') then
+                    chestName = obj.Name
+                    local contents = obj:FindFirstChild('Contents') or obj:FindFirstChild('Items') or obj
+                    for _, item in ipairs(contents:GetChildren()) do
+                        if item:IsA('Tool') or item:IsA('Model') or item:IsA('Folder') then
+                            local count = item:GetAttribute('Amount') or 1
+                            table.insert(chestItems, {
+                                itemType = item.Name,
+                                amount = count
+                            })
+                        end
+                    end
+                    break
+                end
+            end
+        end
+
+        return chestItems, chestName
+    end
+
+    local function refresh()
+        local items, titleText = getTeamChestData()
+
+        if #items == 0 and not (Empty and Empty.Enabled) then
+            window.Visible = false
+            return
+        end
+
+        window.Visible = true
+        headerTitle.Text = titleText or 'Team Chest'
+
+        local currentY = HeaderHeight + 8
+        local shownItems = 0
+
+        for i, slot in ipairs(slots) do
+            local item = items[i]
+            setSlot(slot, item)
+            if slot.Visible then
+                shownItems = i
+            end
+        end
+
+        chestLabel.Visible = true
+        chestLabel.Position = UDim2.fromOffset(14, currentY)
+        currentY += 16
+
+        local rows = math.max(math.ceil(shownItems / Columns), 1)
+        local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
+        chestGrid.Position = UDim2.fromOffset(14, currentY)
+        chestGrid.Size = UDim2.new(1, -28, 0, gridHeight)
+        currentY += gridHeight + 10
+
+        window.Size = UDim2.fromOffset(240, currentY)
+    end
+
+    -- Register Module with Vape UI
+    TeamchestESP = vape.Categories.Inventory:CreateModule({
+        Name = 'TeamchestESP',
+        Function = function(callback)
+            if callback then
+                if not window then
+                    buildWindow()
+                end
+
+                repeat
+                    if vape.ThreadFix then
+                        setthreadidentity(8)
+                    end
+                    refresh()
+                    task.wait(0.2)
+                until not TeamchestESP.Enabled
+
+                if window then window.Visible = false end
+            elseif window then
+                window.Visible = false
+            end
+        end,
+        Tooltip = 'Shows the contents and item quantities of your team chest'
+    })
+
+    Empty = TeamchestESP:CreateToggle({
+        Name = 'Show when empty',
+        Tooltip = 'Keeps the panel visible even if the team chest is empty or not loaded',
+        Default = false
+    })
+
+    Color = TeamchestESP:CreateColorSlider({
+        Name = 'Background Color',
+        DefaultValue = 0,
+        DefaultOpacity = 0.5,
+        Function = function(hue, sat, val, opacity)
+            if window then
+                window.BackgroundColor3 = uipallet.Main
+                window.BackgroundTransparency = 1 - opacity
+            end
+        end
+    })
+end)
+
+run(function()
     local MushroomESP
     local activeESP = {}
     local connections = {}
