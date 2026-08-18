@@ -11224,13 +11224,12 @@ end)
 
 run(function()
     local AutoBankAlert
-    local SoundToggle
     local TrackedPlayers = {}
 
     local function alertPlayer(player, itemType, amount)
         if not player or player == lplr then return end
         
-        -- Cooldown check so it doesn't spam alerts every frame
+        -- Cooldown to avoid notification spam
         local lastAlert = TrackedPlayers[player] or 0
         if tick() - lastAlert < 3 then return end
         TrackedPlayers[player] = tick()
@@ -11238,21 +11237,11 @@ run(function()
         local name = player.DisplayName or player.Name
         local text = name .. " is using AutoBank! (" .. tostring(amount) .. " " .. tostring(itemType) .. ")"
 
-        -- Vape On-Screen Notification
-        if vape.CreateNotification then
-            vape.CreateNotification("AutoBank Detected", text, 5, "assets/WarningNotification.png")
+        -- Mxtion v4 On-Screen Notification
+        if vape and vape.CreateNotification then
+            vape.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
         else
-            print("[AutoBankAlert] " .. text)
-        end
-
-        -- Sound Alert
-        if SoundToggle.Enabled then
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://1548304759" -- Warning chime
-            sound.Volume = 1
-            sound.Parent = workspace
-            sound:Play()
-            sound.Ended:Connect(function() sound:Destroy() end)
+            print("[Mxtion v4] " .. text)
         end
     end
 
@@ -11260,46 +11249,42 @@ run(function()
         Name = "AutoBankAlert",
         Function = function(callback)
             if callback then
-                local itemFolder = workspace:FindFirstChild("ItemDrops")
-                if not itemFolder then return end
+                AutoBankAlert:Clean(workspace.DescendantAdded:Connect(function(child)
+                    -- Detects newly created item drops
+                    if child:IsA("BasePart") and (child.Parent == workspace:FindFirstChild("ItemDrops") or child:GetAttribute("ItemType")) then
+                        task.wait(0.05)
+                        
+                        -- Checks for AutoBank behavior: part:ClearAllChildren() OR teleporting to sky base
+                        local isCleared = #child:GetChildren() == 0
+                        local isTeleported = child.Position.Y > 20000 or child.Position.Y < -500
 
-                AutoBankAlert:Clean(itemFolder.ChildAdded:Connect(function(child)
-                    if not child:IsA("BasePart") then return end
+                        if isCleared or isTeleported then
+                            local itemType = child:GetAttribute("ItemType") or child.Name
+                            local amount = child:GetAttribute("Amount") or 1
 
-                    -- AutoBank scripts clear all children or instantly move parts away on spawn
-                    task.wait()
-                    if child.Parent and (#child:GetChildren() == 0 or child.Position.Y > 50000) then
-                        local itemType = child.Name
-                        local amount = child:GetAttribute("Amount") or 1
+                            local closestPlayer = nil
+                            local closestDist = 25
 
-                        -- Find the closest player to where the item dropped
-                        local closestPlayer = nil
-                        local closestDist = 20
-
-                        for _, player in playersService:GetPlayers() do
-                            if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                local dist = (player.Character.HumanoidRootPart.Position - child.Position).Magnitude
-                                if dist < closestDist then
-                                    closestDist = dist
-                                    closestPlayer = player
+                            -- Match the drop to the nearest player
+                            for _, player in playersService:GetPlayers() do
+                                if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                                    local dist = (player.Character.HumanoidRootPart.Position - child.Position).Magnitude
+                                    if dist < closestDist then
+                                        closestDist = dist
+                                        closestPlayer = player
+                                    end
                                 end
                             end
-                        end
 
-                        if closestPlayer then
-                            alertPlayer(closestPlayer, itemType, amount)
+                            if closestPlayer then
+                                alertPlayer(closestPlayer, itemType, amount)
+                            end
                         end
                     end
                 end))
             end
         end,
-        Tooltip = "Alerts you when an enemy player is using AutoBank to hide items"
-    })
-
-    SoundToggle = AutoBankAlert:CreateToggle({
-        Name = "Play Sound",
-        Default = true,
-        Tooltip = "Plays a chime sound when AutoBank is detected"
+        Tooltip = "Alerts you when an enemy player uses AutoBank to hide items"
     })
 end)
 
