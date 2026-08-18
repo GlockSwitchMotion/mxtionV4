@@ -8362,6 +8362,8 @@ run(function()
     local SpeedValue
     local RadiusValue
     
+    local lockedPositions = {}
+
     FalseBan = vape.Categories.Blatant:CreateModule({
         Name = 'FalseBan',
         Function = function(callback)
@@ -8381,12 +8383,18 @@ run(function()
                         local hum = ent.Humanoid
                         if root and hum and hum.Health > 0 then
                             local mode = HackMode.Value
-                            if mode == 'Fly' then
-                                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, SpeedValue.Value, root.AssemblyLinearVelocity.Z)
-                                root.CFrame = root.CFrame + Vector3.new(0, SpeedValue.Value * dt, 0)
 
-                            elseif mode == 'Spin' then
-                                root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(SpeedValue.Value * dt * 5), 0)
+                            if mode == 'AutoDodge' then
+                                -- Cycles up and down every 0.2 seconds
+                                local cycle = (tick() % 0.4) < 0.2 and 1 or -1
+                                root.CFrame = root.CFrame + Vector3.new(0, cycle * SpeedValue.Value * dt, 0)
+
+                            elseif mode == 'PlayerAttach' then
+                                -- Attaches target directly behind your character's root part
+                                if entitylib.isAlive and entitylib.character.RootPart then
+                                    local myRoot = entitylib.character.RootPart
+                                    root.CFrame = myRoot.CFrame * CFrame.new(0, 0, 3)
+                                end
 
                             elseif mode == 'Orbit' then
                                 if entitylib.isAlive and entitylib.character.RootPart then
@@ -8407,27 +8415,35 @@ run(function()
                             elseif mode == 'PushAway' then
                                 if entitylib.isAlive and entitylib.character.RootPart then
                                     local dir = (root.Position - entitylib.character.RootPart.Position).Unit
-                                    localVelocity = dir * SpeedValue.Value
+                                    root.CFrame = root.CFrame + (dir * SpeedValue.Value * dt)
                                 end
 
                             elseif mode == 'Desync' then
-                                -- Visual client-sided positional and rotational desync
+                                -- Locks target to their current position so they don't drift away continuously
+                                if not lockedPositions[ent] then
+                                    lockedPositions[ent] = root.Position
+                                end
+                                
                                 local desyncTime = tick() * (SpeedValue.Value / 5)
                                 local desyncOffset = Vector3.new(
-                                    math.sin(desyncTime) * (RadiusValue.Value / 2),
-                                    math.cos(desyncTime * 2) * 2,
-                                    math.cos(desyncTime) * (RadiusValue.Value / 2)
+                                    math.sin(desyncTime) * (RadiusValue.Value / 4),
+                                    math.cos(desyncTime * 2) * 1.5,
+                                    math.cos(desyncTime) * (RadiusValue.Value / 4)
                                 )
                                 local desyncAngle = CFrame.Angles(
                                     math.rad(math.sin(desyncTime * 3) * 45),
                                     math.rad(tick() * 360 % 360),
                                     math.rad(math.cos(desyncTime * 3) * 45)
                                 )
-                                root.CFrame = (root.CFrame + desyncOffset) * desyncAngle
+                                
+                                -- Anchors position relative to fixed locked CFrame
+                                root.CFrame = (CFrame.new(lockedPositions[ent]) + desyncOffset) * desyncAngle
                             end
                         end
                     end
                 end))
+            else
+                table.clear(lockedPositions)
             end
         end,
         Tooltip = 'client sided'
@@ -8440,9 +8456,9 @@ run(function()
     
     HackMode = FalseBan:CreateDropdown({
         Name = 'Hack Mode',
-        List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway', 'Desync'},
-        Default = 'Fly',
-        Tooltip = 'Fly: Upward | Spin: Rotate | Orbit: Circle around you | Shake: Jitter | PushAway: Repel | Desync: Visual server-offset'
+        List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync'},
+        Default = 'AutoDodge',
+        Tooltip = 'AutoDodge: 0.2s Up/Down cycle | PlayerAttach: Behind you | Orbit: Circle around | Shake: Jitter | PushAway: Repel | Desync: Fixed station desync'
     })
     
     SpeedValue = FalseBan:CreateSlider({
@@ -8453,7 +8469,7 @@ run(function()
     })
     
     RadiusValue = FalseBan:CreateSlider({
-        Name = 'Orbit Radius',
+        Name = 'Orbit/Desync Radius',
         Min = 5,
         Max = 50,
         Default = 15,
@@ -8462,7 +8478,6 @@ run(function()
         end
     })
 end)
-
 
 local UnlockFPS = vape.Categories.Utility:CreateModule({
 	Name = 'UnlockFPS',
