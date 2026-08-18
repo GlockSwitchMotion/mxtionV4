@@ -5486,7 +5486,6 @@ run(function()
     local Columns = 6
     local HeaderHeight = 46
 
-    -- Create UI Slot Component
     local function createSlot(parent)
         local slot = Instance.new('Frame')
         slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
@@ -5543,7 +5542,6 @@ run(function()
         return label
     end
 
-    -- Build Window Structure
     local function buildWindow()
         window = Instance.new('Frame')
         window.Name = 'ViewTeamChest'
@@ -5564,7 +5562,7 @@ run(function()
         chestIcon.Size = UDim2.fromOffset(26, 26)
         chestIcon.Position = UDim2.fromOffset(14, 11)
         chestIcon.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-        chestIcon.Image = 'rbxassetid://6031082533' -- Chest Icon
+        chestIcon.Image = 'rbxassetid://6031082533'
         chestIcon.Parent = window
 
         local headcorner = Instance.new('UICorner')
@@ -5592,7 +5590,6 @@ run(function()
         divider.BorderSizePixel = 0
         divider.Parent = window
 
-        -- Chest Contents Grid
         chestLabel = createSectionHeader('Chest Contents', window)
 
         chestGrid = Instance.new('Frame')
@@ -5626,53 +5623,65 @@ run(function()
         slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
     end
 
-    -- Scans workspace or replicated storage for team_crate contents
+    -- Scans all BlockChest and ChestOwners folders in ReplicatedStorage
     local function getTeamChestData()
         local chestItems = {}
-        local chestName = "Team Chest"
+        local repStorage = game:GetService('ReplicatedStorage')
 
-        -- 1. Check ReplicatedStorage.Inventories for team chest data
-        local teamColor = lplr:GetAttribute('Team') or 'Blue'
-        local inventoriesFolder = game:GetService('ReplicatedStorage'):FindFirstChild('Inventories')
-        
-        local crateFolder = inventoriesFolder and (
-            inventoriesFolder:FindFirstChild('team_crate_' .. tostring(teamColor):lower()) or
-            inventoriesFolder:FindFirstChild('team_crate') or
-            inventoriesFolder:FindFirstChild('chest_team')
-        )
+        -- Helper to read items inside any chest container folder
+        local function scanFolder(folder)
+            if not folder then return end
+            
+            for _, item in ipairs(folder:GetChildren()) do
+                -- If subfolder exists (e.g. individual chest ID folders inside BlockChest)
+                if item:IsA('Folder') or item:IsA('Model') then
+                    scanFolder(item)
+                else
+                    -- Extract ItemType and Amount attributes or properties
+                    local name = item:GetAttribute('ItemType') 
+                        or item:GetAttribute('itemType') 
+                        or item:GetAttribute('Name')
+                        or item.Name
 
-        -- 2. If found in ReplicatedStorage, parse items
-        if crateFolder then
-            for _, item in ipairs(crateFolder:GetChildren()) do
-                if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') or item:IsA('ValueObject') then
-                    local count = item:GetAttribute('Amount') or item:FindFirstChild('Amount') and item.Amount.Value or 1
-                    table.insert(chestItems, {
-                        itemType = item.Name,
-                        amount = count
-                    })
-                end
-            end
-        else
-            -- 3. Fallback: Search Workspace for team_crate Model/Folder
-            for _, obj in ipairs(game:GetService('Workspace'):GetDescendants()) do
-                if obj.Name:lower():find('team_crate') or obj.Name:lower():find('chest_team') then
-                    chestName = obj.Name
-                    local contents = obj:FindFirstChild('Contents') or obj:FindFirstChild('Items') or obj
-                    for _, item in ipairs(contents:GetChildren()) do
-                        if item:IsA('Tool') or item:IsA('Model') or item:IsA('Folder') then
-                            local count = item:GetAttribute('Amount') or 1
-                            table.insert(chestItems, {
-                                itemType = item.Name,
-                                amount = count
-                            })
-                        end
+                    local amount = item:GetAttribute('Amount') 
+                        or item:GetAttribute('amount') 
+                        or (item:FindFirstChild('Amount') and item.Amount.Value) 
+                        or 1
+
+                    -- Ignore internal metadata entries
+                    if name ~= 'ChestOwners' and name ~= 'Owner' and name ~= 'Team' then
+                        table.insert(chestItems, {
+                            itemType = tostring(name),
+                            amount = tonumber(amount) or 1
+                        })
                     end
-                    break
                 end
             end
         end
 
-        return chestItems, chestName
+        -- 1. Scan ReplicatedStorage.BlockChest
+        local blockChest = repStorage:FindFirstChild('BlockChest')
+        if blockChest then
+            scanFolder(blockChest)
+        end
+
+        -- 2. Scan ReplicatedStorage.ChestOwners
+        local chestOwners = repStorage:FindFirstChild('ChestOwners')
+        if chestOwners then
+            scanFolder(chestOwners)
+        end
+
+        -- 3. Scan ReplicatedStorage.Inventories / team_crate as fallback
+        local inventoriesFolder = repStorage:FindFirstChild('Inventories') or repStorage:FindFirstChild('inventories')
+        if inventoriesFolder then
+            for _, folder in ipairs(inventoriesFolder:GetChildren()) do
+                if folder.Name:lower():find('team') or folder.Name:lower():find('crate') or folder.Name:lower():find('chest') then
+                    scanFolder(folder)
+                end
+            end
+        end
+
+        return chestItems, "team_crate"
     end
 
     local function refresh()
@@ -5684,7 +5693,7 @@ run(function()
         end
 
         window.Visible = true
-        headerTitle.Text = titleText or 'Team Chest'
+        headerTitle.Text = titleText or 'team_crate'
 
         local currentY = HeaderHeight + 8
         local shownItems = 0
@@ -5710,7 +5719,6 @@ run(function()
         window.Size = UDim2.fromOffset(240, currentY)
     end
 
-    -- Register Module with Vape UI
     TeamchestESP = vape.Categories.Inventory:CreateModule({
         Name = 'TeamchestESP',
         Function = function(callback)
@@ -5732,12 +5740,12 @@ run(function()
                 window.Visible = false
             end
         end,
-        Tooltip = 'Shows the contents and item quantities of your team chest'
+        Tooltip = 'Shows all items and amounts across BlockChest and ChestOwners'
     })
 
     Empty = TeamchestESP:CreateToggle({
         Name = 'Show when empty',
-        Tooltip = 'Keeps the panel visible even if the team chest is empty or not loaded',
+        Tooltip = 'Keeps the panel visible even if no chest items are detected',
         Default = false
     })
 
