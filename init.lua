@@ -29,13 +29,22 @@ local function setDownloadProgress()
 	downloader.Text = 'Downloading files '..downloadCount..'/100'
 end
 
+local commitCache
+local function getCommit()
+	if not commitCache then
+		commitCache = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or 'main'
+	end
+	return commitCache
+end
+
 local function downloadFile(path, func)
 	if not isfile(path) then
 		if not license.Closet then
 			setDownloadProgress()
 		end
+		local commit = getCommit()
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -76,7 +85,7 @@ end
 		local lastUpdateCheck = isfile('mxtionv4/profiles/lastupdate.txt') and tonumber(readfile('mxtionv4/profiles/lastupdate.txt')) or 0
 		
 		if not commit then
-			if os.time() - lastUpdateCheck > 600 or currentCommit == '' then
+			if os.time() - lastUpdateCheck > 3600 or currentCommit == '' then
 				local suc, res = pcall(function() 
 					-- Use Github API for faster response instead of scraping HTML
 					return cloneref(game:GetService("HttpService")):JSONDecode(game:HttpGet('https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main'))
@@ -98,6 +107,7 @@ end
 			wipeFolder('mxtionv4/libraries')
 		end
 		writefile('mxtionv4/profiles/commit.txt', commit)
+		commitCache = commit
 
 		-- Parallel core asset pre-downloader to maximize speed & minimize connection roundtrips
 		local filesToDownload = {
