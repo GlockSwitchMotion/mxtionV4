@@ -3410,6 +3410,7 @@ end)
 run(function()
 	local FastBreak
 	local BedCheck
+	local HiveCheck
 	local Blacklist
 	local Blacklisted
 	local Time
@@ -3434,7 +3435,7 @@ run(function()
 					pcall(function()
 						local block, info = nil, self.clientManager:getBlockSelector():getMouseInfo(1, {ray = params})
 						block = info and info.target and info.target.blockInstance or nil
-						if block and (not Blacklist.Enabled or not find(newlist, block.Name)) and (not BedCheck.Enabled or block.Name ~= 'bed') then
+						if block and (not Blacklist.Enabled or not find(newlist, block.Name)) and (not BedCheck.Enabled or block.Name ~= 'bed') and (not HiveCheck.Enabled or block.Name ~= 'beehive') then
 							bedwars.BlockBreakController.blockBreaker:setCooldown(Time.Value)
 						end
 					end)
@@ -3472,6 +3473,10 @@ run(function()
 	BedCheck = FastBreak:CreateToggle({
 		Name = 'Bed Check',
 		Tooltip = 'Doesn\'t increase speed if ur breaking a bed'
+	})
+	HiveCheck = FastBreak:CreateToggle({
+		Name = 'Blacklist Beehive',
+		Tooltip = 'Doesn\'t increase speed if ur breaking a beehive'
 	})
 	Blacklist = FastBreak:CreateToggle({
 		Name = 'Use blacklist',
