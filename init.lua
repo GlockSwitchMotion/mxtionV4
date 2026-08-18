@@ -70,28 +70,29 @@ for _, folder in {'mxtionv4', 'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/a
 	end
 end
 
-if not shared.VapeDeveloper then
-	local commit = license.Commit
-	if not commit then
-		local _, subbed = pcall(function() 
-			return game:HttpGet('https://github.com/GlockSwitchMotion/mxtionV4') 
-		end)
-		local commitIdx = subbed and type(subbed) == 'string' and subbed:find('currentOid')
-		commit = commitIdx and subbed:sub(commitIdx + 13, commitIdx + 52) or nil
-		commit = commit and #commit == 40 and commit or nil
-	end
-	
-	commit = commit or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or 'main')
-	if commit == 'main' or (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or '') ~= commit then
-		if commit ~= 'main' and isfile('mxtionv4/profiles/commit.txt') then
-			shared.updated = readfile('mxtionv4/profiles/commit.txt')
+	if not shared.VapeDeveloper then
+		local commit = license.Commit
+		if not commit then
+			local suc, res = pcall(function() 
+				-- Use Github API for faster response instead of scraping HTML
+				return cloneref(game:GetService("HttpService")):JSONDecode(game:HttpGet('https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main'))
+			end)
+			if suc and type(res) == "table" and res.sha then
+				commit = res.sha
+			end
 		end
-		wipeFolder('mxtionv4')
-		wipeFolder('mxtionv4/games')
-		wipeFolder('mxtionv4/guis')
-		wipeFolder('mxtionv4/libraries')
-	end
-	writefile('mxtionv4/profiles/commit.txt', commit)
+		
+		local currentCommit = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or ''
+		commit = commit or (currentCommit ~= '' and currentCommit or 'main')
+		
+		if commit ~= 'main' and currentCommit ~= '' and currentCommit ~= commit then
+			shared.updated = currentCommit
+			wipeFolder('mxtionv4')
+			wipeFolder('mxtionv4/games')
+			wipeFolder('mxtionv4/guis')
+			wipeFolder('mxtionv4/libraries')
+		end
+		writefile('mxtionv4/profiles/commit.txt', commit)
 	if shared.updated or #listfiles('mxtionv4/profiles') < 4 then
 		shared.VapePresetInstall = function()
 			local suc, req = pcall(request, {
