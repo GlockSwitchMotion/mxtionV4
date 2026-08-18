@@ -11245,11 +11245,11 @@ end)
 run(function()
     local AutoBankAlert
     local TrackedPlayers = {}
+    local playersService = game:GetService("Players")
 
     local function alertPlayer(player, itemType, amount)
         if not player or player == lplr then return end
         
-        -- Cooldown to avoid notification spam
         local lastAlert = TrackedPlayers[player] or 0
         if tick() - lastAlert < 3 then return end
         TrackedPlayers[player] = tick()
@@ -11257,7 +11257,6 @@ run(function()
         local name = player.DisplayName or player.Name
         local text = name .. " is using AutoBank! (" .. tostring(amount) .. " " .. tostring(itemType) .. ")"
 
-        -- Mxtion v4 On-Screen Notification
         if vape and vape.CreateNotification then
             vape.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
         else
@@ -11270,36 +11269,54 @@ run(function()
         Function = function(callback)
             if callback then
                 AutoBankAlert:Clean(workspace.DescendantAdded:Connect(function(child)
-                    -- Detects newly created item drops
-                    if child:IsA("BasePart") and (child.Parent == workspace:FindFirstChild("ItemDrops") or child:GetAttribute("ItemType")) then
-                        task.wait(0.05)
+                    -- Verify item drop instance
+                    local itemDropsFolder = workspace:FindFirstChild("ItemDrops")
+                    local isItemDrop = (itemDropsFolder and child.Parent == itemDropsFolder) or child:GetAttribute("ItemType") ~= nil
+                    
+                    if child:IsA("BasePart") and isItemDrop then
+                        -- 1. Store the initial spawn position BEFORE it teleports
+                        local initialPos = child.Position
                         
-                        -- Checks for AutoBank behavior: part:ClearAllChildren() OR teleporting to sky base
-                        local isCleared = #child:GetChildren() == 0
-                        local isTeleported = child.Position.Y > 20000 or child.Position.Y < -500
+                        -- 2. Identify nearest player at the moment of spawning
+                        local closestPlayer = nil
+                        local closestDist = 30
 
-                        if isCleared or isTeleported then
-                            local itemType = child:GetAttribute("ItemType") or child.Name
-                            local amount = child:GetAttribute("Amount") or 1
-
-                            local closestPlayer = nil
-                            local closestDist = 25
-
-                            -- Match the drop to the nearest player
-                            for _, player in playersService:GetPlayers() do
-                                if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                    local dist = (player.Character.HumanoidRootPart.Position - child.Position).Magnitude
-                                    if dist < closestDist then
-                                        closestDist = dist
-                                        closestPlayer = player
-                                    end
+                        for _, player in ipairs(playersService:GetPlayers()) do
+                            if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                                local dist = (player.Character.HumanoidRootPart.Position - initialPos).Magnitude
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    closestPlayer = player
                                 end
                             end
+                        end
 
-                            if closestPlayer then
+                        if not closestPlayer then return end
+
+                        -- 3. Watch the drop over 0.5s for AutoBank behavior (teleporting or child stripping)
+                        task.spawn(function()
+                            local detected = false
+                            local startTime = tick()
+
+                            while (tick() - startTime) < 0.6 do
+                                if not child or not child.Parent then break end
+
+                                local isCleared = #child:GetChildren() == 0 and child:GetAttribute("HandItem") == nil
+                                local isTeleported = math.abs(child.Position.Y - initialPos.Y) > 100 or child.Position.Y > 20000 or child.Position.Y < -500
+
+                                if isCleared or isTeleported then
+                                    detected = true
+                                    break
+                                end
+                                task.wait(0.05)
+                            end
+
+                            if detected then
+                                local itemType = child:GetAttribute("ItemType") or child.Name
+                                local amount = child:GetAttribute("Amount") or 1
                                 alertPlayer(closestPlayer, itemType, amount)
                             end
-                        end
+                        end)
                     end
                 end))
             end
