@@ -5475,6 +5475,7 @@ end)
 run(function()
     local TeamchestESP
     local Empty
+    local HideMyTeam -- Toggle to filter out your own team's chest
     local Color = {}
     local window, headerTitle, chestIcon
     
@@ -5483,7 +5484,6 @@ run(function()
     local Columns = 6
     local HeaderHeight = 46
 
-    -- Container to store dynamic team section UI elements
     local dynamicSections = {}
 
     local function createSlot(parent)
@@ -5559,7 +5559,7 @@ run(function()
         headerTitle.Size = UDim2.new(1, -60, 0, 26)
         headerTitle.Position = UDim2.fromOffset(48, 11)
         headerTitle.BackgroundTransparency = 1
-        headerTitle.Text = 'Team Chests'
+        headerTitle.Text = 'Enemy Team Chests'
         headerTitle.TextXAlignment = Enum.TextXAlignment.Left
         headerTitle.TextSize = 13
         headerTitle.TextColor3 = uipallet.Text
@@ -5588,25 +5588,33 @@ run(function()
         slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
     end
 
-    -- Helper to clean folder/team names for section headers
+    -- Clean up folder string into a formatted Team Name (e.g., "Red Team Chest")
     local function formatTeamName(str)
-        str = str:gsub('team_crate_', ''):gsub('team_crate', 'Team Chest'):gsub('chest_', ''):gsub('_', ' ')
-        return str:sub(1,1):upper() .. str:sub(2)
+        local cleaned = str:gsub('team_crate_', ''):gsub('team_crate', ''):gsub('chest_', ''):gsub('owner_', ''):gsub('_', ' '):gsub('^%s*(.-)%s*$', '%1')
+        if cleaned == '' or cleaned:lower() == 'chest' then
+            cleaned = 'Enemy'
+        end
+        cleaned = cleaned:sub(1,1):upper() .. cleaned:sub(2)
+        return cleaned .. ' Team Chest'
     end
 
-    -- Scans folders and groups chest contents separately per team
+    -- Scans folders and groups chests separately per team while excluding local player's team
     local function getTeamChestData()
-        local teamChests = {} -- Array of { teamName = "...", items = {...} }
+        local teamChests = {}
         local repStorage = game:GetService('ReplicatedStorage')
 
+        -- Get local player's team identifier
+        local myTeam = lplr:GetAttribute('Team') or (lplr.Team and lplr.Team.Name) or ''
+        myTeam = tostring(myTeam):lower()
+
         local function getTeamList(name)
-            local cleanName = formatTeamName(name)
+            local formattedName = formatTeamName(name)
             for _, entry in ipairs(teamChests) do
-                if entry.teamName == cleanName then
+                if entry.teamName == formattedName then
                     return entry.items
                 end
             end
-            local newEntry = { teamName = cleanName, items = {} }
+            local newEntry = { teamName = formattedName, items = {} }
             table.insert(teamChests, newEntry)
             return newEntry.items
         end
@@ -5615,6 +5623,15 @@ run(function()
             if not folder then return end
             
             local teamName = currentTeam or folder:GetAttribute('Team') or folder.Name
+            local rawTeamStr = tostring(teamName):lower()
+
+            -- Check if this folder belongs to local player's team
+            local isMyTeam = (myTeam ~= '' and rawTeamStr:find(myTeam))
+
+            -- Filter out local team if HideMyTeam toggle is enabled
+            if HideMyTeam and HideMyTeam.Enabled and isMyTeam then
+                return
+            end
 
             for _, item in ipairs(folder:GetChildren()) do
                 if item:IsA('Folder') or item:IsA('Model') then
@@ -5642,15 +5659,15 @@ run(function()
             end
         end
 
-        -- 1. BlockChest scanning
+        -- 1. Scan BlockChest
         local blockChest = repStorage:FindFirstChild('BlockChest')
         if blockChest then scanFolder(blockChest) end
 
-        -- 2. ChestOwners scanning
+        -- 2. Scan ChestOwners
         local chestOwners = repStorage:FindFirstChild('ChestOwners')
         if chestOwners then scanFolder(chestOwners) end
 
-        -- 3. Inventories fallback scanning
+        -- 3. Scan Inventories
         local inventoriesFolder = repStorage:FindFirstChild('Inventories') or repStorage:FindFirstChild('inventories')
         if inventoriesFolder then
             for _, folder in ipairs(inventoriesFolder:GetChildren()) do
@@ -5663,7 +5680,6 @@ run(function()
         return teamChests
     end
 
-    -- Dynamically gets or creates a Section + Grid UI set
     local function getOrCreateSection(index)
         if not dynamicSections[index] then
             local label = Instance.new('TextLabel')
@@ -5708,9 +5724,8 @@ run(function()
         end
 
         window.Visible = true
-        headerTitle.Text = 'Team Chests'
+        headerTitle.Text = (HideMyTeam and HideMyTeam.Enabled) and 'Enemy Team Chests' or 'All Team Chests'
 
-        -- Hide all existing dynamic UI sections initially
         for _, section in ipairs(dynamicSections) do
             section.header.Visible = false
             section.grid.Visible = false
@@ -5721,18 +5736,17 @@ run(function()
 
         local currentY = HeaderHeight + 8
 
-        -- Render a separate section and grid line for each team
         for sectionIdx, teamData in ipairs(teamDataList) do
             if #teamData.items > 0 or (Empty and Empty.Enabled) then
                 local section = getOrCreateSection(sectionIdx)
 
-                -- 1. Setup Section Header
+                -- 1. Section Header Title (e.g. "Red Team Chest")
                 section.header.Text = teamData.teamName
                 section.header.Position = UDim2.fromOffset(14, currentY)
                 section.header.Visible = true
                 currentY += 16
 
-                -- 2. Populate Item Slots
+                -- 2. Populate Slots
                 local shownItems = 0
                 for itemIdx, item in ipairs(teamData.items) do
                     if not section.slots[itemIdx] then
@@ -5745,7 +5759,7 @@ run(function()
                     end
                 end
 
-                -- 3. Calculate Section Grid Height
+                -- 3. Adjust Height
                 local rows = math.max(math.ceil(shownItems / Columns), 1)
                 local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
                 section.grid.Position = UDim2.fromOffset(14, currentY)
@@ -5780,7 +5794,16 @@ run(function()
                 window.Visible = false
             end
         end,
-        Tooltip = 'Shows separated chest contents for each team'
+        Tooltip = 'Shows chest contents for enemy teams on separate lines'
+    })
+
+    HideMyTeam = TeamchestESP:CreateToggle({
+        Name = 'Hide My Team',
+        Tooltip = 'Hides your own team\'s chest so only enemy chests are displayed',
+        Default = true,
+        Function = function()
+            if TeamchestESP.Enabled then refresh() end
+        end
     })
 
     Empty = TeamchestESP:CreateToggle({
