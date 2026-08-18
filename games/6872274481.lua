@@ -5468,6 +5468,105 @@ run(function()
 end)
 
 run(function()
+    local MushroomESP
+    local activeESP = {}
+    local connections = {}
+
+    local function removeESP(obj)
+        if activeESP[obj] then
+            for _, instance in activeESP[obj] do
+                if instance then
+                    instance:Destroy()
+                end
+            end
+            activeESP[obj] = nil
+        end
+    end
+
+    local function createESP(obj)
+        if activeESP[obj] or not obj then return end
+
+        local targetPart = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+        if not targetPart then return end
+
+        local created = {}
+
+        -- 3D Bounding Box
+        local box = Instance.new("SelectionBox")
+        box.Name = "MushroomBox"
+        box.Color3 = Color3.fromRGB(255, 85, 85)
+        box.LineThickness = 0.04
+        box.Adornee = obj
+        box.Parent = vape.gui
+
+        -- Billboard Nametag
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "MushroomNametag"
+        billboard.Size = UDim2.fromOffset(100, 20)
+        billboard.StudsOffsetWorldSpace = Vector3.new(0, (obj:IsA("Model") and obj:GetExtentsSize().Y or targetPart.Size.Y) / 2 + 1.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = targetPart
+        billboard.Parent = vape.gui
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.fromScale(1, 1)
+        label.BackgroundTransparency = 1
+        label.Text = "Mushroom"
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextStrokeTransparency = 0.3
+        label.TextSize = 13
+        label.FontFace = uipallet and uipallet.Font or Font.fromEnum(Enum.Font.SourceSansBold)
+        label.Parent = billboard
+
+        table.insert(created, box)
+        table.insert(created, billboard)
+
+        activeESP[obj] = created
+    end
+
+    MushroomESP = vape.Categories.Minigames:CreateModule({
+        Name = "MushroomESP",
+        Function = function(callback)
+            if callback then
+                -- Scan existing items in workspace
+                for _, v in workspace:GetDescendants() do
+                    if v.Name == "SingleMushroom" then
+                        createESP(v)
+                    end
+                end
+
+                -- Listen for newly spawned mushrooms
+                table.insert(connections, workspace.DescendantAdded:Connect(function(v)
+                    if v.Name == "SingleMushroom" then
+                        task.wait(0.1)
+                        if MushroomESP.Enabled then
+                            createESP(v)
+                        end
+                    end
+                end))
+
+                -- Cleanup removed mushrooms
+                table.insert(connections, workspace.DescendantRemoving:Connect(function(v)
+                    if v.Name == "SingleMushroom" then
+                        removeESP(v)
+                    end
+                end))
+            else
+                for _, conn in connections do
+                    conn:Disconnect()
+                end
+                table.clear(connections)
+
+                for obj in activeESP do
+                    removeESP(obj)
+                end
+            end
+        end,
+        Tooltip = "Shows a box and nametag over SingleMushroom objects"
+    })
+end)
+
+run(function()
 	local ItemESP
 	local Distance
 	local Transparency
