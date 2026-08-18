@@ -72,17 +72,22 @@ end
 
 	if not shared.VapeDeveloper then
 		local commit = license.Commit
+		local currentCommit = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or ''
+		local lastUpdateCheck = isfile('mxtionv4/profiles/lastupdate.txt') and tonumber(readfile('mxtionv4/profiles/lastupdate.txt')) or 0
+		
 		if not commit then
-			local suc, res = pcall(function() 
-				-- Use Github API for faster response instead of scraping HTML
-				return cloneref(game:GetService("HttpService")):JSONDecode(game:HttpGet('https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main'))
-			end)
-			if suc and type(res) == "table" and res.sha then
-				commit = res.sha
+			if os.time() - lastUpdateCheck > 600 or currentCommit == '' then
+				local suc, res = pcall(function() 
+					-- Use Github API for faster response instead of scraping HTML
+					return cloneref(game:GetService("HttpService")):JSONDecode(game:HttpGet('https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main'))
+				end)
+				if suc and type(res) == "table" and res.sha then
+					commit = res.sha
+					writefile('mxtionv4/profiles/lastupdate.txt', tostring(os.time()))
+				end
 			end
 		end
 		
-		local currentCommit = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or ''
 		commit = commit or (currentCommit ~= '' and currentCommit or 'main')
 		
 		if commit ~= 'main' and currentCommit ~= '' and currentCommit ~= commit then
@@ -93,25 +98,94 @@ end
 			wipeFolder('mxtionv4/libraries')
 		end
 		writefile('mxtionv4/profiles/commit.txt', commit)
-	if shared.updated or #listfiles('mxtionv4/profiles') < 4 then
-		shared.VapePresetInstall = function()
-			local suc, req = pcall(request, {
-				Url = 'https://api.github.com/repos/GlockSwitchMotion/mxtionV4/contents/profiles',
-				Method = 'GET'
-			})
-			if not suc or req.StatusCode ~= 200 then return false end
-			local body = cloneref(game:GetService('HttpService')):JSONDecode(req.Body)
-			if not body or typeof(body) ~= 'table' then return false end
-			local installed = false
-			for _, v in body do
-				if v.type == 'file' and pcall(downloadFile, 'mxtionv4/'.. ({v.path:gsub(' ', '%%20')})[1]) then
-					installed = true
+
+		-- Parallel core asset pre-downloader to maximize speed & minimize connection roundtrips
+		local filesToDownload = {
+			'main.lua',
+			'guis/new.lua',
+			'games/universal.lua',
+			'libraries/premium.lua',
+			'libraries/hash.lua',
+			'libraries/prediction.lua',
+			'libraries/entity.lua',
+			'libraries/drawing.lua',
+			'libraries/vm.lua',
+			'features.json',
+			'games/'..game.PlaceId..'.lua'
+		}
+
+		local activeDownloads = 0
+		local totalToDownload = 0
+		for _, file in ipairs(filesToDownload) do
+			if not isfile('mxtionv4/'..file) then
+				totalToDownload = totalToDownload + 1
+			end
+		end
+
+		if totalToDownload > 0 then
+			local completed = 0
+			for _, file in ipairs(filesToDownload) do
+				local path = 'mxtionv4/'..file
+				if not isfile(path) then
+					activeDownloads = activeDownloads + 1
+					task.spawn(function()
+						local suc, res = pcall(function()
+							return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/'..file, true)
+						end)
+						if suc and res ~= '404: Not Found' and res ~= '' then
+							if path:find('.lua') then
+								res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+							end
+							writefile(path, res)
+						else
+							if file:find('games/') then
+								writefile(path, '')
+							end
+						end
+						completed = completed + 1
+						if not license.Closet then
+							downloader.Text = 'Downloading files '..completed..'/'..totalToDownload
+						end
+						activeDownloads = activeDownloads - 1
+					end)
 				end
 			end
-			return installed
+			while activeDownloads > 0 do
+				task.wait()
+			end
+		end
+
+		if shared.updated or #listfiles('mxtionv4/profiles') < 4 then
+			shared.VapePresetInstall = function()
+				local suc, req = pcall(request, {
+					Url = 'https://api.github.com/repos/GlockSwitchMotion/mxtionV4/contents/profiles',
+					Method = 'GET'
+				})
+				if not suc or req.StatusCode ~= 200 then return false end
+				local body = cloneref(game:GetService('HttpService')):JSONDecode(req.Body)
+				if not body or typeof(body) ~= 'table' then return false end
+				
+				local presetDownloads = 0
+				local installed = false
+				for _, v in body do
+					if v.type == 'file' then
+						presetDownloads = presetDownloads + 1
+						task.spawn(function()
+							local success = pcall(downloadFile, 'mxtionv4/'.. ({v.path:gsub(' ', '%%20')})[1])
+							if success then
+								installed = true
+							end
+							presetDownloads = presetDownloads - 1
+						end)
+					end
+				end
+				while presetDownloads > 0 do
+					task.wait()
+				end
+				return installed
+			end
 		end
 	end
-end
 
-downloader.Text = ''
-return loadstring(downloadFile('mxtionv4/main.lua'), 'main')(license)
+	downloader.Text = ''
+	return loadstring(downloadFile('mxtionv4/main.lua'), 'main')(license)
