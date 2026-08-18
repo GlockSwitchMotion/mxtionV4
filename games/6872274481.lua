@@ -2607,7 +2607,7 @@ run(function()
 	local old
 	
 	Reach = vape.Categories.Combat:CreateModule({
-		Name = 'ChangeReach',
+		Name = 'ReachAdjuster',
 		Tooltip = 'Allows you to place, attack, and break further',
 		Function = function(callback)
 			bedwars.CombatConstant.RAYCAST_SWORD_CHARACTER_DISTANCE = callback and SwordReach.Enabled and SwordRange.Value + 2 or 14.4
