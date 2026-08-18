@@ -3,6 +3,26 @@ repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
+-- AUTO UPDATE LOGIC
+local function clearCache()
+	local function clearFolder(path)
+		if isfolder(path) then
+			for _, file in listfiles(path) do
+				if file:find(".lua") and isfile(file) then
+					delfile(file)
+				end
+			end
+		end
+	end
+	clearFolder("mxtionv4/guis")
+	clearFolder("mxtionv4/games")
+	clearFolder("mxtionv4/libraries")
+	
+	if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
+	writefile("mxtionv4/profiles/commit.txt", "main")
+end
+clearCache()
+
 local vape
 local loadstring = function(...)
 	local res, err = loadstring(...)
@@ -25,9 +45,9 @@ local playersService = cloneref(game:GetService('Players'))
 local httpService = cloneref(game:GetService("HttpService"))
 
 local function downloadFile(path, func)
-	if path:find('.lua') or not isfile(path) then
+	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..'main'..'/'..select(1, path:gsub('mxtionv4/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -53,7 +73,7 @@ local function finishLoading()
 				if shared.VapeDeveloper then
 					loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
 				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..'main'..'/init.lua', true), 'init')(_scriptconfig)
+					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
 				end
 			]]
 			local teleportConfig = httpService:JSONEncode(license)
@@ -83,7 +103,7 @@ local function finishLoading()
 			vape:CreateNotification('mxtionV4', (getgenv().mxtionname and `Authenticated as {getgenv().mxtionname} with {getgenv().mxtionrole}, ` or '').. (vape.VapeButton and 'Press the button in the top right' or 'Press '..table.concat(vape.Keybind, ' + '):upper())..' to open GUI', 5)
 			task.delay(0.05 + cloneref(game:GetService('RunService')).PostSimulation:Wait(), function()
 				if shared.updated then
-					vape:CreateNotification('mxtionV4', `Script has updated from {shared.updated} to {'main'}`, 10, 'info')
+					vape:CreateNotification('mxtionV4', `Script has updated from {shared.updated} to {readfile('mxtionv4/profiles/commit.txt')}`, 10, 'info')
 				end
 			end)
 		end	
@@ -118,18 +138,24 @@ end
 
 if not shared.VapeIndependent then
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	local suc, res = pcall(function()
-		return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/games/'..game.PlaceId..'.lua', true)
-	end)
-	if suc and res ~= '404: Not Found' then
-		loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
-	elseif isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
+	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
 		local fileContent = readfile('mxtionv4/games/'..game.PlaceId..'.lua')
 		if fileContent ~= '' then
 			loadstring(fileContent, tostring(game.PlaceId))(license)
 		end
 	else
-		writefile('mxtionv4/games/'..game.PlaceId..'.lua', '')
+		if not shared.VapeDeveloper then
+			local suc, res = pcall(function()
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+			end)
+			if suc and res ~= '404: Not Found' then
+				downloadFile('mxtionv4/games/'..game.PlaceId..'.lua')
+				loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+			else
+				-- Cache a blank file so it doesn't waste time doing HTTP Get every injection
+				writefile('mxtionv4/games/'..game.PlaceId..'.lua', '')
+			end
+		end
 	end
 	loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
 	finishLoading()
