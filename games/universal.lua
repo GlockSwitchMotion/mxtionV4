@@ -8485,7 +8485,7 @@ local UnlockFPS = vape.Categories.Utility:CreateModule({
 		if callback then
 			setfpscap(9999)
 		else
-			setfpscap(60)
+			setfpscap(999)
 		end
 	end,
 	Tooltip = 'Uncaps your FPS to its maximum limits.'
