@@ -4,24 +4,49 @@ if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
 -- AUTO UPDATE LOGIC
-local function clearCache()
-	local function clearFolder(path)
-		if isfolder(path) then
-			for _, file in listfiles(path) do
-				if file:find(".lua") and isfile(file) then
-					delfile(file)
+local function getLatestCommit()
+	local suc, res = pcall(function()
+		return game:HttpGet("https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main")
+	end)
+	if suc and res then
+		local sha = res:match('"sha":"(.-)"')
+		if sha then return sha end
+	end
+	return "main"
+end
+
+local function handleUpdates()
+	local latestCommit = getLatestCommit()
+	local currentCommit = ""
+	if isfile("mxtionv4/profiles/commit.txt") then
+		currentCommit = readfile("mxtionv4/profiles/commit.txt")
+	end
+	
+	if latestCommit ~= "main" and latestCommit ~= currentCommit then
+		-- An update was detected! Wipe the old cached files.
+		local function clearFolder(path)
+			if isfolder(path) then
+				for _, file in listfiles(path) do
+					if file:find(".lua") and isfile(file) then
+						delfile(file)
+					end
 				end
 			end
 		end
+		clearFolder("mxtionv4/guis")
+		clearFolder("mxtionv4/games")
+		clearFolder("mxtionv4/libraries")
+		
+		if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
+		writefile("mxtionv4/profiles/commit.txt", latestCommit)
+		
+		-- Trigger the Vape update notification
+		if currentCommit ~= "" and currentCommit ~= "main" then
+			shared.updated = currentCommit:sub(1, 7)
+		end
 	end
-	clearFolder("mxtionv4/guis")
-	clearFolder("mxtionv4/games")
-	clearFolder("mxtionv4/libraries")
-	
-	if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
-	writefile("mxtionv4/profiles/commit.txt", "main")
 end
-clearCache()
+handleUpdates()
 
 local vape
 local loadstring = function(...)
@@ -103,7 +128,7 @@ local function finishLoading()
 			vape:CreateNotification('mxtionV4', (getgenv().mxtionname and `Authenticated as {getgenv().mxtionname} with {getgenv().mxtionrole}, ` or '').. (vape.VapeButton and 'Press the button in the top right' or 'Press '..table.concat(vape.Keybind, ' + '):upper())..' to open GUI', 5)
 			task.delay(0.05 + cloneref(game:GetService('RunService')).PostSimulation:Wait(), function()
 				if shared.updated then
-					vape:CreateNotification('mxtionV4', `Script has updated from {shared.updated} to {readfile('mxtionv4/profiles/commit.txt')}`, 10, 'info')
+					vape:CreateNotification('mxtionV4', `Script has updated from {shared.updated} to {readfile('mxtionv4/profiles/commit.txt'):sub(1, 7)}`, 10, 'info')
 				end
 			end)
 		end	
