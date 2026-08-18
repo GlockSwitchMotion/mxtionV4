@@ -5096,294 +5096,474 @@ run(function()
 end)
 
 run(function()
-	local InventoryESP
-	local Armor
-	local Empty
-	local Color = {}
-	local window, headshot, nametag, grid, armorholder, armordivider
-	local slots, armorslots = {}, {}
-	
-	local SlotCount = 48
-	local SlotSize = 32
-	local SlotPadding = 4
-	local Columns = 6
-	local HeaderHeight = 46
-	
-	local function createSlot(parent)
-		local slot = Instance.new('Frame')
-		slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
-		slot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-		slot.BorderSizePixel = 0
-		slot.Visible = false
-		slot.Parent = parent
-		local corner = Instance.new('UICorner')
-		corner.CornerRadius = UDim.new(0, 4)
-		corner.Parent = slot
-		local stroke = Instance.new('UIStroke')
-		stroke.Color = color.Light(uipallet.Main, 0.034)
-		stroke.Parent = slot
-		local icon = Instance.new('ImageLabel')
-		icon.Name = 'Icon'
-		icon.Size = UDim2.fromOffset(SlotSize - 8, SlotSize - 8)
-		icon.Position = UDim2.fromScale(0.5, 0.5)
-		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.BackgroundTransparency = 1
-		icon.Parent = slot
-		local amount = Instance.new('TextLabel')
-		amount.Name = 'Amount'
-		amount.Size = UDim2.fromOffset(SlotSize - 4, 11)
-		amount.Position = UDim2.fromOffset(0, SlotSize - 13)
-		amount.BackgroundTransparency = 1
-		amount.Text = ''
-		amount.TextXAlignment = Enum.TextXAlignment.Right
-		amount.TextSize = 11
-		amount.TextColor3 = uipallet.Text
-		amount.TextStrokeColor3 = Color3.new()
-		amount.TextStrokeTransparency = 0.4
-		amount.FontFace = uipallet.Font
-		amount.Parent = slot
-		return slot
-	end
-	
-	local function buildWindow()
-		window = Instance.new('Frame')
-		window.Name = 'ViewInventory'
-		window.Size = UDim2.fromOffset(240, HeaderHeight)
-		window.Position = UDim2.fromOffset(12, 260)
-		window.BackgroundColor3 = uipallet.Main
-		window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
-		window.Visible = false
-		window.Parent = vape.gui.ScaledGui
-		addBlur(window)
-		local corner = Instance.new('UICorner')
-		corner.CornerRadius = UDim.new(0, 5)
-		corner.Parent = window
-	
-		headshot = Instance.new('ImageLabel')
-		headshot.Name = 'Headshot'
-		headshot.Size = UDim2.fromOffset(26, 26)
-		headshot.Position = UDim2.fromOffset(14, 11)
-		headshot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-		headshot.Image = ''
-		headshot.Parent = window
-		local headcorner = Instance.new('UICorner')
-		headcorner.CornerRadius = UDim.new(0, 4)
-		headcorner.Parent = headshot
-	
-		nametag = Instance.new('TextLabel')
-		nametag.Name = 'Name'
-		nametag.Size = UDim2.new(1, -60, 0, 26)
-		nametag.Position = UDim2.fromOffset(48, 11)
-		nametag.BackgroundTransparency = 1
-		nametag.Text = ''
-		nametag.TextXAlignment = Enum.TextXAlignment.Left
-		nametag.TextSize = 13
-		nametag.TextColor3 = uipallet.Text
-		nametag.TextTruncate = Enum.TextTruncate.AtEnd
-		nametag.FontFace = uipallet.Font
-		nametag.Parent = window
-	
-		local divider = Instance.new('Frame')
-		divider.Name = 'Divider'
-		divider.Size = UDim2.new(1, 0, 0, 1)
-		divider.Position = UDim2.fromOffset(0, HeaderHeight - 1)
-		divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-		divider.BorderSizePixel = 0
-		divider.Parent = window
-	
-		grid = Instance.new('Frame')
-		grid.Name = 'Items'
-		grid.Size = UDim2.new(1, -28, 0, 0)
-		grid.Position = UDim2.fromOffset(14, HeaderHeight + 10)
-		grid.BackgroundTransparency = 1
-		grid.Parent = window
-		local layout = Instance.new('UIGridLayout')
-		layout.CellSize = UDim2.fromOffset(SlotSize, SlotSize)
-		layout.CellPadding = UDim2.fromOffset(SlotPadding, SlotPadding)
-		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		layout.Parent = grid
-	
-		for i = 1, SlotCount do
-			local slot = createSlot(grid)
-			slot.LayoutOrder = i
-			slots[i] = slot
-		end
-	
-		armordivider = Instance.new('Frame')
-		armordivider.Name = 'ArmorDivider'
-		armordivider.Size = UDim2.new(1, 0, 0, 1)
-		armordivider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-		armordivider.BorderSizePixel = 0
-		armordivider.Parent = window
-	
-		armorholder = Instance.new('Frame')
-		armorholder.Name = 'Armor'
-		armorholder.Size = UDim2.fromOffset(240, SlotSize)
-		armorholder.BackgroundTransparency = 1
-		armorholder.Parent = window
-		local armorlayout = Instance.new('UIListLayout')
-		armorlayout.FillDirection = Enum.FillDirection.Horizontal
-		armorlayout.Padding = UDim.new(0, SlotPadding)
-		armorlayout.Parent = armorholder
-	
-		for i = 1, 4 do
-			local slot = createSlot(armorholder)
-			slot.LayoutOrder = i
-			armorslots[i] = slot
-		end
-	end
-	
-	local function setSlot(slot, item, highlight)
-		if not item or not item.itemType then
-			slot.Visible = false
-			return
-		end
-	
-		slot.Visible = true
-		slot.Icon.Image = bedwars.getIcon(item, true)
-		slot.Amount.Text = (item.amount or 1) > 1 and tostring(item.amount) or ''
-		slot.UIStroke.Color = highlight and Color3.fromHSV(Color.Hue, Color.Sat, Color.Value) or color.Light(uipallet.Main, 0.034)
-	end
-	
-	local function getTarget()
-		local best, highest = nil, tick()
-		for ent, expiry in targetinfo.Targets do
-			if expiry < tick() then
-				targetinfo.Targets[ent] = nil
-				continue
-			end
-			if expiry > highest then
-				best, highest = ent, expiry
-			end
-		end
-		return best
-	end
-	
-	local lastTargetPlayer
+    local InventoryESP
+    local Armor
+    local Empty
+    local Color = {}
+    local window, headshot, nametag
+    local invLabel, invGrid, personalLabel, personalGrid
+    local armordivider, armorholder
+    local slots, personalslots, armorslots = {}, {}, {}
+    
+    local SlotCount = 24
+    local PersonalSlotCount = 24
+    local SlotSize = 32
+    local SlotPadding = 4
+    local Columns = 6
+    local HeaderHeight = 46
 
-	local function refresh()
-		local ent = getTarget()
-		if ent and ent.Player and ent.Player ~= lplr and ent.Player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
-			lastTargetPlayer = ent.Player
-		end
+    local function createSlot(parent)
+        local slot = Instance.new('Frame')
+        slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
+        slot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+        slot.BorderSizePixel = 0
+        slot.Visible = false
+        slot.Parent = parent
+        
+        local corner = Instance.new('UICorner')
+        corner.CornerRadius = UDim.new(0, 4)
+        corner.Parent = slot
+        
+        local stroke = Instance.new('UIStroke')
+        stroke.Color = color.Light(uipallet.Main, 0.034)
+        stroke.Parent = slot
+        
+        local icon = Instance.new('ImageLabel')
+        icon.Name = 'Icon'
+        icon.Size = UDim2.fromOffset(SlotSize - 8, SlotSize - 8)
+        icon.Position = UDim2.fromScale(0.5, 0.5)
+        icon.AnchorPoint = Vector2.new(0.5, 0.5)
+        icon.BackgroundTransparency = 1
+        icon.Parent = slot
+        
+        local amount = Instance.new('TextLabel')
+        amount.Name = 'Amount'
+        amount.Size = UDim2.fromOffset(SlotSize - 4, 11)
+        amount.Position = UDim2.fromOffset(0, SlotSize - 13)
+        amount.BackgroundTransparency = 1
+        amount.Text = ''
+        amount.TextXAlignment = Enum.TextXAlignment.Right
+        amount.TextSize = 11
+        amount.TextColor3 = uipallet.Text
+        amount.TextStrokeColor3 = Color3.new()
+        amount.TextStrokeTransparency = 0.4
+        amount.FontFace = uipallet.Font
+        amount.Parent = slot
+        return slot
+    end
 
-		local player = lastTargetPlayer
-		local inventory = player and store.inventories[player] or nil
-	
-		if not player or (not inventory and not Empty.Enabled) then
-			window.Visible = false
-			return
-		end
-	
-		window.Visible = true
-		nametag.Text = player and player.DisplayName or (ent and ent.Character and ent.Character.Name) or ''
-		headshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(player and player.UserId or 1)..'&w=420&h=420'
-	
-		inventory = inventory or {items = {}, armor = {}}
-		local hand = inventory.hand
-		local shown = 0
+    local function createSectionHeader(text, parent)
+        local label = Instance.new('TextLabel')
+        label.Name = text .. 'Header'
+        label.Size = UDim2.new(1, -28, 0, 14)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextSize = 11
+        label.TextColor3 = uipallet.Text
+        label.FontFace = uipallet.Font
+        label.Visible = false
+        label.Parent = parent
+        return label
+    end
 
-		local displayItems = {}
-		for _, v in inventory.items do
-			table.insert(displayItems, v)
-		end
+    local function buildWindow()
+        window = Instance.new('Frame')
+        window.Name = 'ViewInventory'
+        window.Size = UDim2.fromOffset(240, HeaderHeight)
+        window.Position = UDim2.fromOffset(12, 260)
+        window.BackgroundColor3 = uipallet.Main
+        window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
+        window.Visible = false
+        window.Parent = vape.gui.ScaledGui
+        addBlur(window)
+        
+        local corner = Instance.new('UICorner')
+        corner.CornerRadius = UDim.new(0, 5)
+        corner.Parent = window
 
-		local personalFolder = replicatedStorage:FindFirstChild('Inventories')
-		personalFolder = personalFolder and personalFolder:FindFirstChild(player.Name .. '_personal') or nil
-		if personalFolder then
-			for _, item in personalFolder:GetChildren() do
-				if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') then
-					local amount = item:GetAttribute('Amount') or 1
-					table.insert(displayItems, {itemType = item.Name, amount = amount})
-				end
-			end
-		end
-	
-		for i, slot in slots do
-			local item = displayItems[i]
-			setSlot(slot, item, item and hand and item.tool == hand.tool)
-			if slot.Visible then
-				shown = i
-			end
-		end
-	
-		local rows = math.max(math.ceil(shown / Columns), 1)
-		local gridheight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
-		grid.Size = UDim2.new(1, -28, 0, gridheight)
-	
-		local height = HeaderHeight + 10 + gridheight + 10
-		if Armor.Enabled then
-			armordivider.Visible = true
-			armorholder.Visible = true
-			armordivider.Position = UDim2.fromOffset(0, height - 1)
-	
-			local armorcount = 0
-			for i = 1, 3 do
-				local item = inventory.armor[i + 3]
-				setSlot(armorslots[i], item)
-				if armorslots[i].Visible then
-					armorcount += 1
-				end
-			end
-			setSlot(armorslots[4], hand, true)
-	
-			armorholder.Position = UDim2.fromOffset(14, height + 9)
-			height += SlotSize + 19
-		else
-			armordivider.Visible = false
-			armorholder.Visible = false
-		end
-	
-		window.Size = UDim2.fromOffset(240, height)
-	end
-	
-	InventoryESP = vape.Categories.Render:CreateModule({
-		Name = 'InventoryESP',
-		Function = function(callback)
-			if callback then
-				if not window then
-					buildWindow()
-				end
-	
-				repeat
-					if vape.ThreadFix then
-						setthreadidentity(8)
-					end
-					refresh()
-					task.wait(0.1)
-				until not InventoryESP.Enabled
-	
-				window.Visible = false
-			elseif window then
-				window.Visible = false
-			end
-		end,
-		Tooltip = 'Shows the inventory of whoever you are currently targeting'
-	})
-	Armor = InventoryESP:CreateToggle({
-		Name = 'Show armor',
-		Function = function()
-			if InventoryESP.Enabled then
-				refresh()
-			end
-		end,
-		Default = true
-	})
-	Empty = InventoryESP:CreateToggle({
-		Name = 'Show without data',
-		Tooltip = 'Keeps the panel up when the server has not shared their inventory yet'
-	})
-	Color = InventoryESP:CreateColorSlider({
-		Name = 'Background Color',
-		DefaultValue = 0,
-		DefaultOpacity = 0.5,
-		Function = function(hue, sat, val, opacity)
-			if window then
-				window.BackgroundColor3 = uipallet.Main
-				window.BackgroundTransparency = 1 - opacity
-			end
-		end
-	})
+        headshot = Instance.new('ImageLabel')
+        headshot.Name = 'Headshot'
+        headshot.Size = UDim2.fromOffset(26, 26)
+        headshot.Position = UDim2.fromOffset(14, 11)
+        headshot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+        headshot.Image = ''
+        headshot.Parent = window
+        local headcorner = Instance.new('UICorner')
+        headcorner.CornerRadius = UDim.new(0, 4)
+        headcorner.Parent = headshot
+
+        nametag = Instance.new('TextLabel')
+        nametag.Name = 'Name'
+        nametag.Size = UDim2.new(1, -60, 0, 26)
+        nametag.Position = UDim2.fromOffset(48, 11)
+        nametag.BackgroundTransparency = 1
+        nametag.Text = ''
+        nametag.TextXAlignment = Enum.TextXAlignment.Left
+        nametag.TextSize = 13
+        nametag.TextColor3 = uipallet.Text
+        nametag.TextTruncate = Enum.TextTruncate.AtEnd
+        nametag.FontFace = uipallet.Font
+        nametag.Parent = window
+
+        local divider = Instance.new('Frame')
+        divider.Name = 'Divider'
+        divider.Size = UDim2.new(1, 0, 0, 1)
+        divider.Position = UDim2.fromOffset(0, HeaderHeight - 1)
+        divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+        divider.BorderSizePixel = 0
+        divider.Parent = window
+
+        -- 1. Main Inventory Section Header & Grid
+        invLabel = createSectionHeader('Inventory', window)
+
+        invGrid = Instance.new('Frame')
+        invGrid.Name = 'InventoryItems'
+        invGrid.Size = UDim2.new(1, -28, 0, 0)
+        invGrid.BackgroundTransparency = 1
+        invGrid.Parent = window
+        local layout1 = Instance.new('UIGridLayout')
+        layout1.CellSize = UDim2.fromOffset(SlotSize, SlotSize)
+        layout1.CellPadding = UDim2.fromOffset(SlotPadding, SlotPadding)
+        layout1.SortOrder = Enum.SortOrder.LayoutOrder
+        layout1.Parent = invGrid
+
+        for i = 1, SlotCount do
+            local slot = createSlot(invGrid)
+            slot.LayoutOrder = i
+            slots[i] = slot
+        end
+
+        -- 2. Personal Chest Section Header & Grid
+        personalLabel = createSectionHeader('Personal Chest', window)
+
+        personalGrid = Instance.new('Frame')
+        personalGrid.Name = 'PersonalItems'
+        personalGrid.Size = UDim2.new(1, -28, 0, 0)
+        personalGrid.BackgroundTransparency = 1
+        personalGrid.Parent = window
+        local layout2 = Instance.new('UIGridLayout')
+        layout2.CellSize = UDim2.fromOffset(SlotSize, SlotSize)
+        layout2.CellPadding = UDim2.fromOffset(SlotPadding, SlotPadding)
+        layout2.SortOrder = Enum.SortOrder.LayoutOrder
+        layout2.Parent = personalGrid
+
+        for i = 1, PersonalSlotCount do
+            local slot = createSlot(personalGrid)
+            slot.LayoutOrder = i
+            personalslots[i] = slot
+        end
+
+        -- 3. Armor Section
+        armordivider = Instance.new('Frame')
+        armordivider.Name = 'ArmorDivider'
+        armordivider.Size = UDim2.new(1, 0, 0, 1)
+        armordivider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+        armordivider.BorderSizePixel = 0
+        armordivider.Parent = window
+
+        armorholder = Instance.new('Frame')
+        armorholder.Name = 'Armor'
+        armorholder.Size = UDim2.fromOffset(240, SlotSize)
+        armorholder.BackgroundTransparency = 1
+        armorholder.Parent = window
+        local armorlayout = Instance.new('UIListLayout')
+        armorlayout.FillDirection = Enum.FillDirection.Horizontal
+        armorlayout.Padding = UDim.new(0, SlotPadding)
+        armorlayout.Parent = armorholder
+
+        for i = 1, 4 do
+            local slot = createSlot(armorholder)
+            slot.LayoutOrder = i
+            armorslots[i] = slot
+        end
+    end
+
+    local function setSlot(slot, item, highlight)
+        if not item or not item.itemType then
+            slot.Visible = false
+            return
+        end
+
+        slot.Visible = true
+        slot.Icon.Image = bedwars.getIcon(item, true)
+        slot.Amount.Text = (item.amount or 1) > 1 and tostring(item.amount) or ''
+        slot.UIStroke.Color = highlight and Color3.fromHSV(Color.Hue, Color.Sat, Color.Value) or color.Light(uipallet.Main, 0.034)
+    end
+
+    local function getTarget()
+        local best, highest = nil, tick()
+        for ent, expiry in targetinfo.Targets do
+            if expiry < tick() then
+                targetinfo.Targets[ent] = nil
+                continue
+            end
+            if expiry > highest then
+                best, highest = ent, expiry
+            end
+        end
+        return best
+    end
+
+    local lastTargetPlayer
+
+    local function refresh()
+        local ent = getTarget()
+        if ent and ent.Player and ent.Player ~= lplr and ent.Player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
+            lastTargetPlayer = ent.Player
+        end
+
+        local player = lastTargetPlayer
+        local inventory = player and store.inventories[player] or nil
+
+        if not player or (not inventory and not Empty.Enabled) then
+            window.Visible = false
+            return
+        end
+
+        window.Visible = true
+        nametag.Text = player and player.DisplayName or (ent and ent.Character and ent.Character.Name) or ''
+        headshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(player and player.UserId or 1)..'&w=420&h=420'
+
+        inventory = inventory or {items = {}, armor = {}}
+        local hand = inventory.hand
+
+        local currentY = HeaderHeight + 8
+
+        ---------------------------------------------------------
+        -- TOP BAR: INVENTORY
+        ---------------------------------------------------------
+        local shownInventory = 0
+        for i, slot in slots do
+            local item = inventory.items and inventory.items[i]
+            setSlot(slot, item, item and hand and item.tool == hand.tool)
+            if slot.Visible then
+                shownInventory = i
+            end
+        end
+
+        invLabel.Visible = true
+        invLabel.Position = UDim2.fromOffset(14, currentY)
+        currentY += 16
+
+        local invRows = math.max(math.ceil(shownInventory / Columns), 1)
+        local invGridHeight = (invRows * SlotSize) + ((invRows - 1) * SlotPadding)
+        invGrid.Position = UDim2.fromOffset(14, currentY)
+        invGrid.Size = UDim2.new(1, -28, 0, invGridHeight)
+        currentY += invGridHeight + 10
+
+        ---------------------------------------------------------
+        -- BOTTOM BAR: PERSONAL CHEST
+        ---------------------------------------------------------
+        local personalFolder = replicatedStorage:FindFirstChild('Inventories')
+        personalFolder = personalFolder and personalFolder:FindFirstChild(player.Name .. '_personal') or nil
+
+        local personalItems = {}
+        if personalFolder then
+            for _, item in personalFolder:GetChildren() do
+                if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') then
+                    local amount = item:GetAttribute('Amount') or 1
+                    table.insert(personalItems, {itemType = item.Name, amount = amount})
+                end
+            end
+        end
+
+        local shownPersonal = 0
+        for i, slot in personalslots do
+            local item = personalItems[i]
+            setSlot(slot, item, false)
+            if slot.Visible then
+                shownPersonal = i
+            end
+        end
+
+        if #personalItems > 0 or Empty.Enabled then
+            personalLabel.Visible = true
+            personalGrid.Visible = true
+            
+            personalLabel.Position = UDim2.fromOffset(14, currentY)
+            currentY += 16
+
+            local personalRows = math.max(math.ceil(shownPersonal / Columns), 1)
+            local personalGridHeight = (personalRows * SlotSize) + ((personalRows - 1) * SlotPadding)
+            personalGrid.Position = UDim2.fromOffset(14, currentY)
+            personalGrid.Size = UDim2.new(1, -28, 0, personalGridHeight)
+            currentY += personalGridHeight + 10
+        else
+            personalLabel.Visible = false
+            personalGrid.Visible = false
+        end
+
+        ---------------------------------------------------------
+        -- ARMOR BAR
+        ---------------------------------------------------------
+        if Armor.Enabled then
+            armordivider.Visible = true
+            armorholder.Visible = true
+            armordivider.Position = UDim2.fromOffset(0, currentY - 1)
+
+            for i = 1, 3 do
+                local item = inventory.armor[i + 3]
+                setSlot(armorslots[i], item)
+            end
+            setSlot(armorslots[4], hand, true)
+
+            armorholder.Position = UDim2.fromOffset(14, currentY + 9)
+            currentY += SlotSize + 19
+        else
+            armordivider.Visible = false
+            armorholder.Visible = false
+        end
+
+        window.Size = UDim2.fromOffset(240, currentY)
+    end
+    
+    InventoryESP = vape.Categories.Inventory:CreateModule({
+        Name = 'InventoryESP',
+        Function = function(callback)
+            if callback then
+                if not window then
+                    buildWindow()
+                end
+    
+                repeat
+                    if vape.ThreadFix then
+                        setthreadidentity(8)
+                    end
+                    refresh()
+                    task.wait(0.1)
+                until not InventoryESP.Enabled
+    
+                window.Visible = false
+            elseif window then
+                window.Visible = false
+            end
+        end,
+        Tooltip = 'Shows the inventory and personal chest of whoever you are currently targeting'
+    })
+    Armor = InventoryESP:CreateToggle({
+        Name = 'Show armor',
+        Function = function()
+            if InventoryESP.Enabled then
+                refresh()
+            end
+        end,
+        Default = true
+    })
+    Empty = InventoryESP:CreateToggle({
+        Name = 'Show without data',
+        Tooltip = 'Keeps the panel up when the server has not shared their inventory yet'
+    })
+    Color = InventoryESP:CreateColorSlider({
+        Name = 'Background Color',
+        DefaultValue = 0,
+        DefaultOpacity = 0.5,
+        Function = function(hue, sat, val, opacity)
+            if window then
+                window.BackgroundColor3 = uipallet.Main
+                window.BackgroundTransparency = 1 - opacity
+            end
+        end
+    })
+end)
+
+run(function()
+    local MushroomESP
+    local activeESP = {}
+    local connections = {}
+
+    local function removeESP(obj)
+        if activeESP[obj] then
+            for _, instance in activeESP[obj] do
+                if instance then
+                    instance:Destroy()
+                end
+            end
+            activeESP[obj] = nil
+        end
+    end
+
+    local function createESP(obj)
+        if activeESP[obj] or not obj then return end
+
+        local targetPart = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
+        if not targetPart then return end
+
+        local created = {}
+
+        -- 3D Bounding Box
+        local box = Instance.new("SelectionBox")
+        box.Name = "MushroomBox"
+        box.Color3 = Color3.fromRGB(255, 85, 85)
+        box.LineThickness = 0.04
+        box.Adornee = obj
+        box.Parent = vape.gui
+
+        -- Billboard Nametag
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "MushroomNametag"
+        billboard.Size = UDim2.fromOffset(100, 20)
+        billboard.StudsOffsetWorldSpace = Vector3.new(0, (obj:IsA("Model") and obj:GetExtentsSize().Y or targetPart.Size.Y) / 2 + 1.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = targetPart
+        billboard.Parent = vape.gui
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.fromScale(1, 1)
+        label.BackgroundTransparency = 1
+        label.Text = "Mushroom"
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextStrokeTransparency = 0.3
+        label.TextSize = 13
+        label.FontFace = uipallet and uipallet.Font or Font.fromEnum(Enum.Font.SourceSansBold)
+        label.Parent = billboard
+
+        table.insert(created, box)
+        table.insert(created, billboard)
+
+        activeESP[obj] = created
+    end
+
+    MushroomESP = vape.Categories.Render:CreateModule({
+        Name = "MushroomESP",
+        Function = function(callback)
+            if callback then
+                -- Scan existing items in workspace
+                for _, v in workspace:GetDescendants() do
+                    if v.Name == "SingleMushroom" then
+                        createESP(v)
+                    end
+                end
+
+                -- Listen for newly spawned mushrooms
+                table.insert(connections, workspace.DescendantAdded:Connect(function(v)
+                    if v.Name == "SingleMushroom" then
+                        task.wait(0.1)
+                        if MushroomESP.Enabled then
+                            createESP(v)
+                        end
+                    end
+                end))
+
+                -- Cleanup removed mushrooms
+                table.insert(connections, workspace.DescendantRemoving:Connect(function(v)
+                    if v.Name == "SingleMushroom" then
+                        removeESP(v)
+                    end
+                end))
+            else
+                for _, conn in connections do
+                    conn:Disconnect()
+                end
+                table.clear(connections)
+
+                for obj in activeESP do
+                    removeESP(obj)
+                end
+            end
+        end,
+        Tooltip = "Shows a box and nametag over SingleMushroom objects"
+    })
 end)
 
 run(function()
@@ -8671,72 +8851,92 @@ run(function()
 end)
 
 run(function()
-	local AutoReset
-	local OwlCheckReset
-	local PearlCheckReset
-	local cachedLowestPointReset
-	local pearlLastInHandTick = 0  
+    local AutoReset
+    local OwlCheckReset
+    local PearlCheckReset
+    local CannonCheckReset -- Toggle option for Cannon Check
+    local cachedLowestPointReset
+    local pearlLastInHandTick = 0  
+    local cannonLastInHandTick = 0  
 
-	AutoReset = vape.Categories.Utility:CreateModule({
-		Name = 'AutoVoidReset',
-		Function = function(callback)
-			if callback then
-				repeat task.wait() until store.matchState ~= 0 or (not AutoReset.Enabled)
-				if not AutoReset.Enabled then return end
+    AutoReset = vape.Categories.Utility:CreateModule({
+        Name = 'AutoVoidReset',
+        Function = function(callback)
+            if callback then
+                repeat task.wait() until store.matchState ~= 0 or (not AutoReset.Enabled)
+                if not AutoReset.Enabled then return end
 
-				cachedLowestPointReset = math.huge
-				for _, v in pairs(store.blocks) do
-					local point = (v.Position.Y - (v.Size.Y / 2)) - 50
-					if point < cachedLowestPointReset then
-						cachedLowestPointReset = point
-					end
-				end
-				if cachedLowestPointReset == math.huge then
-					cachedLowestPointReset = -100
-				end
+                cachedLowestPointReset = math.huge
+                for _, v in pairs(store.blocks) do
+                    local point = (v.Position.Y - (v.Size.Y / 2)) - 50
+                    if point < cachedLowestPointReset then
+                        cachedLowestPointReset = point
+                    end
+                end
+                if cachedLowestPointReset == math.huge then
+                    cachedLowestPointReset = -100
+                end
 
-				repeat
-					if entitylib.isAlive then
-						local root = entitylib.character.RootPart
-						if not root then task.wait(0.1) continue end
+                repeat
+                    if entitylib.isAlive then
+                        local root = entitylib.character.RootPart
+                        if not root then task.wait(0.1) continue end
 
-						local handItem = store.inventory and store.inventory.inventory and store.inventory.inventory.hand
-						if handItem and handItem.itemType == 'telepearl' then
-							pearlLastInHandTick = tick()
-						end
+                        local handItem = store.inventory and store.inventory.inventory and store.inventory.inventory.hand
+                        
+                        -- Update hand holding timers
+                        if handItem then
+                            if handItem.itemType == 'telepearl' then
+                                pearlLastInHandTick = tick()
+                            elseif handItem.itemType == 'cannon' then
+                                cannonLastInHandTick = tick()
+                            end
+                        end
 
-						if root.Position.Y < cachedLowestPointReset 
-							and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0 
-							and not getItem('balloon') then
+                        -- Main void check conditions
+                        if root.Position.Y < cachedLowestPointReset 
+                            and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0 
+                            and not getItem('balloon') then
 
-							local owlBlock = OwlCheckReset.Enabled and root:FindFirstChild('OwlLiftForce')
-							if not owlBlock then
-								local pearlBlock = PearlCheckReset.Enabled and (tick() - pearlLastInHandTick) < 4
-								if not pearlBlock then
-									local hum = lplr.Character and lplr.Character:FindFirstChildOfClass('Humanoid')
-									if hum then hum.Health = -1 end
-								end
-							end
-						end
-					end
-					task.wait(0.1)
-				until not AutoReset.Enabled
-			end
-		end,
-		Tooltip = 'Resets your character when you fall into the void'
-	})
+                            local owlBlock = OwlCheckReset.Enabled and root:FindFirstChild('OwlLiftForce')
+                            if not owlBlock then
+                                local pearlBlock = PearlCheckReset.Enabled and (tick() - pearlLastInHandTick) < 4
+                                if not pearlBlock then
+                                    -- Cannon Check: Checks if CannonCheckReset is enabled, if cannon was held recently (< 4s), or if a cannon is anywhere in inventory
+                                    local cannonBlock = CannonCheckReset.Enabled and ((tick() - cannonLastInHandTick) < 4 or getItem('cannon'))
+                                    if not cannonBlock then
+                                        local hum = lplr.Character and lplr.Character:FindFirstChildOfClass('Humanoid')
+                                        if hum then hum.Health = -1 end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.1)
+                until not AutoReset.Enabled
+            end
+        end,
+        Tooltip = 'Resets your character when you fall into the void'
+    })
 
-	OwlCheckReset = AutoReset:CreateToggle({
-		Name = 'Owl check',
-		Default = true,
-		Tooltip = 'Does not reset if being picked up by an owl'
-	})
+    -- UI Options/Toggles
+    OwlCheckReset = AutoReset:CreateToggle({
+        Name = 'Owl Check',
+        Function = function() end,
+        Tooltip = 'Prevents auto reset while actively using an owl'
+    })
 
-	PearlCheckReset = AutoReset:CreateToggle({
-		Name = 'Pearl check',
-		Default = false,
-		Tooltip = 'Does not reset if holding a pearl or recently threw one (4 sec cooldown)'
-	})
+    PearlCheckReset = AutoReset:CreateToggle({
+        Name = 'Pearl Check',
+        Function = function() end,
+        Tooltip = 'Prevents auto reset if you recently held a pearl'
+    })
+
+    CannonCheckReset = AutoReset:CreateToggle({
+        Name = 'Cannon Check',
+        Function = function() end,
+        Tooltip = 'Prevents auto reset if you have a cannon or recently held one'
+    })
 end)
 
 run(function()
@@ -11040,6 +11240,89 @@ run(function()
 		end
 	})
 	UIToggle = AutoBank:CreateToggle({Name = 'Display resources', Default = true})
+end)
+
+run(function()
+    local AutoBankAlert
+    local TrackedPlayers = {}
+    local playersService = game:GetService("Players")
+
+    local function alertPlayer(player, itemType, amount)
+        if not player or player == lplr then return end
+        
+        local lastAlert = TrackedPlayers[player] or 0
+        if tick() - lastAlert < 3 then return end
+        TrackedPlayers[player] = tick()
+
+        local name = player.DisplayName or player.Name
+        local text = name .. " is using AutoBank! (" .. tostring(amount) .. " " .. tostring(itemType) .. ")"
+
+        if vape and vape.CreateNotification then
+            vape.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
+        else
+            print("[Mxtion v4] " .. text)
+        end
+    end
+
+    AutoBankAlert = vape.Categories.Inventory:CreateModule({
+        Name = "AutoBankAlert",
+        Function = function(callback)
+            if callback then
+                AutoBankAlert:Clean(workspace.DescendantAdded:Connect(function(child)
+                    -- Verify item drop instance
+                    local itemDropsFolder = workspace:FindFirstChild("ItemDrops")
+                    local isItemDrop = (itemDropsFolder and child.Parent == itemDropsFolder) or child:GetAttribute("ItemType") ~= nil
+                    
+                    if child:IsA("BasePart") and isItemDrop then
+                        -- 1. Store the initial spawn position BEFORE it teleports
+                        local initialPos = child.Position
+                        
+                        -- 2. Identify nearest player at the moment of spawning
+                        local closestPlayer = nil
+                        local closestDist = 30
+
+                        for _, player in ipairs(playersService:GetPlayers()) do
+                            if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                                local dist = (player.Character.HumanoidRootPart.Position - initialPos).Magnitude
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    closestPlayer = player
+                                end
+                            end
+                        end
+
+                        if not closestPlayer then return end
+
+                        -- 3. Watch the drop over 0.5s for AutoBank behavior (teleporting or child stripping)
+                        task.spawn(function()
+                            local detected = false
+                            local startTime = tick()
+
+                            while (tick() - startTime) < 0.6 do
+                                if not child or not child.Parent then break end
+
+                                local isCleared = #child:GetChildren() == 0 and child:GetAttribute("HandItem") == nil
+                                local isTeleported = math.abs(child.Position.Y - initialPos.Y) > 100 or child.Position.Y > 20000 or child.Position.Y < -500
+
+                                if isCleared or isTeleported then
+                                    detected = true
+                                    break
+                                end
+                                task.wait(0.05)
+                            end
+
+                            if detected then
+                                local itemType = child:GetAttribute("ItemType") or child.Name
+                                local amount = child:GetAttribute("Amount") or 1
+                                alertPlayer(closestPlayer, itemType, amount)
+                            end
+                        end)
+                    end
+                end))
+            end
+        end,
+        Tooltip = "Alerts you when an enemy player uses AutoBank to hide items"
+    })
 end)
 
 run(function()
@@ -17958,8 +18241,7 @@ run(function()
 				end
 				self.maid:DoCleaning()
 				self.healthbarBlockRef = blockRef
-				local roact = bedwars.Roact
-				local create = roact.createElement
+				local create = bedwars.Roact.createElement
 				local percent = math.clamp(health / maxHealth, 0, 1)
 				local cleanCheck = true
 				local part = Instance.new('Part')
@@ -17972,7 +18254,7 @@ run(function()
 				bedwars.QueryUtil:setQueryIgnored(part, true)
 				self.healthbarPart = part
 	
-				local mounted = roact.mount(create('BillboardGui', {
+				local mounted = bedwars.Roact.mount(create('BillboardGui', {
 					Size = UDim2.fromOffset(249, 102),
 					StudsOffset = Vector3.new(0, 2.5, 0),
 					Adornee = part,
@@ -17990,7 +18272,7 @@ run(function()
 							Size = UDim2.new(1, 89, 1, 52),
 							Position = UDim2.fromOffset(-48, -31),
 							BackgroundTransparency = 1,
-							Image = getcustomasset('catsix/assets/new/blur.png'),
+							Image = getcustomasset('mxtionv4/assets/new/blur.png'),
 							ScaleType = Enum.ScaleType.Slice,
 							SliceCenter = Rect.new(52, 31, 261, 502)
 						}),
@@ -18023,7 +18305,7 @@ run(function()
 						}, {
 							create('UICorner', {CornerRadius = UDim.new(1, 0)}),
 							create('Frame', {
-								[roact.Ref] = self.blockHealthbar.healthbarProgressRef,
+								[bedwars.Roact.Ref] = self.blockHealthbar.healthbarProgressRef,
 								Size = UDim2.fromScale(percent, 1),
 								BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
 							}, {create('UICorner', {CornerRadius = UDim.new(1, 0)})})
@@ -18034,7 +18316,7 @@ run(function()
 				self.maid:GiveTask(function()
 					cleanCheck = false
 					self.healthbarBlockRef = nil
-					roact.unmount(mounted)
+					bedwars.Roact.unmount(mounted)
 					if self.healthbarPart then
 						self.healthbarPart:Destroy()
 					end
@@ -18061,7 +18343,7 @@ run(function()
 	
 	local hit = 0
 	
-	local function attemptBreak(tab, localPosition, route)
+	local function attemptBreak(tab, localPosition)
 		if not tab then return end
 		for _, v in tab do
 			if (v.Position - localPosition).Magnitude < Range.Value and bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
@@ -18070,7 +18352,7 @@ run(function()
 				if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
 	
 				hit += 1
-				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value], not route)
+				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value])
 				local currentnode = target
 				for _, part in parts do
 					part.Position = currentnode or Vector3.zero
@@ -18143,7 +18425,7 @@ run(function()
 					if entitylib.isAlive then
 						local localPosition = entitylib.character.RootPart.Position
 	
-						if attemptBreak(Bed.Enabled and beds, localPosition, true) then continue end
+						if attemptBreak(Bed.Enabled and beds, localPosition) then continue end
 						if attemptBreak(Hive.Enabled and hives, localPosition) then continue end
 						if attemptBreak(Tesla.Enabled and teslas, localPosition) then continue end
 						if attemptBreak(customlist, localPosition) then continue end
@@ -18688,40 +18970,44 @@ run(function()
 end)
 
 run(function()
-	local JadeExtender
-	local Multiplier
-	
-	local old
-	
-	JadeExtender = vape.Categories.Kits:CreateModule({
-		Name = 'JadeHammerExtender',
-		Function = function(callback)
-			if callback then
-				old = bedwars.JadeHammerController.useJadeHammer
-				bedwars.JadeHammerController.useJadeHammer = function(self)
-					local jumped = bedwars.AbilityController:canUseAbility('jade_hammer_jump', {disableBlockedAbilityAlert = true})
-					local call = old(self)
-	
-					if jumped and store.equippedKit == 'jade' and entitylib.isAlive then
-						local root = entitylib.character.RootPart
-						root:ApplyImpulse(Vector3.new(0, root.AssemblyMass * (Multiplier.Value - 1) * 20.5, 0))
-					end
-					return call
-				end
-			else
-				bedwars.JadeHammerController.useJadeHammer = old
-			end
-		end,
-		Tooltip = 'Extends how far the Jade Hammer jump launches you'
-	})
-	Multiplier = JadeExtender:CreateSlider({
-		Name = 'Multiplier',
-		Min = 1,
-		Max = 5,
-		Default = 2,
-		Decimal = 10,
-		Suffix = 'x'
-	})
+    local JadeExtender
+    local Multiplier
+    
+    local old
+    
+    JadeExtender = vape.Categories.Kits:CreateModule({
+        Name = 'JadeHammerExtender',
+        Function = function(callback)
+            if callback then
+                old = bedwars.JadeHammerController.useJadeHammer
+                bedwars.JadeHammerController.useJadeHammer = function(self)
+                    local jumped = bedwars.AbilityController:canUseAbility('jade_hammer_jump', {disableBlockedAbilityAlert = true})
+                    local call = old(self)
+    
+                    if jumped and store.equippedKit == 'jade' and entitylib.isAlive then
+                        local root = entitylib.character.RootPart
+                        -- Applies horizontal momentum in the direction you are facing plus an upward boost scaled by Multiplier
+                        local horizontalLook = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+                        local impulseVector = (horizontalLook * 70 + Vector3.new(0, 20.5, 0)) * root.AssemblyMass * (Multiplier.Value - 1)
+                        
+                        root:ApplyImpulse(impulseVector)
+                    end
+                    return call
+                end
+            else
+                bedwars.JadeHammerController.useJadeHammer = old
+            end
+        end,
+        Tooltip = 'Extends how far the Jade Hammer jump launches you horizontally and vertically'
+    })
+    Multiplier = JadeExtender:CreateSlider({
+        Name = 'Multiplier',
+        Min = 1,
+        Max = 5,
+        Default = 2,
+        Decimal = 10,
+        Suffix = 'x'
+    })
 end)
 
 run(function()
