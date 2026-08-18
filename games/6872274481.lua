@@ -5477,14 +5477,14 @@ run(function()
     local Empty
     local Color = {}
     local window, headerTitle, chestIcon
-    local chestLabel, chestGrid
-    local slots = {}
     
-    local SlotCount = 24
     local SlotSize = 32
     local SlotPadding = 4
     local Columns = 6
     local HeaderHeight = 46
+
+    -- Container to store dynamic team section UI elements
+    local dynamicSections = {}
 
     local function createSlot(parent)
         local slot = Instance.new('Frame')
@@ -5527,21 +5527,6 @@ run(function()
         return slot
     end
 
-    local function createSectionHeader(text, parent)
-        local label = Instance.new('TextLabel')
-        label.Name = text .. 'Header'
-        label.Size = UDim2.new(1, -28, 0, 14)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.TextSize = 11
-        label.TextColor3 = uipallet.Text
-        label.FontFace = uipallet.Font
-        label.Visible = false
-        label.Parent = parent
-        return label
-    end
-
     local function buildWindow()
         window = Instance.new('Frame')
         window.Name = 'ViewTeamChest'
@@ -5574,7 +5559,7 @@ run(function()
         headerTitle.Size = UDim2.new(1, -60, 0, 26)
         headerTitle.Position = UDim2.fromOffset(48, 11)
         headerTitle.BackgroundTransparency = 1
-        headerTitle.Text = 'Team Chest'
+        headerTitle.Text = 'Team Chests'
         headerTitle.TextXAlignment = Enum.TextXAlignment.Left
         headerTitle.TextSize = 13
         headerTitle.TextColor3 = uipallet.Text
@@ -5589,26 +5574,6 @@ run(function()
         divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
         divider.BorderSizePixel = 0
         divider.Parent = window
-
-        chestLabel = createSectionHeader('Chest Contents', window)
-
-        chestGrid = Instance.new('Frame')
-        chestGrid.Name = 'ChestItems'
-        chestGrid.Size = UDim2.new(1, -28, 0, 0)
-        chestGrid.BackgroundTransparency = 1
-        chestGrid.Parent = window
-
-        local layout = Instance.new('UIGridLayout')
-        layout.CellSize = UDim2.fromOffset(SlotSize, SlotSize)
-        layout.CellPadding = UDim2.fromOffset(SlotPadding, SlotPadding)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Parent = chestGrid
-
-        for i = 1, SlotCount do
-            local slot = createSlot(chestGrid)
-            slot.LayoutOrder = i
-            slots[i] = slot
-        end
     end
 
     local function setSlot(slot, item)
@@ -5623,21 +5588,39 @@ run(function()
         slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
     end
 
-    -- Scans all BlockChest and ChestOwners folders in ReplicatedStorage
+    -- Helper to clean folder/team names for section headers
+    local function formatTeamName(str)
+        str = str:gsub('team_crate_', ''):gsub('team_crate', 'Team Chest'):gsub('chest_', ''):gsub('_', ' ')
+        return str:sub(1,1):upper() .. str:sub(2)
+    end
+
+    -- Scans folders and groups chest contents separately per team
     local function getTeamChestData()
-        local chestItems = {}
+        local teamChests = {} -- Array of { teamName = "...", items = {...} }
         local repStorage = game:GetService('ReplicatedStorage')
 
-        -- Helper to read items inside any chest container folder
-        local function scanFolder(folder)
+        local function getTeamList(name)
+            local cleanName = formatTeamName(name)
+            for _, entry in ipairs(teamChests) do
+                if entry.teamName == cleanName then
+                    return entry.items
+                end
+            end
+            local newEntry = { teamName = cleanName, items = {} }
+            table.insert(teamChests, newEntry)
+            return newEntry.items
+        end
+
+        local function scanFolder(folder, currentTeam)
             if not folder then return end
             
+            local teamName = currentTeam or folder:GetAttribute('Team') or folder.Name
+
             for _, item in ipairs(folder:GetChildren()) do
-                -- If subfolder exists (e.g. individual chest ID folders inside BlockChest)
                 if item:IsA('Folder') or item:IsA('Model') then
-                    scanFolder(item)
+                    local subTeam = item:GetAttribute('Team') or item.Name
+                    scanFolder(item, subTeam)
                 else
-                    -- Extract ItemType and Amount attributes or properties
                     local name = item:GetAttribute('ItemType') 
                         or item:GetAttribute('itemType') 
                         or item:GetAttribute('Name')
@@ -5648,9 +5631,9 @@ run(function()
                         or (item:FindFirstChild('Amount') and item.Amount.Value) 
                         or 1
 
-                    -- Ignore internal metadata entries
                     if name ~= 'ChestOwners' and name ~= 'Owner' and name ~= 'Team' then
-                        table.insert(chestItems, {
+                        local itemList = getTeamList(teamName)
+                        table.insert(itemList, {
                             itemType = tostring(name),
                             amount = tonumber(amount) or 1
                         })
@@ -5659,19 +5642,15 @@ run(function()
             end
         end
 
-        -- 1. Scan ReplicatedStorage.BlockChest
+        -- 1. BlockChest scanning
         local blockChest = repStorage:FindFirstChild('BlockChest')
-        if blockChest then
-            scanFolder(blockChest)
-        end
+        if blockChest then scanFolder(blockChest) end
 
-        -- 2. Scan ReplicatedStorage.ChestOwners
+        -- 2. ChestOwners scanning
         local chestOwners = repStorage:FindFirstChild('ChestOwners')
-        if chestOwners then
-            scanFolder(chestOwners)
-        end
+        if chestOwners then scanFolder(chestOwners) end
 
-        -- 3. Scan ReplicatedStorage.Inventories / team_crate as fallback
+        -- 3. Inventories fallback scanning
         local inventoriesFolder = repStorage:FindFirstChild('Inventories') or repStorage:FindFirstChild('inventories')
         if inventoriesFolder then
             for _, folder in ipairs(inventoriesFolder:GetChildren()) do
@@ -5681,40 +5660,101 @@ run(function()
             end
         end
 
-        return chestItems, "team_crate"
+        return teamChests
+    end
+
+    -- Dynamically gets or creates a Section + Grid UI set
+    local function getOrCreateSection(index)
+        if not dynamicSections[index] then
+            local label = Instance.new('TextLabel')
+            label.Name = 'SectionHeader_' .. index
+            label.Size = UDim2.new(1, -28, 0, 14)
+            label.BackgroundTransparency = 1
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.TextSize = 11
+            label.TextColor3 = uipallet.Text
+            label.FontFace = uipallet.Font
+            label.Visible = false
+            label.Parent = window
+
+            local grid = Instance.new('Frame')
+            grid.Name = 'SectionGrid_' .. index
+            grid.Size = UDim2.new(1, -28, 0, 0)
+            grid.BackgroundTransparency = 1
+            grid.Visible = false
+            grid.Parent = window
+
+            local layout = Instance.new('UIGridLayout')
+            layout.CellSize = UDim2.fromOffset(SlotSize, SlotSize)
+            layout.CellPadding = UDim2.fromOffset(SlotPadding, SlotPadding)
+            layout.SortOrder = Enum.SortOrder.LayoutOrder
+            layout.Parent = grid
+
+            dynamicSections[index] = {
+                header = label,
+                grid = grid,
+                slots = {}
+            }
+        end
+        return dynamicSections[index]
     end
 
     local function refresh()
-        local items, titleText = getTeamChestData()
+        local teamDataList = getTeamChestData()
 
-        if #items == 0 and not (Empty and Empty.Enabled) then
+        if #teamDataList == 0 and not (Empty and Empty.Enabled) then
             window.Visible = false
             return
         end
 
         window.Visible = true
-        headerTitle.Text = titleText or 'team_crate'
+        headerTitle.Text = 'Team Chests'
 
-        local currentY = HeaderHeight + 8
-        local shownItems = 0
-
-        for i, slot in ipairs(slots) do
-            local item = items[i]
-            setSlot(slot, item)
-            if slot.Visible then
-                shownItems = i
+        -- Hide all existing dynamic UI sections initially
+        for _, section in ipairs(dynamicSections) do
+            section.header.Visible = false
+            section.grid.Visible = false
+            for _, slot in ipairs(section.slots) do
+                slot.Visible = false
             end
         end
 
-        chestLabel.Visible = true
-        chestLabel.Position = UDim2.fromOffset(14, currentY)
-        currentY += 16
+        local currentY = HeaderHeight + 8
 
-        local rows = math.max(math.ceil(shownItems / Columns), 1)
-        local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
-        chestGrid.Position = UDim2.fromOffset(14, currentY)
-        chestGrid.Size = UDim2.new(1, -28, 0, gridHeight)
-        currentY += gridHeight + 10
+        -- Render a separate section and grid line for each team
+        for sectionIdx, teamData in ipairs(teamDataList) do
+            if #teamData.items > 0 or (Empty and Empty.Enabled) then
+                local section = getOrCreateSection(sectionIdx)
+
+                -- 1. Setup Section Header
+                section.header.Text = teamData.teamName
+                section.header.Position = UDim2.fromOffset(14, currentY)
+                section.header.Visible = true
+                currentY += 16
+
+                -- 2. Populate Item Slots
+                local shownItems = 0
+                for itemIdx, item in ipairs(teamData.items) do
+                    if not section.slots[itemIdx] then
+                        section.slots[itemIdx] = createSlot(section.grid)
+                        section.slots[itemIdx].LayoutOrder = itemIdx
+                    end
+                    setSlot(section.slots[itemIdx], item)
+                    if section.slots[itemIdx].Visible then
+                        shownItems = itemIdx
+                    end
+                end
+
+                -- 3. Calculate Section Grid Height
+                local rows = math.max(math.ceil(shownItems / Columns), 1)
+                local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
+                section.grid.Position = UDim2.fromOffset(14, currentY)
+                section.grid.Size = UDim2.new(1, -28, 0, gridHeight)
+                section.grid.Visible = true
+
+                currentY += gridHeight + 10
+            end
+        end
 
         window.Size = UDim2.fromOffset(240, currentY)
     end
@@ -5740,12 +5780,12 @@ run(function()
                 window.Visible = false
             end
         end,
-        Tooltip = 'Shows all items and amounts across BlockChest and ChestOwners'
+        Tooltip = 'Shows separated chest contents for each team'
     })
 
     Empty = TeamchestESP:CreateToggle({
         Name = 'Show when empty',
-        Tooltip = 'Keeps the panel visible even if no chest items are detected',
+        Tooltip = 'Keeps team chest sections visible even if empty',
         Default = false
     })
 
