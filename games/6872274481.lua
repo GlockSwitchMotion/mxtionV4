@@ -4588,7 +4588,7 @@ run(function()
 	end
 	
 	HiveESP = vape.Categories.Render:CreateModule({
-		Name = 'HiveRender',
+		Name = 'BeeHiveRender',
 		Function = function(call)
 			if call then
 				for _, v in collectionService:GetTagged('beehive') do
