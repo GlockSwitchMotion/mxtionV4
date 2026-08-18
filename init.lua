@@ -72,17 +72,22 @@ end
 
 	if not shared.VapeDeveloper then
 		local commit = license.Commit
+		local currentCommit = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or ''
+		local lastUpdateCheck = isfile('mxtionv4/profiles/lastupdate.txt') and tonumber(readfile('mxtionv4/profiles/lastupdate.txt')) or 0
+		
 		if not commit then
-			local suc, res = pcall(function() 
-				-- Use Github API for faster response instead of scraping HTML
-				return cloneref(game:GetService("HttpService")):JSONDecode(game:HttpGet('https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main'))
-			end)
-			if suc and type(res) == "table" and res.sha then
-				commit = res.sha
+			if os.time() - lastUpdateCheck > 600 or currentCommit == '' then
+				local suc, res = pcall(function() 
+					-- Use Github API for faster response instead of scraping HTML
+					return cloneref(game:GetService("HttpService")):JSONDecode(game:HttpGet('https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main'))
+				end)
+				if suc and type(res) == "table" and res.sha then
+					commit = res.sha
+					writefile('mxtionv4/profiles/lastupdate.txt', tostring(os.time()))
+				end
 			end
 		end
 		
-		local currentCommit = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or ''
 		commit = commit or (currentCommit ~= '' and currentCommit or 'main')
 		
 		if commit ~= 'main' and currentCommit ~= '' and currentCommit ~= commit then
