@@ -5098,7 +5098,166 @@ run(function()
 		end,
 		Tooltip = 'Displays your health in the center of your screen.'
 	})
+	
 end)
+local TeamChestESP = {Enabled = false}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local lplr = Players.LocalPlayer
+
+local activeLabels = {}
+
+-- Create or fetch 2D Drawing Label for a chest instance
+local function getOrCreateLabel(chestInstance)
+	local id = chestInstance:GetDebugId()
+	if not activeLabels[id] then
+		local text = Drawing.new("Text")
+		text.Size = 14
+		text.Color = Color3.fromRGB(255, 215, 0) -- Gold header/text for chests
+		text.Outline = true
+		text.OutlineColor = Color3.fromRGB(0, 0, 0)
+		text.Center = true
+		text.Visible = false
+		activeLabels[id] = text
+	end
+	return activeLabels[id]
+end
+
+-- Inspects ReplicatedStorage -> blockchest -> chestowner for items & quantities
+local function getChestContentsText(chestInstance)
+	local items = {}
+	local itemCounts = {}
+
+	-- 1. Locate ReplicatedStorage.blockchest
+	local blockChestFolder = ReplicatedStorage:FindFirstChild("blockchest") 
+		or ReplicatedStorage:FindFirstChild("BlockChests") 
+		or ReplicatedStorage:FindFirstChild("Chests")
+
+	-- 2. Determine chest owner identifier (Team Name / Player / Attribute)
+	local chestOwnerName = chestInstance:GetAttribute("ChestOwner") 
+		or chestInstance:GetAttribute("Team") 
+		or (chestInstance:FindFirstChild("ChestOwner") and chestInstance.ChestOwner.Value)
+		or (lplr.Team and lplr.Team.Name) 
+		or chestInstance.Name
+
+	local targetFolder = nil
+	if blockChestFolder then
+		-- Search under blockchest for the matching chestowner folder
+		targetFolder = blockChestFolder:FindFirstChild(tostring(chestOwnerName)) 
+			or blockChestFolder:FindFirstChild(lplr.Team and lplr.Team.Name or "")
+			or blockChestFolder:FindFirstChildOfClass("Folder")
+	end
+
+	-- Fallback to direct chest model children if RS folder isn't populated
+	targetFolder = targetFolder or chestInstance:FindFirstChild("Contents") or chestInstance:FindFirstChild("Inventory") or chestInstance
+
+	-- 3. Read item names and stack quantities
+	if targetFolder then
+		for _, item in ipairs(targetFolder:GetChildren()) do
+			local name = item.Name
+			
+			-- Check for item count attribute or child IntValue
+			local amount = item:GetAttribute("Amount") 
+				or item:GetAttribute("Quantity") 
+				or (item:FindFirstChild("Amount") and item.Amount.Value)
+				or (item:FindFirstChild("Quantity") and item.Quantity.Value)
+				or (item:IsA("IntValue") and item.Value)
+				or 1
+
+			itemCounts[name] = (itemCounts[name] or 0) + amount
+		end
+
+		for itemName, count in pairs(itemCounts) do
+			if count > 1 then
+				table.insert(items, itemName .. " x" .. tostring(count))
+			else
+				table.insert(items, itemName)
+			end
+		end
+	end
+
+	if #items == 0 then
+		return "[Team Chest]\nEmpty"
+	end
+
+	return "[Team Chest]\n" .. table.concat(items, " | ")
+end
+
+-- Scans Workspace for Team Chest physical blocks
+local function getTeamChestBlocks()
+	local chests = {}
+	for _, desc in ipairs(Workspace:GetDescendants()) do
+		if desc:IsA("BasePart") or desc:IsA("Model") then
+			local lowerName = desc.Name:lower()
+			if lowerName:find("teamchest") or lowerName:find("blockchest") or lowerName == "chest" or desc:GetAttribute("ChestOwner") then
+				local mainPart = desc:IsA("Model") and (desc.PrimaryPart or desc:FindFirstChildWhichIsA("BasePart")) or desc
+				if mainPart and not table.find(chests, mainPart) then
+					table.insert(chests, mainPart)
+				end
+			end
+		end
+	end
+	return chests
+end
+
+-- Render loop for projection & updates
+local renderLoop
+local function startRenderLoop()
+	renderLoop = RunService.RenderStepped:Connect(function()
+		if not TeamChestESP.Enabled then return end
+
+		local chests = getTeamChestBlocks()
+		local currentFrameIds = {}
+
+		for _, chest in ipairs(chests) do
+			local id = chest:GetDebugId()
+			currentFrameIds[id] = true
+
+			local label = getOrCreateLabel(chest)
+			local pos = chest.Position
+
+			if pos then
+				local vector, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(pos + Vector3.new(0, 2.2, 0))
+				if onScreen then
+					label.Text = getChestContentsText(chest)
+					label.Position = Vector2.new(vector.X, vector.Y)
+					label.Visible = true
+				else
+					label.Visible = false
+				end
+			end
+		end
+
+		-- Clean up labels for destroyed or removed chests
+		for id, label in pairs(activeLabels) do
+			if not currentFrameIds[id] then
+				label:Remove()
+				activeLabels[id] = nil
+			end
+		end
+	end)
+end
+
+-- Vape GUI Toggle Hook
+GuiLibrary.ObjectsThatCanBeSaved["TeamChestESPToggle"] = GuiLibrary.CreateOptionsButton({
+	Name = "TeamChestESP",
+	Function = function(callback)
+		TeamChestESP.Enabled = callback
+		if callback then
+			startRenderLoop()
+		else
+			if renderLoop then renderLoop:Disconnect() end
+			for id, label in pairs(activeLabels) do
+				label:Remove()
+			end
+			table.clear(activeLabels)
+		end
+	end,
+	HoverText = "Displays live items and item quantities inside team chests",
+	Category = "Render"
+})
 
 run(function()
     local InventoryESP
