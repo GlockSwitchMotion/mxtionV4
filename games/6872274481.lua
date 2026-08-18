@@ -11256,7 +11256,7 @@ run(function()
         end
     end
 
-    AutoBankAlert = vape.Categories.Utility:CreateModule({
+    AutoBankAlert = vape.Categories.Inventory:CreateModule({
         Name = "AutoBankAlert",
         Function = function(callback)
             if callback then
