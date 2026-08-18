@@ -5475,7 +5475,7 @@ end)
 run(function()
     local TeamchestESP
     local Empty
-    local HideMyTeam -- Toggle to filter out your own team's chest
+    local HideMyTeam
     local Color = {}
     local window, headerTitle, chestIcon
     
@@ -5588,7 +5588,7 @@ run(function()
         slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
     end
 
-    -- Clean up folder string into a formatted Team Name (e.g., "Red Team Chest")
+    -- Helper to format folder names into proper labels (e.g., "Red Team Chest")
     local function formatTeamName(str)
         local cleaned = str:gsub('team_crate_', ''):gsub('team_crate', ''):gsub('chest_', ''):gsub('owner_', ''):gsub('_', ' '):gsub('^%s*(.-)%s*$', '%1')
         if cleaned == '' or cleaned:lower() == 'chest' then
@@ -5598,14 +5598,35 @@ run(function()
         return cleaned .. ' Team Chest'
     end
 
-    -- Scans folders and groups chests separately per team while excluding local player's team
+    -- Strict check to see if a given string/folder belongs to the local player's team
+    local function isLocalPlayerTeam(folderTeamStr)
+        if not folderTeamStr then return false end
+        folderTeamStr = tostring(folderTeamStr):lower()
+
+        -- Get local player team indicators
+        local teamObj = lplr.Team
+        local myTeamName = teamObj and teamObj.Name:lower() or ''
+        local myTeamAttr = tostring(lplr:GetAttribute('Team') or ''):lower()
+        local myTeamColor = teamObj and tostring(teamObj.TeamColor.Name):lower() or ''
+
+        -- Sanitize keywords for clean matching
+        local sanitize = function(str)
+            return str:gsub('team', ''):gsub('_', ''):gsub(' ', '')
+        end
+
+        local cleanFolderStr = sanitize(folderTeamStr)
+
+        if myTeamName ~= '' and cleanFolderStr:find(sanitize(myTeamName)) then return true end
+        if myTeamAttr ~= '' and cleanFolderStr:find(sanitize(myTeamAttr)) then return true end
+        if myTeamColor ~= '' and cleanFolderStr:find(sanitize(myTeamColor)) then return true end
+
+        return false
+    end
+
+    -- Scans folders and groups chest contents separately per team
     local function getTeamChestData()
         local teamChests = {}
         local repStorage = game:GetService('ReplicatedStorage')
-
-        -- Get local player's team identifier
-        local myTeam = lplr:GetAttribute('Team') or (lplr.Team and lplr.Team.Name) or ''
-        myTeam = tostring(myTeam):lower()
 
         local function getTeamList(name)
             local formattedName = formatTeamName(name)
@@ -5621,21 +5642,18 @@ run(function()
 
         local function scanFolder(folder, currentTeam)
             if not folder then return end
-            
+
             local teamName = currentTeam or folder:GetAttribute('Team') or folder.Name
-            local rawTeamStr = tostring(teamName):lower()
 
-            -- Check if this folder belongs to local player's team
-            local isMyTeam = (myTeam ~= '' and rawTeamStr:find(myTeam))
-
-            -- Filter out local team if HideMyTeam toggle is enabled
-            if HideMyTeam and HideMyTeam.Enabled and isMyTeam then
+            -- If "Hide My Team" is on and this folder is identified as our team, skip it
+            if HideMyTeam and HideMyTeam.Enabled and isLocalPlayerTeam(teamName) then
                 return
             end
 
             for _, item in ipairs(folder:GetChildren()) do
                 if item:IsA('Folder') or item:IsA('Model') then
                     local subTeam = item:GetAttribute('Team') or item.Name
+                    -- Pass along the team name or parent folder team
                     scanFolder(item, subTeam)
                 else
                     local name = item:GetAttribute('ItemType') 
@@ -5740,13 +5758,11 @@ run(function()
             if #teamData.items > 0 or (Empty and Empty.Enabled) then
                 local section = getOrCreateSection(sectionIdx)
 
-                -- 1. Section Header Title (e.g. "Red Team Chest")
                 section.header.Text = teamData.teamName
                 section.header.Position = UDim2.fromOffset(14, currentY)
                 section.header.Visible = true
                 currentY += 16
 
-                -- 2. Populate Slots
                 local shownItems = 0
                 for itemIdx, item in ipairs(teamData.items) do
                     if not section.slots[itemIdx] then
@@ -5759,7 +5775,6 @@ run(function()
                     end
                 end
 
-                -- 3. Adjust Height
                 local rows = math.max(math.ceil(shownItems / Columns), 1)
                 local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
                 section.grid.Position = UDim2.fromOffset(14, currentY)
