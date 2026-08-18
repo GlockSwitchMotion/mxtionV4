@@ -5314,7 +5314,7 @@ run(function()
         window.Size = UDim2.fromOffset(240, currentY)
     end
 
-    TeamChestESP = vape.Categories.Inventory:CreateModule({
+    TeamChestESP = vape.Categories.Render:CreateModule({
         Name = 'TeamChestESP',
         Function = function(callback)
             if callback then
