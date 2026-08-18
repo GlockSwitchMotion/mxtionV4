@@ -8851,72 +8851,92 @@ run(function()
 end)
 
 run(function()
-	local AutoReset
-	local OwlCheckReset
-	local PearlCheckReset
-	local cachedLowestPointReset
-	local pearlLastInHandTick = 0  
+    local AutoReset
+    local OwlCheckReset
+    local PearlCheckReset
+    local CannonCheckReset -- Toggle option for Cannon Check
+    local cachedLowestPointReset
+    local pearlLastInHandTick = 0  
+    local cannonLastInHandTick = 0  
 
-	AutoReset = vape.Categories.Utility:CreateModule({
-		Name = 'AutoVoidReset',
-		Function = function(callback)
-			if callback then
-				repeat task.wait() until store.matchState ~= 0 or (not AutoReset.Enabled)
-				if not AutoReset.Enabled then return end
+    AutoReset = vape.Categories.Utility:CreateModule({
+        Name = 'AutoVoidReset',
+        Function = function(callback)
+            if callback then
+                repeat task.wait() until store.matchState ~= 0 or (not AutoReset.Enabled)
+                if not AutoReset.Enabled then return end
 
-				cachedLowestPointReset = math.huge
-				for _, v in pairs(store.blocks) do
-					local point = (v.Position.Y - (v.Size.Y / 2)) - 50
-					if point < cachedLowestPointReset then
-						cachedLowestPointReset = point
-					end
-				end
-				if cachedLowestPointReset == math.huge then
-					cachedLowestPointReset = -100
-				end
+                cachedLowestPointReset = math.huge
+                for _, v in pairs(store.blocks) do
+                    local point = (v.Position.Y - (v.Size.Y / 2)) - 50
+                    if point < cachedLowestPointReset then
+                        cachedLowestPointReset = point
+                    end
+                end
+                if cachedLowestPointReset == math.huge then
+                    cachedLowestPointReset = -100
+                end
 
-				repeat
-					if entitylib.isAlive then
-						local root = entitylib.character.RootPart
-						if not root then task.wait(0.1) continue end
+                repeat
+                    if entitylib.isAlive then
+                        local root = entitylib.character.RootPart
+                        if not root then task.wait(0.1) continue end
 
-						local handItem = store.inventory and store.inventory.inventory and store.inventory.inventory.hand
-						if handItem and handItem.itemType == 'telepearl' then
-							pearlLastInHandTick = tick()
-						end
+                        local handItem = store.inventory and store.inventory.inventory and store.inventory.inventory.hand
+                        
+                        -- Update hand holding timers
+                        if handItem then
+                            if handItem.itemType == 'telepearl' then
+                                pearlLastInHandTick = tick()
+                            elseif handItem.itemType == 'cannon' then
+                                cannonLastInHandTick = tick()
+                            end
+                        end
 
-						if root.Position.Y < cachedLowestPointReset 
-							and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0 
-							and not getItem('balloon') then
+                        -- Main void check conditions
+                        if root.Position.Y < cachedLowestPointReset 
+                            and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0 
+                            and not getItem('balloon') then
 
-							local owlBlock = OwlCheckReset.Enabled and root:FindFirstChild('OwlLiftForce')
-							if not owlBlock then
-								local pearlBlock = PearlCheckReset.Enabled and (tick() - pearlLastInHandTick) < 4
-								if not pearlBlock then
-									local hum = lplr.Character and lplr.Character:FindFirstChildOfClass('Humanoid')
-									if hum then hum.Health = -1 end
-								end
-							end
-						end
-					end
-					task.wait(0.1)
-				until not AutoReset.Enabled
-			end
-		end,
-		Tooltip = 'Resets your character when you fall into the void'
-	})
+                            local owlBlock = OwlCheckReset.Enabled and root:FindFirstChild('OwlLiftForce')
+                            if not owlBlock then
+                                local pearlBlock = PearlCheckReset.Enabled and (tick() - pearlLastInHandTick) < 4
+                                if not pearlBlock then
+                                    -- Cannon Check: Checks if CannonCheckReset is enabled, if cannon was held recently (< 4s), or if a cannon is anywhere in inventory
+                                    local cannonBlock = CannonCheckReset.Enabled and ((tick() - cannonLastInHandTick) < 4 or getItem('cannon'))
+                                    if not cannonBlock then
+                                        local hum = lplr.Character and lplr.Character:FindFirstChildOfClass('Humanoid')
+                                        if hum then hum.Health = -1 end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.1)
+                until not AutoReset.Enabled
+            end
+        end,
+        Tooltip = 'Resets your character when you fall into the void'
+    })
 
-	OwlCheckReset = AutoReset:CreateToggle({
-		Name = 'Owl check',
-		Default = true,
-		Tooltip = 'Does not reset if being picked up by an owl'
-	})
+    -- UI Options/Toggles
+    OwlCheckReset = AutoReset:CreateToggle({
+        Name = 'Owl Check',
+        Function = function() end,
+        Tooltip = 'Prevents auto reset while actively using an owl'
+    })
 
-	PearlCheckReset = AutoReset:CreateToggle({
-		Name = 'Pearl check',
-		Default = false,
-		Tooltip = 'Does not reset if holding a pearl or recently threw one (4 sec cooldown)'
-	})
+    PearlCheckReset = AutoReset:CreateToggle({
+        Name = 'Pearl Check',
+        Function = function() end,
+        Tooltip = 'Prevents auto reset if you recently held a pearl'
+    })
+
+    CannonCheckReset = AutoReset:CreateToggle({
+        Name = 'Cannon Check',
+        Function = function() end,
+        Tooltip = 'Prevents auto reset if you have a cannon or recently held one'
+    })
 end)
 
 run(function()
