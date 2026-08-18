@@ -5101,6 +5101,10 @@ run(function()
 end)
 
 run(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local lplr = Players.LocalPlayer
+
     local TeamChestESP
     local Empty
     local Color = {}
@@ -5114,10 +5118,15 @@ run(function()
     local Columns = 6
     local HeaderHeight = 46
 
+    -- Fallback safety for UI Pallet & Colors if not loaded globally
+    local mainColor = (uipallet and uipallet.Main) or Color3.fromRGB(20, 20, 20)
+    local textColor = (uipallet and uipallet.Text) or Color3.fromRGB(255, 255, 255)
+    local mainFont = (uipallet and uipallet.Font) or Font.fromEnum(Enum.Font.SourceSans)
+
     local function createSlot(parent)
         local slot = Instance.new('Frame')
         slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
-        slot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+        slot.BackgroundColor3 = mainColor
         slot.BorderSizePixel = 0
         slot.Visible = false
         slot.Parent = parent
@@ -5127,7 +5136,7 @@ run(function()
         corner.Parent = slot
 
         local stroke = Instance.new('UIStroke')
-        stroke.Color = color.Light(uipallet.Main, 0.034)
+        stroke.Color = Color3.fromRGB(45, 45, 45)
         stroke.Parent = slot
 
         local icon = Instance.new('ImageLabel')
@@ -5146,10 +5155,10 @@ run(function()
         amount.Text = ''
         amount.TextXAlignment = Enum.TextXAlignment.Right
         amount.TextSize = 11
-        amount.TextColor3 = uipallet.Text
+        amount.TextColor3 = textColor
         amount.TextStrokeColor3 = Color3.new()
         amount.TextStrokeTransparency = 0.4
-        amount.FontFace = uipallet.Font
+        amount.FontFace = mainFont
         amount.Parent = slot
         return slot
     end
@@ -5162,8 +5171,8 @@ run(function()
         label.Text = text
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.TextSize = 11
-        label.TextColor3 = uipallet.Text
-        label.FontFace = uipallet.Font
+        label.TextColor3 = textColor
+        label.FontFace = mainFont
         label.Visible = false
         label.Parent = parent
         return label
@@ -5174,11 +5183,12 @@ run(function()
         window.Name = 'ViewTeamChest'
         window.Size = UDim2.fromOffset(240, HeaderHeight)
         window.Position = UDim2.fromOffset(260, 260)
-        window.BackgroundColor3 = uipallet.Main
-        window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
+        window.BackgroundColor3 = mainColor
+        window.BackgroundTransparency = 0.5
         window.Visible = false
         window.Parent = vape.gui.ScaledGui
-        addBlur(window)
+        
+        if addBlur then addBlur(window) end
 
         local corner = Instance.new('UICorner')
         corner.CornerRadius = UDim.new(0, 5)
@@ -5188,8 +5198,8 @@ run(function()
         chestIcon.Name = 'ChestIcon'
         chestIcon.Size = UDim2.fromOffset(26, 26)
         chestIcon.Position = UDim2.fromOffset(14, 11)
-        chestIcon.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-        chestIcon.Image = 'rbxassetid://6034052026' -- Standard chest icon asset
+        chestIcon.BackgroundColor3 = mainColor
+        chestIcon.Image = 'rbxassetid://6034052026'
         chestIcon.Parent = window
         
         local headcorner = Instance.new('UICorner')
@@ -5204,20 +5214,19 @@ run(function()
         nametag.Text = 'Team Chest'
         nametag.TextXAlignment = Enum.TextXAlignment.Left
         nametag.TextSize = 13
-        nametag.TextColor3 = uipallet.Text
+        nametag.TextColor3 = textColor
         nametag.TextTruncate = Enum.TextTruncate.AtEnd
-        nametag.FontFace = uipallet.Font
+        nametag.FontFace = mainFont
         nametag.Parent = window
 
         local divider = Instance.new('Frame')
         divider.Name = 'Divider'
         divider.Size = UDim2.new(1, 0, 0, 1)
         divider.Position = UDim2.fromOffset(0, HeaderHeight - 1)
-        divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+        divider.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
         divider.BorderSizePixel = 0
         divider.Parent = window
 
-        -- Team Chest Section Header & Grid
         chestLabel = createSectionHeader('Chest Contents', window)
 
         chestGrid = Instance.new('Frame')
@@ -5246,16 +5255,17 @@ run(function()
         end
 
         slot.Visible = true
-        slot.Icon.Image = bedwars.getIcon(item, true)
+        if bedwars and bedwars.getIcon then
+            slot.Icon.Image = bedwars.getIcon(item, true)
+        end
         slot.Amount.Text = (item.amount or 1) > 1 and tostring(item.amount) or ''
-        slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
     end
 
     local function getTeamChestData()
         local teamName = lplr:GetAttribute('Team') or (lplr.Team and lplr.Team.Name)
-        local blockChestFolder = replicatedStorage:FindFirstChild('blockchest') 
-            or replicatedStorage:FindFirstChild('Inventories') 
-            or replicatedStorage:FindFirstChild('BlockChests')
+        local blockChestFolder = ReplicatedStorage:FindFirstChild('blockchest') 
+            or ReplicatedStorage:FindFirstChild('Inventories') 
+            or ReplicatedStorage:FindFirstChild('BlockChests')
 
         local targetFolder = nil
         if blockChestFolder and teamName then
@@ -5282,78 +5292,68 @@ run(function()
     local function refresh()
         local chestItems, teamName = getTeamChestData()
 
-        if #chestItems == 0 and not Empty.Enabled then
-            window.Visible = false
+        if #chestItems == 0 and (not Empty or not Empty.Enabled) then
+            if window then window.Visible = false end
             return
         end
 
-        window.Visible = true
-        nametag.Text = (teamName and (teamName .. ' Team Chest') or 'Team Chest')
+        if window then
+            window.Visible = true
+            nametag.Text = (teamName and (teamName .. ' Team Chest') or 'Team Chest')
 
-        local currentY = HeaderHeight + 8
+            local currentY = HeaderHeight + 8
 
-        local shownItems = 0
-        for i, slot in slots do
-            local item = chestItems[i]
-            setSlot(slot, item)
-            if slot.Visible then
-                shownItems = i
+            local shownItems = 0
+            for i, slot in slots do
+                local item = chestItems[i]
+                setSlot(slot, item)
+                if slot.Visible then
+                    shownItems = i
+                end
             end
+
+            chestLabel.Visible = true
+            chestLabel.Position = UDim2.fromOffset(14, currentY)
+            currentY += 16
+
+            local rows = math.max(math.ceil(shownItems / Columns), 1)
+            local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
+            chestGrid.Position = UDim2.fromOffset(14, currentY)
+            chestGrid.Size = UDim2.new(1, -28, 0, gridHeight)
+            currentY += gridHeight + 10
+
+            window.Size = UDim2.fromOffset(240, currentY)
         end
-
-        chestLabel.Visible = true
-        chestLabel.Position = UDim2.fromOffset(14, currentY)
-        currentY += 16
-
-        local rows = math.max(math.ceil(shownItems / Columns), 1)
-        local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
-        chestGrid.Position = UDim2.fromOffset(14, currentY)
-        chestGrid.Size = UDim2.new(1, -28, 0, gridHeight)
-        currentY += gridHeight + 10
-
-        window.Size = UDim2.fromOffset(240, currentY)
     end
 
-    TeamChestESP = vape.Categories.Render:CreateModule({
-        Name = 'TeamChestESP',
-        Function = function(callback)
-            if callback then
-                if not window then
-                    buildWindow()
+    -- Category check fallback (Handles both vape.Categories and GuiLibrary)
+    local category = vape.Categories and vape.Categories.Render
+    if category then
+        TeamChestESP = category:CreateModule({
+            Name = 'TeamChestESP',
+            Function = function(callback)
+                if callback then
+                    if not window then buildWindow() end
+                    task.spawn(function()
+                        repeat
+                            if vape.ThreadFix then setthreadidentity(8) end
+                            refresh()
+                            task.wait(0.1)
+                        until not TeamChestESP.Enabled
+                        if window then window.Visible = false end
+                    end)
+                elseif window then
+                    window.Visible = false
                 end
+            end,
+            Tooltip = 'Renders your team chest items inside a custom UI window'
+        })
 
-                repeat
-                    if vape.ThreadFix then
-                        setthreadidentity(8)
-                    end
-                    refresh()
-                    task.wait(0.1)
-                until not TeamChestESP.Enabled
-
-                window.Visible = false
-            elseif window then
-                window.Visible = false
-            end
-        end,
-        Tooltip = 'Renders your team chest items inside a custom UI window'
-    })
-
-    Empty = TeamChestESP:CreateToggle({
-        Name = 'Show without data',
-        Tooltip = 'Keeps the panel open even if the chest is empty'
-    })
-
-    Color = TeamChestESP:CreateColorSlider({
-        Name = 'Background Color',
-        DefaultValue = 0,
-        DefaultOpacity = 0.5,
-        Function = function(hue, sat, val, opacity)
-            if window then
-                window.BackgroundColor3 = uipallet.Main
-                window.BackgroundTransparency = 1 - opacity
-            end
-        end
-    })
+        Empty = TeamChestESP:CreateToggle({
+            Name = 'Show without data',
+            Tooltip = 'Keeps the panel open even if the chest is empty'
+        })
+    end
 end)
 
 run(function()
