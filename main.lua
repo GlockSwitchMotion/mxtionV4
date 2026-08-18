@@ -24,10 +24,19 @@ end
 local playersService = cloneref(game:GetService('Players'))
 local httpService = cloneref(game:GetService("HttpService"))
 
+local commitCache
+local function getCommit()
+	if not commitCache then
+		commitCache = isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt') or 'main'
+	end
+	return commitCache
+end
+
 local function downloadFile(path, func)
 	if not isfile(path) then
+		local commit = getCommit()
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/'..select(1, path:gsub('mxtionv4/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -125,12 +134,14 @@ if not shared.VapeIndependent then
 		end
 	else
 		if not shared.VapeDeveloper then
+			local commit = getCommit()
 			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/games/'..game.PlaceId..'.lua', true)
 			end)
-			if suc and res ~= '404: Not Found' then
-				downloadFile('mxtionv4/games/'..game.PlaceId..'.lua')
-				loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+			if suc and res ~= '404: Not Found' and res ~= '' then
+				res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+				writefile('mxtionv4/games/'..game.PlaceId..'.lua', res)
+				loadstring(res, tostring(game.PlaceId))(license)
 			else
 				-- Cache a blank file so it doesn't waste time doing HTTP Get every injection
 				writefile('mxtionv4/games/'..game.PlaceId..'.lua', '')
