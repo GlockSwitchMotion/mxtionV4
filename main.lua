@@ -100,7 +100,7 @@ if not isfolder('mxtionv4/assets/'..gui) then
 end
 vape = loadstring(downloadFile('mxtionv4/guis/'..gui..'.lua'), 'gui')(license)
 shared.vape = vape
-shared.vapesmooth = true
+shared.vapesmooth = false
 _G.vape = vape
 getgenv().used_init = true
 
@@ -119,14 +119,21 @@ end
 if not shared.VapeIndependent then
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
 	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
-		loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+		local fileContent = readfile('mxtionv4/games/'..game.PlaceId..'.lua')
+		if fileContent ~= '' then
+			loadstring(fileContent, tostring(game.PlaceId))(license)
+		end
 	else
 		if not shared.VapeDeveloper then
 			local suc, res = pcall(function()
 				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
 			end)
 			if suc and res ~= '404: Not Found' then
-				loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+				downloadFile('mxtionv4/games/'..game.PlaceId..'.lua')
+				loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+			else
+				-- Cache a blank file so it doesn't waste time doing HTTP Get every injection
+				writefile('mxtionv4/games/'..game.PlaceId..'.lua', '')
 			end
 		end
 	end
