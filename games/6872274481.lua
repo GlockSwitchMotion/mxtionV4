@@ -5567,6 +5567,269 @@ run(function()
 end)
 
 run(function()
+    local TeamcrateESP
+    local Color = {}
+    local window, titleLabel, teamLabel, grid
+    local slots = {}
+
+    local SlotCount = 24
+    local SlotSize = 32
+    local SlotPadding = 4
+    local Columns = 6
+    local HeaderHeight = 46
+
+    local function createSlot(parent)
+        local slot = Instance.new('Frame')
+        slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
+        slot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+        slot.BorderSizePixel = 0
+        slot.Visible = false
+        slot.Parent = parent
+
+        local corner = Instance.new('UICorner')
+        corner.CornerRadius = UDim.new(0, 4)
+        corner.Parent = slot
+
+        local stroke = Instance.new('UIStroke')
+        stroke.Color = color.Light(uipallet.Main, 0.034)
+        stroke.Parent = slot
+
+        local icon = Instance.new('ImageLabel')
+        icon.Name = 'Icon'
+        icon.Size = UDim2.fromOffset(SlotSize - 8, SlotSize - 8)
+        icon.Position = UDim2.fromScale(0.5, 0.5)
+        icon.AnchorPoint = Vector2.new(0.5, 0.5)
+        icon.BackgroundTransparency = 1
+        icon.Parent = slot
+
+        local amount = Instance.new('TextLabel')
+        amount.Name = 'Amount'
+        amount.Size = UDim2.fromOffset(SlotSize - 4, 11)
+        amount.Position = UDim2.fromOffset(0, SlotSize - 13)
+        amount.BackgroundTransparency = 1
+        amount.Text = ''
+        amount.TextXAlignment = Enum.TextXAlignment.Right
+        amount.TextSize = 11
+        amount.TextColor3 = uipallet.Text
+        amount.TextStrokeColor3 = Color3.new()
+        amount.TextStrokeTransparency = 0.4
+        amount.FontFace = uipallet.Font
+        amount.Parent = slot
+
+        return slot
+    end
+
+    local function buildWindow()
+        window = Instance.new('Frame')
+        window.Name = 'TeamcrateESP'
+        window.Size = UDim2.fromOffset(240, HeaderHeight)
+        window.Position = UDim2.fromOffset(12, 260)
+        window.BackgroundColor3 = uipallet.Main
+        window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
+        window.Visible = false
+        window.Parent = vape.gui.ScaledGui
+        addBlur(window)
+
+        local corner = Instance.new('UICorner')
+        corner.CornerRadius = UDim.new(0, 5)
+        corner.Parent = window
+
+        titleLabel = Instance.new('TextLabel')
+        titleLabel.Name = 'Title'
+        titleLabel.Size = UDim2.new(1, -28, 0, 18)
+        titleLabel.Position = UDim2.fromOffset(14, 6)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = 'TeamcrateESP'
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.TextSize = 13
+        titleLabel.TextColor3 = uipallet.Text
+        titleLabel.FontFace = uipallet.Font
+        titleLabel.Parent = window
+
+        teamLabel = Instance.new('TextLabel')
+        teamLabel.Name = 'Team'
+        teamLabel.Size = UDim2.new(1, -28, 0, 14)
+        teamLabel.Position = UDim2.fromOffset(14, 24)
+        teamLabel.BackgroundTransparency = 1
+        teamLabel.Text = 'Target: None'
+        teamLabel.TextXAlignment = Enum.TextXAlignment.Left
+        teamLabel.TextSize = 11
+        teamLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        teamLabel.FontFace = uipallet.Font
+        teamLabel.Parent = window
+
+        local divider = Instance.new('Frame')
+        divider.Name = 'Divider'
+        divider.Size = UDim2.new(1, 0, 0, 1)
+        divider.Position = UDim2.fromOffset(0, HeaderHeight - 1)
+        divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+        divider.BorderSizePixel = 0
+        divider.Parent = window
+
+        grid = Instance.new('Frame')
+        grid.Name = 'Items'
+        grid.Size = UDim2.new(1, -28, 0, 0)
+        grid.Position = UDim2.fromOffset(14, HeaderHeight + 10)
+        grid.BackgroundTransparency = 1
+        grid.Parent = window
+
+        local layout = Instance.new('UIGridLayout')
+        layout.CellSize = UDim2.fromOffset(SlotSize, SlotSize)
+        layout.CellPadding = UDim2.fromOffset(SlotPadding, SlotPadding)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = grid
+
+        for i = 1, SlotCount do
+            local slot = createSlot(grid)
+            slot.LayoutOrder = i
+            slots[i] = slot
+        end
+    end
+
+    local function setSlot(slot, item)
+        if not item or not item.itemType then
+            slot.Visible = false
+            return
+        end
+
+        slot.Visible = true
+        slot.Icon.Image = bedwars and bedwars.getIcon and bedwars.getIcon(item, true) or ''
+        slot.Amount.Text = (item.amount or 1) > 1 and tostring(item.amount) or ''
+        slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
+    end
+
+    -- Locate nearest enemy team crate/chest (skips your own team)
+    local function getEnemyTeamCrate()
+        local myTeam = lplr:GetAttribute('Team')
+        local root = lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart')
+        if not root then return nil end
+
+        local closestCrate = nil
+        local closestDist = math.huge
+
+        for _, obj in workspace:GetDescendants() do
+            local name = obj.Name:lower()
+            if (name:find('teamchest') or name:find('teamcrate') or name:find('chest') or name:find('crate')) then
+                local team = obj:GetAttribute('Team') or (obj.Parent and obj.Parent:GetAttribute('Team'))
+
+                -- Teamcheck: Ensure it does NOT belong to your team
+                if team and team ~= myTeam then
+                    local part = obj:IsA('BasePart') and obj or (obj:IsA('Model') and (obj.PrimaryPart or obj:FindFirstChildWhichIsA('BasePart')))
+                    if part then
+                        local dist = (part.Position - root.Position).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestCrate = {Object = obj, Team = team, Part = part}
+                        end
+                    end
+                end
+            end
+        end
+
+        return closestCrate
+    end
+
+    -- Pull stored items from the targeted crate
+    local function getCrateItems(crateData)
+        if not crateData then return {} end
+        local items = {}
+
+        -- Check ReplicatedStorage.Inventories for enemy team chest items
+        local inventoriesFolder = replicatedStorage:FindFirstChild('Inventories')
+        if inventoriesFolder then
+            local teamFolder = inventoriesFolder:FindFirstChild('team_chest_' .. tostring(crateData.Team))
+                or inventoriesFolder:FindFirstChild(tostring(crateData.Team) .. '_chest')
+                or inventoriesFolder:FindFirstChild('chest_' .. tostring(crateData.Team))
+
+            if teamFolder then
+                for _, item in teamFolder:GetChildren() do
+                    local amount = item:GetAttribute('Amount') or 1
+                    table.insert(items, {itemType = item.Name, amount = amount})
+                end
+            end
+        end
+
+        -- Fallback: Read directly inside workspace crate instance
+        if #items == 0 and crateData.Object then
+            for _, child in crateData.Object:GetChildren() do
+                if child:IsA('Tool') or child:IsA('Accessory') or child:IsA('Folder') then
+                    local amount = child:GetAttribute('Amount') or 1
+                    table.insert(items, {itemType = child.Name, amount = amount})
+                end
+            end
+        end
+
+        return items
+    end
+
+    local function refresh()
+        local crateData = getEnemyTeamCrate()
+
+        if not crateData then
+            window.Visible = false
+            return
+        end
+
+        local items = getCrateItems(crateData)
+
+        window.Visible = true
+        teamLabel.Text = 'Enemy Team: ' .. tostring(crateData.Team)
+
+        local shown = 0
+        for i, slot in slots do
+            local item = items[i]
+            setSlot(slot, item)
+            if slot.Visible then
+                shown = i
+            end
+        end
+
+        local rows = math.max(math.ceil(shown / Columns), 1)
+        local gridheight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
+        grid.Size = UDim2.new(1, -28, 0, gridheight)
+
+        local totalHeight = HeaderHeight + 10 + gridheight + 10
+        window.Size = UDim2.fromOffset(240, totalHeight)
+    end
+
+    TeamcrateESP = vape.Categories.Render:CreateModule({
+        Name = 'TeamcrateESP',
+        Function = function(callback)
+            if callback then
+                if not window then
+                    buildWindow()
+                end
+
+                repeat
+                    if vape.ThreadFix then
+                        setthreadidentity(8)
+                    end
+                    refresh()
+                    task.wait(0.1)
+                until not TeamcrateESP.Enabled
+
+                window.Visible = false
+            elseif window then
+                window.Visible = false
+            end
+        end,
+        Tooltip = 'Shows items inside nearest enemy team chests (Filters out your team)'
+    })
+
+    Color = TeamcrateESP:CreateColorSlider({
+        Name = 'Background Color',
+        DefaultValue = 0,
+        DefaultOpacity = 0.5,
+        Function = function(hue, sat, val, opacity)
+            if window then
+                window.BackgroundColor3 = uipallet.Main
+                window.BackgroundTransparency = 1 - opacity
+            end
+        end
+    })
+end)
+
+run(function()
 	local ItemESP
 	local Distance
 	local Transparency
