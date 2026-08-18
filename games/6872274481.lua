@@ -5101,7 +5101,7 @@ run(function()
 end)
 
 run(function()
-    local ChestESP
+    local TeamchestESP
     local Empty
     local Color = {}
     local window, chestIcon, nametag
@@ -5171,7 +5171,7 @@ run(function()
 
     local function buildWindow()
         window = Instance.new('Frame')
-        window.Name = 'ViewChestInventory'
+        window.Name = 'ViewTeamChest'
         window.Size = UDim2.fromOffset(240, HeaderHeight)
         window.Position = UDim2.fromOffset(260, 260)
         window.BackgroundColor3 = uipallet.Main
@@ -5202,7 +5202,7 @@ run(function()
         nametag.Size = UDim2.new(1, -60, 0, 26)
         nametag.Position = UDim2.fromOffset(48, 11)
         nametag.BackgroundTransparency = 1
-        nametag.Text = 'Chest'
+        nametag.Text = 'Team Chest'
         nametag.TextXAlignment = Enum.TextXAlignment.Left
         nametag.TextSize = 13
         nametag.TextColor3 = uipallet.Text
@@ -5218,7 +5218,7 @@ run(function()
         divider.BorderSizePixel = 0
         divider.Parent = window
 
-        chestLabel = createSectionHeader('Chest Items', window)
+        chestLabel = createSectionHeader('Chest Contents', window)
 
         chestGrid = Instance.new('Frame')
         chestGrid.Name = 'ChestItems'
@@ -5247,7 +5247,8 @@ run(function()
 
         slot.Visible = true
         if bedwars and bedwars.getIcon then
-            slot.Icon.Image = bedwars.getIcon(item, true)
+            local iconAsset = bedwars.getIcon(item, true)
+            if iconAsset then slot.Icon.Image = iconAsset end
         end
         
         slot.Amount.Text = (item.amount and item.amount > 1) and tostring(item.amount) or ''
@@ -5255,11 +5256,12 @@ run(function()
     end
 
     local function getChestDirectData()
-        local root = lplr and lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+        local char = lplr and lplr.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return nil, nil end
 
         local closestChest = nil
-        local shortestDist = 30
+        local shortestDist = 35
 
         for _, desc in ipairs(workspace:GetDescendants()) do
             if desc:IsA("BasePart") or desc:IsA("Model") then
@@ -5292,16 +5294,18 @@ run(function()
             or closestChest
 
         local items = {}
-        for _, item in ipairs(itemsFolder:GetChildren()) do
-            if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') or item:IsA('IntValue') then
-                local amount = item:GetAttribute('Amount') 
-                    or item:GetAttribute('Quantity')
-                    or item:GetAttribute('Value')
-                    or (item:FindFirstChild('Amount') and item.Amount.Value) 
-                    or (item:IsA('IntValue') and item.Value)
-                    or 1
-                
-                table.insert(items, {itemType = item.Name, amount = amount})
+        if itemsFolder then
+            for _, item in ipairs(itemsFolder:GetChildren()) do
+                if item:IsA('Accessory') or item:IsA('Tool') or item:IsA('Folder') or item:IsA('IntValue') then
+                    local amount = item:GetAttribute('Amount') 
+                        or item:GetAttribute('Quantity')
+                        or item:GetAttribute('Value')
+                        or (item:FindFirstChild('Amount') and item.Amount.Value) 
+                        or (item:IsA('IntValue') and item.Value)
+                        or 1
+                    
+                    table.insert(items, {itemType = item.Name, amount = amount})
+                end
             end
         end
 
@@ -5309,44 +5313,49 @@ run(function()
     end
 
     local function refresh()
-        local chestItems, ownerName = getChestDirectData()
+        pcall(function()
+            local chestItems, ownerName = getChestDirectData()
 
-        if (not chestItems or #chestItems == 0) and (not Empty or not Empty.Enabled) then
-            if window then window.Visible = false end
-            return
-        end
-
-        if window then
-            window.Visible = true
-            nametag.Text = ownerName and (tostring(ownerName) .. "'s Chest") or "Chest"
-
-            local currentY = HeaderHeight + 8
-
-            local shownItems = 0
-            for i, slot in ipairs(slots) do
-                local item = chestItems and chestItems[i]
-                setSlot(slot, item)
-                if slot.Visible then
-                    shownItems = i
-                end
+            if (not chestItems or #chestItems == 0) and (not Empty or not Empty.Enabled) then
+                if window then window.Visible = false end
+                return
             end
 
-            chestLabel.Visible = true
-            chestLabel.Position = UDim2.fromOffset(14, currentY)
-            currentY += 16
+            if window then
+                window.Visible = true
+                nametag.Text = ownerName and (tostring(ownerName) .. "'s Chest") or "Team Chest"
 
-            local rows = math.max(math.ceil(shownItems / Columns), 1)
-            local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
-            chestGrid.Position = UDim2.fromOffset(14, currentY)
-            chestGrid.Size = UDim2.new(1, -28, 0, gridHeight)
-            currentY += gridHeight + 10
+                local currentY = HeaderHeight + 8
 
-            window.Size = UDim2.fromOffset(240, currentY)
-        end
+                local shownItems = 0
+                for i, slot in ipairs(slots) do
+                    local item = chestItems and chestItems[i]
+                    setSlot(slot, item)
+                    if slot.Visible then
+                        shownItems = i
+                    end
+                end
+
+                chestLabel.Visible = true
+                chestLabel.Position = UDim2.fromOffset(14, currentY)
+                currentY += 16
+
+                local rows = math.max(math.ceil(shownItems / Columns), 1)
+                local gridHeight = (rows * SlotSize) + ((rows - 1) * SlotPadding)
+                chestGrid.Position = UDim2.fromOffset(14, currentY)
+                chestGrid.Size = UDim2.new(1, -28, 0, gridHeight)
+                currentY += gridHeight + 10
+
+                window.Size = UDim2.fromOffset(240, currentY)
+            end
+        end)
     end
 
-    ChestESP = vape.Categories.Inventory:CreateModule({
-        Name = 'TeamChestESP',
+    -- Category fallback targeting Inventory tab
+    local targetCategory = (vape.Categories and (vape.Categories.Inventory or vape.Categories.Render)) or vape.Categories[1]
+
+    TeamchestESP = targetCategory:CreateModule({
+        Name = 'TeamchestESP',
         Function = function(callback)
             if callback then
                 if not window then buildWindow() end
@@ -5355,7 +5364,7 @@ run(function()
                         if vape.ThreadFix then setthreadidentity(8) end
                         refresh()
                         task.wait(0.1)
-                    until not ChestESP.Enabled
+                    until not TeamchestESP.Enabled
                     if window then window.Visible = false end
                 end)
             elseif window then
@@ -5365,12 +5374,12 @@ run(function()
         Tooltip = 'Shows items and values of nearby chests reading ChestOwner'
     })
 
-    Empty = ChestESP:CreateToggle({
+    Empty = TeamchestESP:CreateToggle({
         Name = 'Show without data',
         Tooltip = 'Keeps the panel open even if the chest has no items'
     })
 
-    Color = ChestESP:CreateColorSlider({
+    Color = TeamchestESP:CreateColorSlider({
         Name = 'Background Color',
         DefaultValue = 0,
         DefaultOpacity = 0.5,
