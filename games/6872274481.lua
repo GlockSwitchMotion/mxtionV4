@@ -11134,7 +11134,7 @@ run(function()
 	end
 	
 	ChestSteal = vape.Categories.World:CreateModule({
-		Name = 'AutoChestGrabber',
+		Name = 'ChestGrabber',
 		Function = function(callback)
 			if callback then
 				local chests = collection('chest', ChestSteal)
