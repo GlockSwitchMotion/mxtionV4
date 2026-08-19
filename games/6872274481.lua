@@ -11248,86 +11248,147 @@ run(function()
 end)
 
 run(function()
-    local AutoBankAlert
-    local TrackedPlayers = {}
-    local playersService = game:GetService("Players")
+	local AutoBankAlert
+	local FilterSelf
+	local AlertThreshold
 
-    local function alertPlayer(player, itemType, amount)
-        if not player or player == lplr then return end
-        
-        local lastAlert = TrackedPlayers[player] or 0
-        if tick() - lastAlert < 3 then return end
-        TrackedPlayers[player] = tick()
+	local api = vape or mainapi
+	local players = game:GetService('Players')
+	local replicatedStorage = game:GetService('ReplicatedStorage')
+	local lplr = players.LocalPlayer
 
-        local name = player.DisplayName or player.Name
-        local text = name .. " is using AutoBank! (" .. tostring(amount) .. " " .. tostring(itemType) .. ")"
+	-- Cache chest and inventory states for players/teams
+	local trackedResources = {}
 
-        if vape and vape.CreateNotification then
-            vape.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
-        else
-            print("[Mxtion v4] " .. text)
-        end
-    end
+	local function sendBankNotification(player, actionType, itemsSummary)
+		if not itemsSummary or #itemsSummary == 0 then return end
+		if FilterSelf and FilterSelf.Enabled and player == lplr then return end
 
-    AutoBankAlert = vape.Categories.Inventory:CreateModule({
-        Name = "AutoBankAlert",
-        Function = function(callback)
-            if callback then
-                AutoBankAlert:Clean(workspace.DescendantAdded:Connect(function(child)
-                    -- Verify item drop instance
-                    local itemDropsFolder = workspace:FindFirstChild("ItemDrops")
-                    local isItemDrop = (itemDropsFolder and child.Parent == itemDropsFolder) or child:GetAttribute("ItemType") ~= nil
-                    
-                    if child:IsA("BasePart") and isItemDrop then
-                        -- 1. Store the initial spawn position BEFORE it teleports
-                        local initialPos = child.Position
-                        
-                        -- 2. Identify nearest player at the moment of spawning
-                        local closestPlayer = nil
-                        local closestDist = 30
+		local playerName = (player and (player.DisplayName or player.Name)) or "A player"
+		local text = playerName .. ' ' .. actionType .. ' ' .. table.concat(itemsSummary, ', ')
 
-                        for _, player in ipairs(playersService:GetPlayers()) do
-                            if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                local dist = (player.Character.HumanoidRootPart.Position - initialPos).Magnitude
-                                if dist < closestDist then
-                                    closestDist = dist
-                                    closestPlayer = player
-                                end
-                            end
-                        end
+		-- Sends the Vape Notification
+		if vape and vape.CreateNotification then
+			vape.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
+		elseif api and api.CreateNotification then
+			api.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
+		else
+			print('[Mxtion v4 - AutoBank] ' .. text)
+		end
+	end
 
-                        if not closestPlayer then return end
+	-- Universal table reader to extract Emeralds & Diamonds from Bank/Chest network events
+	local function parseBankData(...)
+		local args = {...}
+		local targetPlayer = nil
+		local items = { emerald = 0, diamond = 0 }
 
-                        -- 3. Watch the drop over 0.5s for AutoBank behavior (teleporting or child stripping)
-                        task.spawn(function()
-                            local detected = false
-                            local startTime = tick()
+		local function inspect(val)
+			if typeof(val) == 'Instance' and val:IsA('Player') then
+				targetPlayer = val
+			elseif type(val) == 'table' then
+				-- Extract player reference
+				if val.player and typeof(val.player) == 'Instance' and val.player:IsA('Player') then
+					targetPlayer = val.player
+				elseif val.fromPlayer and typeof(val.fromPlayer) == 'Instance' and val.fromPlayer:IsA('Player') then
+					targetPlayer = val.fromPlayer
+				elseif val.userId then
+					targetPlayer = players:GetPlayerByUserId(val.userId)
+				end
 
-                            while (tick() - startTime) < 0.6 do
-                                if not child or not child.Parent then break end
+				-- Direct item checks
+				local itemType = val.itemType or val.item or val.name
+				local amount = tonumber(val.amount or val.count or val.quantity or 1) or 1
 
-                                local isCleared = #child:GetChildren() == 0 and child:GetAttribute("HandItem") == nil
-                                local isTeleported = math.abs(child.Position.Y - initialPos.Y) > 100 or child.Position.Y > 20000 or child.Position.Y < -500
+				if itemType then
+					local lowerItem = tostring(itemType):lower()
+					if lowerItem:find("emerald") then
+						items.emerald = items.emerald + amount
+					elseif lowerItem:find("diamond") then
+						items.diamond = items.diamond + amount
+					end
+				end
 
-                                if isCleared or isTeleported then
-                                    detected = true
-                                    break
-                                end
-                                task.wait(0.05)
-                            end
+				-- Table dictionary checks { emerald = 4, diamond = 2 }
+				for k, v in pairs(val) do
+					if type(k) == 'string' and tonumber(v) then
+						local lowerKey = k:lower()
+						if lowerKey:find("emerald") then
+							items.emerald = items.emerald + tonumber(v)
+						elseif lowerKey:find("diamond") then
+							items.diamond = items.diamond + tonumber(v)
+						end
+					end
+				end
+			end
+		end
 
-                            if detected then
-                                local itemType = child:GetAttribute("ItemType") or child.Name
-                                local amount = child:GetAttribute("Amount") or 1
-                                alertPlayer(closestPlayer, itemType, amount)
-                            end
-                        end)
-                    end
-                end))
-            end
-        end,
-        Tooltip = "Alerts you when an enemy player uses AutoBank to hide items"
-    })
+		for _, arg in ipairs(args) do
+			inspect(arg)
+		end
+
+		return targetPlayer, items
+	end
+
+	-- Listen to network events related to chest deposits or bank transactions
+	local function hookBankRemotes()
+		local netManaged = replicatedStorage:FindFirstChild('rbxts_include')
+			and replicatedStorage.rbxts_include:FindFirstChild('node_modules')
+			and replicatedStorage.rbxts_include.node_modules:FindFirstChild('@rbxts')
+			and replicatedStorage.rbxts_include.node_modules['@rbxts']:FindFirstChild('net')
+			and replicatedStorage.rbxts_include.node_modules['@rbxts'].net:FindFirstChild('out')
+			and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out:FindFirstChild('_NetManaged')
+
+		if not netManaged then return end
+
+		for _, remote in ipairs(netManaged:GetChildren()) do
+			if remote:IsA('RemoteEvent') then
+				local name = remote.Name:lower()
+				-- Catch Bank, Deposit, Chest, and PersonalChest remotes
+				if name:find('chest') or name:find('bank') or name:find('deposit') or name:find('store') then
+					AutoBankAlert:Clean(remote.OnClientEvent:Connect(function(...)
+						local player, items = parseBankData(...)
+						
+						local gains = {}
+						if items.emerald >= (AlertThreshold and AlertThreshold.Value or 1) then
+							table.insert(gains, items.emerald .. (items.emerald > 1 and " Emeralds" or " Emerald"))
+						end
+						if items.diamond >= (AlertThreshold and AlertThreshold.Value or 1) then
+							table.insert(gains, items.diamond .. (items.diamond > 1 and " Diamonds" or " Diamond"))
+						end
+
+						if #gains > 0 then
+							sendBankNotification(player, "deposited into bank:", gains)
+						end
+					end))
+				end
+			end
+		end
+	end
+
+	AutoBankAlert = api.Categories.Utility:CreateModule({
+		Name = 'AutoBankAlert',
+		Function = function(callback)
+			if callback then
+				hookBankRemotes()
+			end
+		end,
+		Tooltip = 'Alerts you when players deposit Emeralds or Diamonds into team/personal chests'
+	})
+
+	FilterSelf = AutoBankAlert:CreateToggle({
+		Name = 'Ignore Self',
+		Default = false,
+		Tooltip = 'Do not send notifications when you deposit items yourself'
+	})
+
+	AlertThreshold = AutoBankAlert:CreateSlider({
+		Name = 'Min Amount',
+		Min = 1,
+		Max = 10,
+		Default = 1,
+		Tooltip = 'Minimum amount of Emeralds/Diamonds deposited to trigger an alert'
+	})
 end)
 
 run(function()
