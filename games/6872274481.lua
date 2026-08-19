@@ -21923,4 +21923,73 @@ run(function()
 		end,
 		Default = true
 	})
-end)
+end
+
+-- Metal Detector Spy
+local metalDetectorSpy = {
+	enabled = false,
+	metalCounts = {},
+	connection = nil
+}
+
+local function notifyMetalDrop(metalType, count)
+	local message = metalType:upper() .. " x" .. count
+	starterGui:SetCore("SendNotification", {
+		Title = "Metal Drop",
+		Text = message,
+		Duration = 3,
+		Icon = "rbxasset://textures/Ui/NotificationIcon_Robux.png"
+	})
+end
+
+local metalDetectorSpyModule = vape.Categories.World:CreateModule({
+	Name = "Metal Detector Spy",
+	Function = function(call)
+		metalDetectorSpy.enabled = call
+		
+		if call then
+			if metalDetectorSpy.connection then
+				metalDetectorSpy.connection:Disconnect()
+			end
+			
+			table.clear(metalDetectorSpy.metalCounts)
+			
+			local Event = game:GetService("ReplicatedStorage"):FindFirstChild("rbxts_include") or game:GetService("ReplicatedStorage")
+			if Event and Event:FindFirstChild("node_modules") then
+				local netManaged = Event.node_modules:FindFirstChild("_NetManaged")
+				if netManaged and netManaged:FindFirstChild("BillboardRiseEffect") then
+					metalDetectorSpy.connection = netManaged.BillboardRiseEffect.OnClientEvent:Connect(function(data)
+						if data and data.itemType then
+							local metalType = tostring(data.itemType)
+							metalDetectorSpy.metalCounts[metalType] = (metalDetectorSpy.metalCounts[metalType] or 0) + 1
+							notifyMetalDrop(metalType, metalDetectorSpy.metalCounts[metalType])
+						end
+					end)
+				end
+			end
+		else
+			if metalDetectorSpy.connection then
+				metalDetectorSpy.connection:Disconnect()
+				metalDetectorSpy.connection = nil
+			end
+			table.clear(metalDetectorSpy.metalCounts)
+		end
+	end
+})
+
+metalDetectorSpyModule:CreateToggle({
+	Name = "Show Counts",
+	Function = function(call)
+		if call and next(metalDetectorSpy.metalCounts) then
+			local countText = ""
+			for metal, count in pairs(metalDetectorSpy.metalCounts) do
+				countText = countText .. metal .. ": " .. count .. " | "
+			end
+			starterGui:SetCore("SendNotification", {
+				Title = "Metal Counts",
+				Text = countText:sub(1, -4),
+				Duration = 5
+			})
+		end
+	end
+})
