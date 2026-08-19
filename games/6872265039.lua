@@ -317,7 +317,7 @@ run(function()
 
 	local sbsLoop = nil
 	StatsBoardSpoof = vape.Categories.Kits:CreateModule({
-		Name = "StatsBoardSpoof",
+		Name = "StatsChanger",
 		Tooltip = "Spoof your StatsBoard display (client-sided only)",
 		Function = function(enabled)
 			if enabled then
@@ -498,7 +498,7 @@ run(function()
     end
 
     LARPKits = vape.Categories.Kits:CreateModule({
-        Name = "LARPKits",
+        Name = "OwnAnyKits",
         Tooltip = "do u own it or not !!! (client-sided)",
         Function = function(callback)
             active = callback
@@ -527,4 +527,3 @@ run(function()
         end
     })
 end)
-
