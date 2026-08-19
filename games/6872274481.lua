@@ -11331,6 +11331,173 @@ run(function()
 end)
 
 run(function()
+	local MetalDetectorSpy
+	local FilterSelf
+	local PendingRewards = {}
+
+	local api = vape or mainapi
+	local replicatedStorage = game:GetService('ReplicatedStorage')
+	local players = game:GetService('Players')
+
+	local function formatLoot(items)
+		local formatted = {}
+		for itemName, amount in items do
+			local cleanName = tostring(itemName):gsub('_', ' '):lower()
+			if amount > 1 and not cleanName:match('s$') and cleanName ~= 'iron' then
+				cleanName = cleanName..'s'
+			end
+			table.insert(formatted, tostring(amount)..' '..cleanName)
+		end
+		return table.concat(formatted, ', ')
+	end
+
+	local function sendMetalDetectorAlert(player, items)
+		if not player or not items or next(items) == nil then return end
+		if FilterSelf.Enabled and player == lplr then return end
+
+		local playerName = player.DisplayName or player.Name
+		local lootSummary = formatLoot(items)
+
+		if api and api.CreateNotification then
+			api:CreateNotification(
+				'Metal Detector',
+				playerName..' got '..lootSummary..' from metal detector',
+				6,
+				'info'
+			)
+		end
+	end
+
+	-- Flexible reward parser for Bedwars NetManaged remotes
+	local function parseRewardData(arg1, arg2, arg3)
+		local targetPlayer = nil
+		local items = {}
+
+		local function extractFrom(val)
+			if typeof(val) == 'Instance' and val:IsA('Player') then
+				targetPlayer = val
+			elseif type(val) == 'table' then
+				if val.player and typeof(val.player) == 'Instance' and val.player:IsA('Player') then
+					targetPlayer = val.player
+				elseif val.Player and typeof(val.Player) == 'Instance' and val.Player:IsA('Player') then
+					targetPlayer = val.Player
+				elseif val.userId then
+					targetPlayer = players:GetPlayerByUserId(val.userId)
+				elseif val.fromPlayer and typeof(val.fromPlayer) == 'Instance' then
+					targetPlayer = val.fromPlayer
+				end
+
+				-- Case 1: Single item {itemType = 'iron', amount = 26}
+				if val.itemType and val.amount then
+					local itm = tostring(val.itemType)
+					items[itm] = (items[itm] or 0) + (tonumber(val.amount) or 1)
+				end
+
+				-- Case 2: Array of items {{itemType = 'iron', amount = 26}, ...}
+				if type(val.items) == 'table' then
+					for _, itemData in val.items do
+						if type(itemData) == 'table' and itemData.itemType then
+							local itm = tostring(itemData.itemType)
+							items[itm] = (items[itm] or 0) + (tonumber(itemData.amount) or 1)
+						end
+					end
+				end
+
+				-- Case 3: Rewards table {rewards = {iron = 26, diamond = 4}}
+				if type(val.rewards) == 'table' then
+					for k, v in val.rewards do
+						if type(v) == 'table' and v.itemType then
+							local itm = tostring(v.itemType)
+							items[itm] = (items[itm] or 0) + (tonumber(v.amount) or 1)
+						elseif type(k) == 'string' and tonumber(v) then
+							items[k] = (items[k] or 0) + tonumber(v)
+						end
+					end
+				end
+
+				-- Case 4: Key-value dictionary {iron = 26, emerald = 2}
+				for k, v in val do
+					if type(k) == 'string' and tonumber(v) and (
+						k:lower():find('iron') or 
+						k:lower():find('diamond') or 
+						k:lower():find('emerald') or 
+						k:lower():find('gold')
+					) then
+						items[k] = (items[k] or 0) + tonumber(v)
+					end
+				end
+			end
+		end
+
+		extractFrom(arg1)
+		extractFrom(arg2)
+		extractFrom(arg3)
+
+		return targetPlayer, items
+	end
+
+	-- Hook all Bedwars network events related to Metal Detector
+	local function hookNetRemotes()
+		local netManaged = replicatedStorage:FindFirstChild('rbxts_include')
+			and replicatedStorage.rbxts_include:FindFirstChild('node_modules')
+			and replicatedStorage.rbxts_include.node_modules:FindFirstChild('@rbxts')
+			and replicatedStorage.rbxts_include.node_modules['@rbxts']:FindFirstChild('net')
+			and replicatedStorage.rbxts_include.node_modules['@rbxts'].net:FindFirstChild('out')
+			and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out:FindFirstChild('_NetManaged')
+
+		if not netManaged then return end
+
+		for _, remote in netManaged:GetChildren() do
+			local name = remote.Name:lower()
+			if name:find('metaldetector') or name:find('treasure') or name:find('mound') then
+				if remote:IsA('RemoteEvent') then
+					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(arg1, arg2, arg3)
+						local player, items = parseRewardData(arg1, arg2, arg3)
+						if player and items and next(items) ~= nil then
+							sendMetalDetectorAlert(player, items)
+						end
+					end))
+				end
+			end
+		end
+	end
+
+	MetalDetectorSpy = api.Categories.Utility:CreateModule({
+		Name = 'MetalDetectorSpy',
+		Function = function(callback)
+			if callback then
+				hookNetRemotes()
+
+				-- Backup listener if NetManaged loads asynchronously
+				local rbxts = replicatedStorage:WaitForChild('rbxts_include', 5)
+				if rbxts then
+					MetalDetectorSpy:Clean(rbxts.DescendantAdded:Connect(function(child)
+						if child:IsA('RemoteEvent') then
+							local name = child.Name:lower()
+							if name:find('metaldetector') or name:find('treasure') or name:find('mound') then
+								MetalDetectorSpy:Clean(child.OnClientEvent:Connect(function(a1, a2, a3)
+									local player, items = parseRewardData(a1, a2, a3)
+									if player and items and next(items) ~= nil then
+										sendMetalDetectorAlert(player, items)
+									end
+								end))
+							end
+						end
+					end))
+				end
+			end
+		end,
+		Tooltip = 'Notifies you when someone digs up treasure with Metal Detector and shows their loot'
+	})
+
+	FilterSelf = MetalDetectorSpy:CreateToggle({
+		Name = 'Ignore Self',
+		Default = true,
+		Tooltip = 'Do not send notifications when you dig up treasure yourself'
+	})
+end)
+
+run(function()
 	local AutoBuy
 	local Sword
 	local Armor
