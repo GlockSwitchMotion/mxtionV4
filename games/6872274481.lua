@@ -21402,317 +21402,78 @@ end)
 
 run(function()
 	local BountyHunterSpy
-	local window, nameLabel, rewardList
-	local trackedRewards = {} -- { [itemType] = totalAmount }
-	local trackedPlayer = nil
-	local connection = nil
 
-	-- ──────────────────────────────────────────
-	-- Helpers
-	-- ──────────────────────────────────────────
-	local function addBlur(frame)
-		local blur = Instance.new("ImageLabel")
-		blur.Name = "Blur"
-		blur.Size = UDim2.new(1, 0, 1, 0)
-		blur.BackgroundTransparency = 1
-		blur.Image = "rbxassetid://7912134082"
-		blur.ImageTransparency = 0.3
-		blur.ScaleType = Enum.ScaleType.Slice
-		blur.SliceCenter = Rect.new(12, 12, 12, 12)
-		blur.ZIndex = 0
-		blur.Parent = frame
-	end
-
-	local function getRowHeight()
-		return 28
-	end
-
-	-- ──────────────────────────────────────────
-	-- Build the GUI window
-	-- ──────────────────────────────────────────
-	local function buildWindow()
-		if window then window:Destroy() end
-		window = Instance.new("Frame")
-		window.Name = "BountyHunterSpyWindow"
-		window.Size = UDim2.fromOffset(240, 48)
-		window.Position = UDim2.fromOffset(12, 360)
-		window.BackgroundColor3 = uipallet.Main
-		window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
-		window.Visible = false
-		window.Parent = vape.gui.ScaledGui
-		addBlur(window)
-
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 5)
-		corner.Parent = window
-
-		-- Header: bounty icon + player name
-		local bountyIcon = Instance.new("ImageLabel")
-		bountyIcon.Name = "BountyIcon"
-		bountyIcon.Size = UDim2.fromOffset(20, 20)
-		bountyIcon.Position = UDim2.fromOffset(12, 13)
-		bountyIcon.BackgroundTransparency = 1
-		-- Use the in-game bounty hunter icon if available, fallback to a generic sword icon
-		local bIcon = bedwars.getIcon({ itemType = "bounty_hunter" }, true)
-		bountyIcon.Image = (bIcon and bIcon ~= "") and bIcon or "rbxassetid://6035047409"
-		bountyIcon.Parent = window
-
-		nameLabel = Instance.new("TextLabel")
-		nameLabel.Name = "Name"
-		nameLabel.Size = UDim2.new(1, -40, 0, 22)
-		nameLabel.Position = UDim2.fromOffset(38, 12)
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.Text = "BountyHunter Spy"
-		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		nameLabel.TextSize = 13
-		nameLabel.TextColor3 = uipallet.Text
-		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-		nameLabel.FontFace = uipallet.Font
-		nameLabel.Parent = window
-
-		local divider = Instance.new("Frame")
-		divider.Name = "Divider"
-		divider.Size = UDim2.new(1, 0, 0, 1)
-		divider.Position = UDim2.fromOffset(0, 46)
-		divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-		divider.BackgroundTransparency = 0
-		divider.Parent = window
-
-		-- Reward list container (rows added dynamically)
-		rewardList = Instance.new("Frame")
-		rewardList.Name = "RewardList"
-		rewardList.Size = UDim2.new(1, 0, 0, 0)
-		rewardList.Position = UDim2.fromOffset(0, 47)
-		rewardList.BackgroundTransparency = 1
-		rewardList.Parent = window
-
-		local listLayout = Instance.new("UIListLayout")
-		listLayout.SortOrder = Enum.SortOrder.Name
-		listLayout.Padding = UDim.new(0, 0)
-		listLayout.Parent = rewardList
-	end
-
-	-- ──────────────────────────────────────────
-	-- Rebuild reward rows from trackedRewards
-	-- ──────────────────────────────────────────
-	local function refreshRows()
-		if not rewardList then return end
-
-		-- Clear old rows
-		for _, child in ipairs(rewardList:GetChildren()) do
-			if child:IsA("Frame") then child:Destroy() end
-		end
-
-		local rowIndex = 0
-		for itemType, totalAmount in pairs(trackedRewards) do
-			rowIndex += 1
-
-			local row = Instance.new("Frame")
-			row.Name = string.format("%02d_%s", rowIndex, itemType)
-			row.Size = UDim2.new(1, 0, 0, getRowHeight())
-			row.BackgroundTransparency = 1
-			row.Parent = rewardList
-
-			-- Item icon
-			local icon = Instance.new("ImageLabel")
-			icon.Size = UDim2.fromOffset(18, 18)
-			icon.Position = UDim2.fromOffset(12, 5)
-			icon.BackgroundTransparency = 1
-			local icoImg = bedwars.getIcon({ itemType = itemType }, true)
-			icon.Image = (icoImg and icoImg ~= "") and icoImg or "rbxassetid://6035047409"
-			icon.Parent = row
-
-			-- Item type label
-			local typeLabel = Instance.new("TextLabel")
-			typeLabel.Size = UDim2.new(1, -100, 1, 0)
-			typeLabel.Position = UDim2.fromOffset(36, 0)
-			typeLabel.BackgroundTransparency = 1
-			typeLabel.Text = itemType:gsub("_", " "):gsub("(%a)([%w_']*)", function(a, b)
-				return a:upper() .. b
-			end)
-			typeLabel.TextXAlignment = Enum.TextXAlignment.Left
-			typeLabel.TextSize = 12
-			typeLabel.TextColor3 = uipallet.Text
-			typeLabel.FontFace = uipallet.Font
-			typeLabel.Parent = row
-
-			-- Total amount label (right side)
-			local amtLabel = Instance.new("TextLabel")
-			amtLabel.Size = UDim2.fromOffset(70, getRowHeight())
-			amtLabel.Position = UDim2.new(1, -78, 0, 0)
-			amtLabel.BackgroundTransparency = 1
-			amtLabel.Text = "x" .. tostring(totalAmount)
-			amtLabel.TextXAlignment = Enum.TextXAlignment.Right
-			amtLabel.TextSize = 12
-			amtLabel.TextColor3 = Color3.fromRGB(255, 210, 50) -- gold tint for bounty rewards
-			amtLabel.FontFace = uipallet.Font
-			amtLabel.Parent = row
-		end
-
-		-- Resize window to fit rows
-		local rowCount = rowIndex
-		local totalHeight = 48 + 1 + (rowCount * getRowHeight()) + 6
-		rewardList.Size = UDim2.fromOffset(240, rowCount * getRowHeight())
-		window.Size = UDim2.fromOffset(240, totalHeight)
-
-		-- Dock below LuciaSpy if visible, else below InventoryESP, else default
-		local luciaWin = vape.gui.ScaledGui:FindFirstChild("LuciaSpyWindow")
-		local invWin = vape.gui.ScaledGui:FindFirstChild("ViewInventory")
-
-		if luciaWin and luciaWin.Visible then
-			window.Position = UDim2.fromOffset(
-				luciaWin.Position.X.Offset,
-				luciaWin.Position.Y.Offset + luciaWin.Size.Y.Offset + 10
-			)
-		elseif invWin and invWin.Visible then
-			window.Position = UDim2.fromOffset(
-				invWin.Position.X.Offset,
-				invWin.Position.Y.Offset + invWin.Size.Y.Offset + 10
-			)
-		else
-			window.Position = UDim2.fromOffset(12, 360)
-		end
-	end
-
-	-- ──────────────────────────────────────────
-	-- Hook the BountyHunterRewardClaimed remote
-	-- ──────────────────────────────────────────
-	local function hookRemote(player)
-		if connection then connection:Disconnect(); connection = nil end
-		trackedRewards = {}
-		trackedPlayer = player
-
-		-- Locate the remote event
-		local ReplicatedStorage = game:GetService("ReplicatedStorage")
-		local net = ReplicatedStorage:FindFirstChild("zbxts_include")
-			and ReplicatedStorage.zbxts_include:FindFirstChild("node_modules")
-			and ReplicatedStorage.zbxts_include.node_modules:FindFirstChild("@zbxts")
-			and ReplicatedStorage.zbxts_include.node_modules["@zbxts"]:FindFirstChild("net")
-			and ReplicatedStorage.zbxts_include.node_modules["@zbxts"].net:FindFirstChild("out")
-			and ReplicatedStorage.zbxts_include.node_modules["@zbxts"].net.out:FindFirstChild("_NetManaged")
-			and ReplicatedStorage.zbxts_include.node_modules["@zbxts"].net.out._NetManaged:FindFirstChild("BountyHunterRewardClaimed")
-
-		if not net then
-			-- Fallback: search the whole ReplicatedStorage
-			net = ReplicatedStorage:FindFirstDescendant("BountyHunterRewardClaimed")
-		end
-
-		if not net then
-			warn("[BountyHunterSpy] Could not find BountyHunterRewardClaimed remote.")
-			return
-		end
-
-		-- Listen for reward events
-		connection = net.OnClientEvent:Connect(function(data)
-			if not BountyHunterSpy.Enabled then return end
-			if not data then return end
-
-			local itemType = data.itemType or data.ItemType or "unknown"
-			local amount   = data.amount   or data.Amount   or 1
-
-			trackedRewards[itemType] = (trackedRewards[itemType] or 0) + amount
-
-			-- Update the name label to show who the spy is tracking
-			if trackedPlayer then
-				nameLabel.Text = trackedPlayer.DisplayName .. " (BountyHunter)"
-			end
-
-			window.Visible = true
-			refreshRows()
-		end)
-	end
-
-	-- ──────────────────────────────────────────
-	-- Main loop: find the BountyHunter target
-	-- ──────────────────────────────────────────
-	local function findBountyHunterTarget()
-		-- Priority 1: current combat target if they are BountyHunter kit
-		local combatTarget = getTarget()
-		if combatTarget and combatTarget ~= lplr then
-			local kitAttr = combatTarget:GetAttribute("Kit")
-				or combatTarget:GetAttribute("SelectedKit")
-				or combatTarget:GetAttribute("PlayerKit")
-			if kitAttr and tostring(kitAttr):lower():find("bounty") then
-				return combatTarget
-			end
-		end
-
-		-- Priority 2: any player with BountyHunter kit on screen
-		local camera = workspace.CurrentCamera
-		local mouse = game:GetService("UserInputService"):GetMouseLocation()
-		local bestDist = math.huge
-		local bestPlayer = nil
-
-		for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-			local kitAttr = p:GetAttribute("Kit")
-				or p:GetAttribute("SelectedKit")
-				or p:GetAttribute("PlayerKit")
-			if kitAttr and tostring(kitAttr):lower():find("bounty") then
-				local char = p.Character
-				if char and char:FindFirstChild("HumanoidRootPart") then
-					local screenPos, onScreen = camera:WorldToViewportPoint(
-						char.HumanoidRootPart.Position
-					)
-					if onScreen then
-						local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouse).Magnitude
-						if dist < bestDist then
-							bestDist = dist
-							bestPlayer = p
-						end
-					end
-				end
-			end
-		end
-
-		return bestPlayer
-	end
-
-	-- ──────────────────────────────────────────
-	-- Register the option
-	-- ──────────────────────────────────────────
-	BountyHunterSpy = vape.register({
+	BountyHunterSpy = vape.Categories.Inventory:CreateModule({
 		Name = 'BountyHunterSpy',
-		Tab = 'Visuals',
-		SubTab = 'ESP',
-		OnEnabled = function()
-			buildWindow()
-			window.Visible = false
+		Function = function(callback)
+			if callback then
+				local remote = nil
+				pcall(function()
+					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BountyHunterRewardClaimed
+				end)
 
-			-- Hook the nearest BountyHunter player immediately
-			local target = findBountyHunterTarget()
-			if target then
-				hookRemote(target)
-				if nameLabel then
-					nameLabel.Text = target.DisplayName .. " (BountyHunter)"
-				end
-				window.Visible = true
-			end
+				if remote then
+					-- Debounce cache to avoid spam if the remote fires multiple times quickly
+					local debounceCache = {}
 
-			-- Refresh target every second
-			task.spawn(function()
-				repeat
-					task.wait(1)
-					if not BountyHunterSpy.Enabled then break end
+					BountyHunterSpy:Clean(remote.OnClientEvent:Connect(function(data)
+						-- Instant exit if data isn't what we expect
+						if type(data) ~= 'table' or not data.itemType or not data.amount then return end
 
-					local newTarget = findBountyHunterTarget()
-					if newTarget and newTarget ~= trackedPlayer then
-						hookRemote(newTarget)
-						if nameLabel then
-							nameLabel.Text = newTarget.DisplayName .. " (BountyHunter)"
+						local item   = tostring(data.itemType):lower()
+						local amount = tonumber(data.amount) or 1
+
+						-- Debounce: ignore duplicate fires for same item within 1.5s
+						local cacheKey = item
+						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then
+							return
 						end
-						window.Visible = true
-						refreshRows()
+						debounceCache[cacheKey] = tick()
+
+						-- Find the nearest BountyHunter player on screen to attribute the reward to
+						local closestPlayer = nil
+						local closestDist   = math.huge
+
+						for _, ent in entitylib.List do
+							if ent and ent.Player and ent.RootPart then
+								local kit = ent.Player:GetAttribute("Kit")
+									or ent.Player:GetAttribute("SelectedKit")
+									or ent.Player:GetAttribute("PlayerKit")
+								if kit and tostring(kit):lower():find("bounty") then
+									local char = ent.Player.Character
+									if char and char:FindFirstChild("HumanoidRootPart") then
+										local camera = workspace.CurrentCamera
+										local _, onScreen = camera:WorldToViewportPoint(char.HumanoidRootPart.Position)
+										local dist = (char.HumanoidRootPart.Position - (lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") and lplr.Character.HumanoidRootPart.Position or Vector3.zero)).Magnitude
+										if onScreen and dist < closestDist then
+											closestDist   = dist
+											closestPlayer = ent
+										end
+									end
+								end
+							end
+						end
+
+						local formattedItem = item:gsub("^%l", string.upper)
+						local msg
+
+						if closestPlayer and closestPlayer.Player then
+							local playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+							msg = ('%s (BountyHunter) claimed %dx %s!'):format(playerName, amount, formattedItem)
+						else
+							msg = ('A BountyHunter claimed %dx %s!'):format(amount, formattedItem)
+						end
+
+						notif('BountyHunterSpy', msg, 5, 'info')
+					end))
+				else
+					if BountyHunterSpy.Enabled then
+						notif('BountyHunterSpy', 'Could not find the BountyHunterRewardClaimed remote.', 5, 'warning')
 					end
-				until not BountyHunterSpy.Enabled
-			end)
+				end
+			end
 		end,
-		OnDisabled = function()
-			if connection then connection:Disconnect(); connection = nil end
-			trackedRewards = {}
-			trackedPlayer = nil
-			if window then window.Visible = false end
-		end,
-		Tooltip = 'Tracks BountyHunter reward claims (iron, gold, etc.) for the targeted player'
+		Tooltip = 'Notifies you when a BountyHunter player claims iron, gold, or other rewards'
 	})
 end)
 
