@@ -21324,7 +21324,6 @@ run(function()
 					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BillboardRiseEffect
 				end)
 				
-				-- 1. Whitelist of valid metal detector loots to drop irrelevant events instantly
 				local validItems = {
 					iron = true,
 					diamond = true,
@@ -21336,32 +21335,31 @@ run(function()
 				
 				if remote then
 					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(data)
-						-- Instant exit if the event data isn't what we want
-						if type(data) ~= 'table' or not data.itemType or not data.position then return end
+						-- Only process BillboardRiseEffect data — must have position (bounty rewards never do)
+						if type(data) ~= 'table' then return end
+						if not data.itemType or not data.position then return end
+						-- Extra guard: if it has 'amount' it's a bounty reward, not a metal find
+						if data.amount then return end
 						
 						local item = tostring(data.itemType):lower()
 						if not validItems[item] then return end
 						
 						local pos = data.position
 						
-						-- 2. Anti-Lag & Anti-Spam Cache
-						local posKey = math.floor(pos.X / 15) .. "_" .. math.floor(pos.Y / 15) .. "_" .. math.floor(pos.Z / 15)
+						local posKey   = math.floor(pos.X / 15) .. "_" .. math.floor(pos.Y / 15) .. "_" .. math.floor(pos.Z / 15)
 						local cacheKey = item .. "_" .. posKey
 						
-						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then
-							return 
-						end
+						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then return end
 						debounceCache[cacheKey] = tick()
 						
-						-- 3. Only now do we run the distance calculations
 						local closestPlayer = nil
-						local closestDist = 25 
+						local closestDist   = 25
 						
 						for _, ent in entitylib.List do
 							if ent and ent.RootPart then
 								local dist = (ent.RootPart.Position - pos).Magnitude
 								if dist < closestDist then
-									closestDist = dist
+									closestDist   = dist
 									closestPlayer = ent
 								end
 							end
@@ -21371,29 +21369,15 @@ run(function()
 						if entitylib.isAlive and entitylib.character.RootPart then
 							local dist = (entitylib.character.RootPart.Position - pos).Magnitude
 							if dist < closestDist then
-								closestDist = dist
 								isLocalPlayer = true
 							end
 						end
 						
-						if isLocalPlayer then
-							return
-						end
-						
-						-- 4. Skip if the closest player is a BountyHunter — that's their reward, not a metal find
-						if closestPlayer and closestPlayer.Player then
-							local kit = closestPlayer.Player:GetAttribute("Kit")
-								or closestPlayer.Player:GetAttribute("SelectedKit")
-								or closestPlayer.Player:GetAttribute("PlayerKit")
-							if kit and tostring(kit):lower():find("bounty") then
-								return
-							end
-						end
+						if isLocalPlayer then return end
 						
 						if closestPlayer and closestPlayer.Player then
-							local playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+							local playerName    = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
 							local formattedItem = item:gsub("^%l", string.upper)
-							
 							notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
 						end
 					end))
@@ -21416,39 +21400,28 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local remote = nil
-
-				-- Try the zbxts path first (as seen in Cobalt screenshot)
 				pcall(function()
 					remote = replicatedStorage.zbxts_include.node_modules["@zbxts"].net.out._NetManaged.BountyHunterRewardClaimed
 				end)
-				-- Fallback: try rbxts path
-				if not remote then
-					pcall(function()
-						remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BountyHunterRewardClaimed
-					end)
-				end
-				-- Last resort: search whole ReplicatedStorage
-				if not remote then
-					pcall(function()
-						remote = replicatedStorage:FindFirstDescendant("BountyHunterRewardClaimed")
-					end)
-				end
 
 				if remote then
 					local debounceCache = {}
 
 					BountyHunterSpy:Clean(remote.OnClientEvent:Connect(function(data)
-						if type(data) ~= 'table' or not data.itemType or not data.amount then return end
+						-- Only process BountyHunterRewardClaimed data — must have amount (metal finds never do)
+						if type(data) ~= 'table' then return end
+						if not data.itemType or not data.amount then return end
+						-- Extra guard: if it has 'position' it's a BillboardRiseEffect, not a bounty reward
+						if data.position then return end
 
 						local item   = tostring(data.itemType):lower()
 						local amount = tonumber(data.amount) or 1
 
-						-- Debounce: ignore duplicate fires for same item within 1.5s
 						local cacheKey = item
 						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then return end
 						debounceCache[cacheKey] = tick()
 
-						-- Find nearest visible BountyHunter kit player to attribute the reward
+						-- Find the nearest visible BountyHunter kit player to attribute the reward
 						local closestPlayer = nil
 						local closestDist   = math.huge
 
@@ -21460,7 +21433,7 @@ run(function()
 								if kit and tostring(kit):lower():find("bounty") then
 									local char = ent.Player.Character
 									if char and char:FindFirstChild("HumanoidRootPart") then
-										local lrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+										local lrp  = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
 										local dist = lrp and (char.HumanoidRootPart.Position - lrp.Position).Magnitude or math.huge
 										local _, onScreen = workspace.CurrentCamera:WorldToViewportPoint(char.HumanoidRootPart.Position)
 										if onScreen and dist < closestDist then
