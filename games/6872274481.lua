@@ -21331,35 +21331,62 @@ run(function()
 end)
 
 run(function()
+	local WhiteHits
+	WhiteHits = vape.Categories.Legit:CreateModule({
+		Name = "WhiteHits",
+		Function = function(callback)
+			if callback then
+				repeat
+					for i, v in entitylib.List do 
+						local highlight = v.Character and v.Character:FindFirstChild('_DamageHighlight_')
+						if highlight then
+							highlight:Destroy()
+						end
+					end
+					task.wait(0.1)
+				until not WhiteHits.Enabled
+			end
+		end
+	})
+end)
+
+run(function()
     local RegentCD
     local CD
-    local lastDash = -math.huge
-    local old = nil
-    
+    local oldSetCooldown = nil
+    local oldIsOnCooldown = nil
+
     RegentCD = vape.Categories.Kits:CreateModule({
         Name = "RegentCooldown",
-        Tooltip = "change the cooldown for the void axe",
+        Tooltip = "Change the cooldown for the void axe",
         Function = function(callback)
             if callback then
-                local old = bedwars.CooldownController.isOnCooldown
-                if lastDash == nil then
-                    lastDash = -1
-                end
-                bedwars.CooldownController.isOnCooldown = function(self, id)
+                oldSetCooldown = bedwars.CooldownController.setOnCooldown
+                oldIsOnCooldown = bedwars.CooldownController.isOnCooldown
+
+                -- Intercept when the game triggers a cooldown
+                bedwars.CooldownController.setOnCooldown = function(self, id, duration, ...)
                     if id == bedwars.CooldownIDS.VOID_AXE then
-                        local currentTime = tick()
-                        if lastDash < 0 or (currentTime - lastDash >= CD.Value) then
-                            lastDash = currentTime
-                            return false 
-                        else
-                            return true 
-                        end
+                        duration = CD.Value
                     end
-                    return old(self, id)
+                    return oldSetCooldown(self, id, duration, ...)
+                end
+
+                -- Ensure client check respects 0-second cooldowns
+                bedwars.CooldownController.isOnCooldown = function(self, id, ...)
+                    if id == bedwars.CooldownIDS.VOID_AXE and CD.Value == 0 then
+                        return false
+                    end
+                    return oldIsOnCooldown(self, id, ...)
                 end
             else
-                if old then
-                    bedwars.CooldownController.isOnCooldown = old
+                if oldSetCooldown then
+                    bedwars.CooldownController.setOnCooldown = oldSetCooldown
+                    oldSetCooldown = nil
+                end
+                if oldIsOnCooldown then
+                    bedwars.CooldownController.isOnCooldown = oldIsOnCooldown
+                    oldIsOnCooldown = nil
                 end
             end
         end
@@ -21372,10 +21399,7 @@ run(function()
         Default = 0,
         Decimal = 1,
         Suffix = function(val)
-            if val == 1 then
-                return 'second'
-            end
-            return 'seconds'
+            return val == 1 and "second" or "seconds"
         end,
     })
 end)
