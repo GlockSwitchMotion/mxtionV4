@@ -8376,7 +8376,8 @@ run(function()
     end
 
     local function getChar(ent)
-        return ent.Player and ent.Player.Character
+        -- entitylib stores character directly on entity object
+        return ent.Character or (ent.Player and ent.Player.Character)
     end
 
     local function findPlayerByName(name)
@@ -8398,25 +8399,21 @@ run(function()
         local char = getChar(ent)
         if not char or not root then return nil end
 
-        -- Clone the character
         local clone = char:Clone()
         clone.Name = "KA_Clone_" .. ent.Player.Name
         clone.Parent = workspace
 
-        -- Strip scripts and animation controllers
         for _, v in ipairs(clone:GetDescendants()) do
             if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("AnimationController") then
                 v:Destroy()
             end
         end
 
-        -- Disable humanoid
         local cloneHum = clone:FindFirstChildOfClass("Humanoid")
         if cloneHum then
             cloneHum.PlatformStand = true
         end
 
-        -- Make all parts anchored and unhittable
         for _, v in ipairs(clone:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.CanQuery = false
@@ -8427,13 +8424,11 @@ run(function()
             end
         end
 
-        -- Place behind local player using pure Roblox API
         local primaryPart = clone:FindFirstChild("HumanoidRootPart")
         if primaryPart then
             clone:SetPrimaryPartCFrame(myRoot.CFrame * CFrame.new(0, 0, 6))
         end
 
-        -- Build Motor6D weld map
         local weldMap = {}
         for _, m in ipairs(char:GetDescendants()) do
             if m:IsA("Motor6D") and m.Part0 and m.Part1 then
@@ -8497,7 +8492,6 @@ run(function()
             if callback then
                 FalseBan:Clean(runService.RenderStepped:Connect(function(dt)
 
-                    -- Build target list
                     local targets = {}
                     for _, name in ipairs(TargetList.ListEnabled) do
                         local matchedPlayer = findPlayerByName(name)
@@ -8514,7 +8508,6 @@ run(function()
 
                     local mode = HackMode.Value
 
-                    -- Cleanup stale clones
                     for ent in pairs(cloneData) do
                         local stillTargeted = false
                         for _, t in ipairs(targets) do
@@ -8587,7 +8580,6 @@ run(function()
                             local myRoot = getLocalRoot()
                             if not myRoot then continue end
 
-                            -- Build clone if not yet built
                             if not cloneData[ent] then
                                 local built = createKAClone(ent)
                                 if built then
@@ -8601,30 +8593,25 @@ run(function()
 
                             local clone = data.clone
                             if not clone or not clone.Parent then
-                                -- Clone lost, restore and retry next frame
                                 restoreChar(char)
                                 cloneData[ent] = nil
                                 continue
                             end
 
-                            -- Keep real target invisible every frame
                             setCharVisibility(char, false)
 
-                            -- Track clone to 6 studs behind local player
                             if data.primaryPart then
                                 clone:SetPrimaryPartCFrame(
                                     myRoot.CFrame * CFrame.new(0, 0, 6)
                                 )
                             end
 
-                            -- Mirror animations from real target onto clone
                             for origMotor, cloneMotor in pairs(data.weldMap) do
                                 if origMotor and origMotor.Parent and cloneMotor and cloneMotor.Parent then
                                     cloneMotor.Transform = origMotor.Transform
                                 end
                             end
 
-                            -- Re-assert unhittable every frame
                             for _, v in ipairs(clone:GetDescendants()) do
                                 if v:IsA("BasePart") then
                                     v.CanQuery = false
