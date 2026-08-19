@@ -21401,205 +21401,692 @@ run(function()
 end)
 
 run(function()
-	local LuciaSpy
-	local window, nameLabel, candyIcon, candyAmount, pinataIcon, pinataAmount
-	local lastTargetPlayer = nil
-	
-	local function buildWindow()
-		window = Instance.new('Frame')
-		window.Name = 'LuciaSpyWindow'
-		window.Size = UDim2.fromOffset(240, 80)
-		window.Position = UDim2.fromOffset(12, 260)
-		window.BackgroundColor3 = uipallet.Main
-		window.BackgroundTransparency = 0.5
-		window.Visible = false
-		window.Parent = vape.gui.ScaledGui
-		
-		local corner = Instance.new('UICorner')
-		corner.CornerRadius = UDim.new(0, 5)
-		corner.Parent = window
-		
-		nameLabel = Instance.new('TextLabel')
-		nameLabel.Size = UDim2.new(1, -20, 0, 20)
-		nameLabel.Position = UDim2.fromOffset(14, 8)
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.TextColor3 = uipallet.Text
-		nameLabel.TextSize = 13
-		nameLabel.Font = uipallet.Font
-		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		nameLabel.Parent = window
-		
-		local divider = Instance.new('Frame')
-		divider.Size = UDim2.new(1, 0, 0, 1)
-		divider.Position = UDim2.fromOffset(0, 30)
-		divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-		divider.BorderSizePixel = 0
-		divider.Parent = window
-		
-		-- Candy Section
-		candyIcon = Instance.new('ImageLabel')
-		candyIcon.Size = UDim2.fromOffset(20, 20)
-		candyIcon.Position = UDim2.fromOffset(14, 35)
-		candyIcon.BackgroundTransparency = 1
-		candyIcon.Parent = window
-		
-		candyAmount = Instance.new('TextLabel')
-		candyAmount.Size = UDim2.new(1, -50, 0, 20)
-		candyAmount.Position = UDim2.fromOffset(40, 35)
-		candyAmount.BackgroundTransparency = 1
-		candyAmount.TextColor3 = Color3.new(1, 1, 1)
-		candyAmount.TextSize = 13
-		candyAmount.Font = uipallet.Font
-		candyAmount.TextXAlignment = Enum.TextXAlignment.Left
-		candyAmount.Parent = window
-		
-		-- Pinata Section
-		pinataIcon = Instance.new('ImageLabel')
-		pinataIcon.Size = UDim2.fromOffset(20, 20)
-		pinataIcon.Position = UDim2.fromOffset(14, 55)
-		pinataIcon.BackgroundTransparency = 1
-		pinataIcon.Parent = window
-		
-		pinataAmount = Instance.new('TextLabel')
-		pinataAmount.Size = UDim2.new(1, -50, 0, 20)
-		pinataAmount.Position = UDim2.fromOffset(40, 55)
-		pinataAmount.BackgroundTransparency = 1
-		pinataAmount.TextColor3 = Color3.new(1, 1, 1)
-		pinataAmount.TextSize = 13
-		pinataAmount.Font = uipallet.Font
-		pinataAmount.TextXAlignment = Enum.TextXAlignment.Left
-		pinataAmount.Parent = window
-	end
-	
-	local function getTarget()
-		-- 1. Try to get the combat target (Killaura, etc.)
-		local bestEnt, highest = nil, tick()
-		for ent, expiry in targetinfo.Targets do
-			if expiry > tick() and expiry > highest then
-				bestEnt, highest = ent, expiry
-			end
-		end
-		if bestEnt and bestEnt.Player then return bestEnt.Player end
-		
-		-- 2. Find the closest Lucia player to your mouse cursor (Teammates or Enemies)
-		local mousePos = inputService:GetMouseLocation()
-		local bestPlayer = nil
-		local bestDist = 400 
-		
-		for _, plr in playersService:GetPlayers() do
-			if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-				local isLucia = (plr:GetAttribute('PlayingAsKits') == 'lucia' or plr:GetAttribute('PlayingAsKits') == 'Lucia')
-				if isLucia then
-					local pos, onScreen = gameCamera:WorldToViewportPoint(plr.Character.HumanoidRootPart.Position)
-					if onScreen then
-						local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-						if dist < bestDist then
-							bestDist = dist
-							bestPlayer = plr
-						end
-					end
-				end
-			end
-		end
-		if bestPlayer then return bestPlayer end
-		
-		-- 3. If nobody is around and YOU are playing Lucia, default to showing your own stats
-		local isLocalLucia = (lplr:GetAttribute('PlayingAsKits') == 'lucia' or lplr:GetAttribute('PlayingAsKits') == 'Lucia')
-		if isLocalLucia then
-			return lplr
-		end
-		
-		return nil
-	end
-	
-	LuciaSpy = vape.Categories.Inventory:CreateModule({
-		Name = 'LuciaSpy',
-		Function = function(callback)
-			if callback then
-				if not window then buildWindow() end
-				
-				repeat
-					task.wait(0.1)
-					if vape.ThreadFix then setthreadidentity(8) end
-					
-					local currentTarget = getTarget()
-					if currentTarget then
-						lastTargetPlayer = currentTarget
-					end
-					
-					local player = lastTargetPlayer
-					
-					-- Validate player and kit
-					local isLucia = player and (player:GetAttribute('PlayingAsKits') == 'lucia' or player:GetAttribute('PlayingAsKits') == 'Lucia')
-					
-					if not player or not isLucia then
-						window.Visible = false
-						continue
-					end
-					
-					local inventory = store.inventories[player] or {items = {}}
-					
-					-- 1. Count Candy and Pinatas in Inventory
-					local candyCount = 0
-					local pinatasInInventory = 0
-					
-					for _, item in pairs(inventory.items) do
-						if item.itemType == "lucia_candy" or item.itemType == "candy" then
-							candyCount += (item.amount or 1)
-						elseif item.itemType == "lucia_pinata" or item.itemType == "pinata" then
-							pinatasInInventory += (item.amount or 1)
-						end
-					end
-					
-					-- 2. Find placed Piñata stats
-					local pinataStoredCandy = 0
-					
-					-- Check attributes on the player first
-					pinataStoredCandy = player:GetAttribute("PinataCandy") or player:GetAttribute("LuciaPinataCandy") or 0
-					
-					-- If not found on player, scan workspace blocks for their placed piñatas
-					if pinataStoredCandy == 0 then
-						for _, block in collectionService:GetTagged("block") do
-							if block.Name:find("pinata") and block:GetAttribute("PlacedByUserId") == player.UserId then
-								pinataStoredCandy += (block:GetAttribute("Candy") or block:GetAttribute("CandyValue") or block:GetAttribute("CandyAmount") or 0)
-							end
-						end
-					end
-					
-					-- Update GUI elements
-					window.Visible = true
-					nameLabel.Text = player.DisplayName .. " (Lucia)"
-					
-					-- Get images (fallbacks to empty if not found)
-					local cIcon = bedwars.getIcon({itemType = "lucia_candy"}, true)
-					local pIcon = bedwars.getIcon({itemType = "lucia_pinata"}, true)
-					candyIcon.Image = (cIcon and cIcon ~= "") and cIcon or "rbxassetid://13824558482" 
-					pinataIcon.Image = (pIcon and pIcon ~= "") and pIcon or "rbxassetid://13824584285"
-					
-					candyAmount.Text = "Candy: " .. tostring(candyCount)
-					pinataAmount.Text = "Piñata Stored: " .. tostring(pinataStoredCandy)
-					
-					-- 3. Dynamically dock below InventoryESP
-					local invWindow = vape.gui.ScaledGui:FindFirstChild("ViewInventory")
-					if invWindow and invWindow.Visible then
-						window.Position = UDim2.fromOffset(
-							invWindow.Position.X.Offset, 
-							invWindow.Position.Y.Offset + invWindow.Size.Y.Offset + 10 -- 10 pixels below
-						)
-					else
-						-- Default position if InventoryESP is off or hidden
-						window.Position = UDim2.fromOffset(12, 260)
-					end
-					
-				until not LuciaSpy.Enabled
-				
-				if window then window.Visible = false end
-			else
-				if window then window.Visible = false end
-			end
-		end,
-		Tooltip = 'Displays Lucia Candy and Piñata information for the targeted player'
-	})
+    local Lucia
+    local AutoDepositToggle
+    local RangeSlider
+    local DelayToggle
+    local DelaySlider
+    local LuciaESPToggle
+    local CandyESPToggle
+    local IgnoreTeammatesESP
+    local ESPBackground
+    local ESPColor = {}
+    local LuciaSpyToggle
+    local IgnoreTeammatesSpy
+    local DisplayNameToggle
+    local CollectionService = collectionService
+    local RunService = runService
+    local Players = playersService
+    local lplr = Players.LocalPlayer
+    local Folder = Instance.new('Folder')
+    Folder.Parent = vape.gui
+    local Reference = {}
+    local collectedPinatas = {}
+    local trackedPinatas = {}
+
+    local function kitCollection(id, func, range, specific)
+        repeat
+            if entitylib.isAlive then
+                local objs = type(id) == 'table' and id or collection(id, Lucia)
+                local localPosition = entitylib.character.RootPart.Position
+                for _, v in objs do
+                    if not Lucia.Enabled then break end
+                    local part = not v:IsA('Model') and v or v.PrimaryPart
+                    if part and (part.Position - localPosition).Magnitude <= range then
+                        local success, err = pcall(func, v)
+                        if not success then
+                            warn("lucia deposit error:", err)
+                        end
+                        if DelayToggle.Enabled then
+                            task.wait(DelaySlider.Value)
+                        else
+                            task.wait(0.05)
+                        end
+                    end
+                end
+            end
+            task.wait(0.1)
+        until not Lucia.Enabled
+    end
+
+    local function isTeammateESP(pinataPart)
+        if not IgnoreTeammatesESP.Enabled then return false end
+
+        local placerId = pinataPart:GetAttribute("PlacedByUserId") or pinataPart:GetAttribute("PlacerId")
+        if not placerId then
+            local parent = pinataPart.Parent
+            if parent then
+                placerId = parent:GetAttribute("PlacedByUserId") or parent:GetAttribute("PlacerId")
+            end
+        end
+
+        if placerId then
+            if placerId == lplr.UserId then
+                return true
+            end
+
+            local placer = Players:GetPlayerByUserId(placerId)
+            if placer and placer.Team == lplr.Team then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    local function isTeammateSpy(pinataPart)
+        if not IgnoreTeammatesSpy.Enabled then return false end
+
+        local placerId = pinataPart:GetAttribute("PlacedByUserId") or pinataPart:GetAttribute("PlacerId")
+        if not placerId then
+            local parent = pinataPart.Parent
+            if parent then
+                placerId = parent:GetAttribute("PlacedByUserId") or parent:GetAttribute("PlacerId")
+            end
+        end
+
+        if placerId then
+            if placerId == lplr.UserId then
+                return true
+            end
+
+            local placer = Players:GetPlayerByUserId(placerId)
+            if placer and placer.Team == lplr.Team then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    local function getCandyAmount(pinataPart)
+        local coins = pinataPart:GetAttribute("Coin")
+        return coins or 0
+    end
+
+    local function getProperIcon(iconType)
+        local icon = bedwars.getIcon({itemType = iconType}, true)
+        if not icon or icon == "" then
+            return nil
+        end
+        return icon
+    end
+
+    local function Added(pinataPart)
+        if isTeammateESP(pinataPart) then
+            return
+        end
+
+        if Reference[pinataPart] then return end
+
+        local billboard = Instance.new('BillboardGui')
+        billboard.Parent = Folder
+        billboard.Name = 'pinata'
+        billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
+        billboard.Size = UDim2.fromOffset(CandyESPToggle.Enabled and 80 or 36, 36)
+        billboard.AlwaysOnTop = true
+        billboard.ClipsDescendants = false
+        billboard.Adornee = pinataPart
+
+        local blur = addBlur(billboard)
+        blur.Visible = ESPBackground.Enabled
+
+        local frame = Instance.new('Frame')
+        frame.Size = UDim2.fromScale(1, 1)
+        frame.BackgroundColor3 = Color3.fromHSV(ESPColor.Hue, ESPColor.Sat, ESPColor.Value)
+        frame.BackgroundTransparency = 1 - (ESPBackground.Enabled and ESPColor.Opacity or 0)
+        frame.BorderSizePixel = 0
+        frame.Parent = billboard
+
+        local uicorner = Instance.new('UICorner')
+        uicorner.CornerRadius = UDim.new(0, 4)
+        uicorner.Parent = frame
+
+        local pinataIcon = getProperIcon('pinata')
+        if pinataIcon then
+            local image = Instance.new('ImageLabel')
+            image.Name = 'PinataIcon'
+            image.Size = UDim2.fromOffset(36, 36)
+            image.Position = UDim2.new(0, 0, 0.5, 0)
+            image.AnchorPoint = Vector2.new(0, 0.5)
+            image.BackgroundTransparency = 1
+            image.Image = pinataIcon
+            image.Parent = frame
+        end
+
+        local candyAmount = nil
+        local candyIcon = nil
+
+        if CandyESPToggle.Enabled then
+            candyAmount = Instance.new('TextLabel')
+            candyAmount.Name = 'CandyAmount'
+            candyAmount.Size = UDim2.fromOffset(25, 20)
+            candyAmount.Position = UDim2.new(0, 40, 0.5, 0)
+            candyAmount.AnchorPoint = Vector2.new(0, 0.5)
+            candyAmount.BackgroundTransparency = 1
+            candyAmount.Text = tostring(getCandyAmount(pinataPart))
+            candyAmount.TextColor3 = Color3.fromRGB(255, 255, 255)
+            candyAmount.TextSize = 16
+            candyAmount.Font = Enum.Font.GothamBold
+            candyAmount.TextStrokeTransparency = 0.5
+            candyAmount.TextStrokeColor3 = Color3.new(0, 0, 0)
+            candyAmount.Parent = frame
+
+            local candyIconImage = getProperIcon('candy')
+            if candyIconImage then
+                candyIcon = Instance.new('ImageLabel')
+                candyIcon.Name = 'CandyIcon'
+                candyIcon.Size = UDim2.fromOffset(18, 18)
+                candyIcon.Position = UDim2.new(0, 65, 0.5, 0)
+                candyIcon.AnchorPoint = Vector2.new(0, 0.5)
+                candyIcon.BackgroundTransparency = 1
+                candyIcon.Image = candyIconImage
+                candyIcon.Parent = frame
+            end
+        end
+
+        Reference[pinataPart] = {
+            billboard = billboard,
+            frame = frame,
+            candyAmount = candyAmount,
+            candyIcon = candyIcon
+        }
+    end
+
+    local function Removed(pinataPart)
+        if Reference[pinataPart] then
+            Reference[pinataPart].billboard:Destroy()
+            Reference[pinataPart] = nil
+        end
+    end
+
+    local function updateCandyDisplay(pinataPart)
+        local ref = Reference[pinataPart]
+        if not ref then return end
+
+        if CandyESPToggle.Enabled then
+            if not ref.candyAmount then
+                ref.candyAmount = Instance.new('TextLabel')
+                ref.candyAmount.Name = 'CandyAmount'
+                ref.candyAmount.Size = UDim2.fromOffset(25, 20)
+                ref.candyAmount.Position = UDim2.new(0, 40, 0.5, 0)
+                ref.candyAmount.AnchorPoint = Vector2.new(0, 0.5)
+                ref.candyAmount.BackgroundTransparency = 1
+                ref.candyAmount.TextColor3 = Color3.fromRGB(255, 255, 255)
+                ref.candyAmount.TextSize = 16
+                ref.candyAmount.Font = Enum.Font.GothamBold
+                ref.candyAmount.TextStrokeTransparency = 0.5
+                ref.candyAmount.TextStrokeColor3 = Color3.new(0, 0, 0)
+                ref.candyAmount.Parent = ref.frame
+
+                local candyIconImage = getProperIcon('candy')
+                if candyIconImage and not ref.candyIcon then
+                    ref.candyIcon = Instance.new('ImageLabel')
+                    ref.candyIcon.Name = 'CandyIcon'
+                    ref.candyIcon.Size = UDim2.fromOffset(18, 18)
+                    ref.candyIcon.Position = UDim2.new(0, 65, 0.5, 0)
+                    ref.candyIcon.AnchorPoint = Vector2.new(0, 0.5)
+                    ref.candyIcon.BackgroundTransparency = 1
+                    ref.candyIcon.Image = candyIconImage
+                    ref.candyIcon.Parent = ref.frame
+                end
+
+                ref.billboard.Size = UDim2.fromOffset(80, 36)
+            end
+
+            if ref.candyAmount then
+                ref.candyAmount.Text = tostring(getCandyAmount(pinataPart))
+            end
+        else
+            if ref.candyAmount then
+                ref.candyAmount:Destroy()
+                ref.candyAmount = nil
+            end
+            if ref.candyIcon then
+                ref.candyIcon:Destroy()
+                ref.candyIcon = nil
+            end
+            ref.billboard.Size = UDim2.fromOffset(36, 36)
+        end
+    end
+
+    local function findExistingPinatas()
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name == "pinata" then
+                if not Reference[obj] and not isTeammateESP(obj) then
+                    Added(obj)
+                end
+            end
+        end
+    end
+
+    local function refreshESP()
+        Folder:ClearAllChildren()
+        table.clear(Reference)
+        findExistingPinatas()
+    end
+
+    local function getPlayerName(player)
+        if DisplayNameToggle.Enabled then
+            return player.DisplayName ~= "" and player.DisplayName or player.Name
+        else
+            return player.Name
+        end
+    end
+
+    local function getTeamName(player)
+        if player.Team then
+            return player.Team.Name
+        end
+        return "Unknown"
+    end
+
+    local function setupLuciaSpy()
+        local util = require(game:GetService("ReplicatedStorage").TS.games.bedwars.kit.kits['piggy-bank']['piggy-bank-util']).PiggyBankUtil
+
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name == "pinata" then
+                if not isTeammateSpy(obj) then
+                    local placerId = obj:GetAttribute("PlacedByUserId") or obj:GetAttribute("PlacerId")
+
+                    if placerId then
+                        local placer = Players:GetPlayerByUserId(placerId)
+                        local initialCandy = getCandyAmount(obj)
+
+                        trackedPinatas[obj] = {
+                            player = placer,
+                            lastCandy = initialCandy,
+                            exists = true,
+                            placedTime = tick()
+                        }
+                    end
+                end
+            end
+        end
+
+        Lucia:Clean(workspace.DescendantAdded:Connect(function(obj)
+            if not LuciaSpyToggle.Enabled then return end
+
+            if obj:IsA("BasePart") and obj.Name == "pinata" then
+                task.wait(0.2)
+
+                if not isTeammateSpy(obj) then
+                    local placerId = obj:GetAttribute("PlacedByUserId") or obj:GetAttribute("PlacerId")
+
+                    if placerId then
+                        local placer = Players:GetPlayerByUserId(placerId)
+                        local initialCandy = getCandyAmount(obj)
+
+                        trackedPinatas[obj] = {
+                            player = placer,
+                            lastCandy = initialCandy,
+                            exists = true,
+                            placedTime = tick()
+                        }
+                    end
+                end
+            end
+        end))
+
+        Lucia:Clean(bedwars.Client:Get("PiggyBankPop"):Connect(function(self)
+            if not LuciaSpyToggle.Enabled then return end
+            local plr = self.awardedPlayer
+            if not plr then return end
+            if IgnoreTeammatesSpy.Enabled then
+                if plr == lplr or (plr.Team and plr.Team == lplr.Team) then
+                    return
+                end
+            end
+
+            local rewards = util:getRewardsFromCoins(self.coins)
+            local I, D, E = 0, 0, 0
+            for _, reward in ipairs(rewards) do
+                if reward.itemType == "iron" then
+                    I = I + (reward.amount or 0)
+                elseif reward.itemType == "diamond" then
+                    D = D + (reward.amount or 0)
+                elseif reward.itemType == "emerald" then
+                    E = E + (reward.amount or 0)
+                end
+            end
+
+            if getAccountTier(plr) >= 1 and getAccountTier(lplr) == 0 then return end
+            local playerName = getPlayerName(plr)
+            local teamName = getTeamName(plr)
+            local loot = string.format("%d irons, %d diamonds, %d emeralds", I, D, E)
+
+            vape:CreateNotification(
+                "Lucia Spy",
+                string.format("%s (%s) opened their pinata and got %s", playerName, teamName, loot),
+                8
+            )
+
+            for pinataPart, data in pairs(trackedPinatas) do
+                if data.player and data.player.UserId == plr.UserId then
+                    trackedPinatas[pinataPart] = nil
+                end
+            end
+        end))
+
+        local luciaSpyCounter = 0
+        Lucia:Clean(RunService.Heartbeat:Connect(function()
+            if not LuciaSpyToggle.Enabled then return end
+            luciaSpyCounter = luciaSpyCounter + 1
+            if luciaSpyCounter % 6 ~= 0 then return end
+            local toRemove = {}
+            for pinataPart, data in pairs(trackedPinatas) do
+                if pinataPart and pinataPart.Parent then
+                    local currentCandy = getCandyAmount(pinataPart)
+
+                    if currentCandy ~= data.lastCandy then
+                        local difference = currentCandy - data.lastCandy
+
+                        if difference > 0 and data.player then
+                            if not (getAccountTier(data.player) >= 1 and getAccountTier(data.player) < 99 and getAccountTier(lplr) == 0) then
+                                local playerName = getPlayerName(data.player)
+                                local teamName = getTeamName(data.player)
+
+                                vape:CreateNotification(
+                                    "Lucia Spy",
+                                    string.format("%s (%s) has just deposited %d candy and now has %d candy",
+                                        playerName, teamName, difference, currentCandy),
+                                    5
+                                )
+                            end
+                            data.lastCandy = currentCandy
+                        end
+                    end
+                else
+                    if data.exists and data.player then
+                        local timeSincePlaced = tick() - (data.placedTime or tick())
+
+                        if timeSincePlaced > 2 then
+                            if not (getAccountTier(data.player) >= 1 and getAccountTier(data.player) < 99 and getAccountTier(lplr) == 0) then
+                                local playerName = getPlayerName(data.player)
+                                local teamName = getTeamName(data.player)
+
+                                vape:CreateNotification(
+                                    "Lucia Spy",
+                                    string.format("%s (%s) has just broken their pinata with %d candy",
+                                        playerName, teamName, data.lastCandy),
+                                    5
+                                )
+                            end
+                        end
+                    end
+
+                    table.insert(toRemove, pinataPart)
+                end
+            end
+
+            for _, pinataPart in ipairs(toRemove) do
+                trackedPinatas[pinataPart] = nil
+            end
+        end))
+    end
+
+    Lucia = vape.Categories.Inventory:CreateModule({
+        Name = 'LuciaSpy',
+        Function = function(callback)
+            if callback then
+                if LuciaESPToggle.Enabled then
+                    findExistingPinatas()
+
+                    Lucia:Clean(workspace.DescendantAdded:Connect(function(obj)
+                        if Lucia.Enabled and obj:IsA("BasePart") and obj.Name == "pinata" then
+                            task.wait(0.1)
+                            if not isTeammateESP(obj) then
+                                Added(obj)
+                            end
+                        end
+                    end))
+
+                    Lucia:Clean(workspace.DescendantRemoving:Connect(function(obj)
+                        if obj:IsA("BasePart") and obj.Name == "pinata" and Reference[obj] then
+                            Removed(obj)
+                        end
+                    end))
+
+                    local luciaESPCounter = 0
+                    Lucia:Clean(RunService.Heartbeat:Connect(function()
+                        if not Lucia.Enabled or not LuciaESPToggle.Enabled then return end
+                        luciaESPCounter = luciaESPCounter + 1
+                        if luciaESPCounter % 6 ~= 0 then return end
+                        for pinataPart, ref in pairs(Reference) do
+                            if pinataPart and pinataPart.Parent then
+                                updateCandyDisplay(pinataPart)
+                            else
+                                if ref.billboard then
+                                    ref.billboard:Destroy()
+                                end
+                                Reference[pinataPart] = nil
+                            end
+                        end
+                    end))
+                end
+
+                if AutoDepositToggle.Enabled then
+                    task.spawn(function()
+                        local r = RangeSlider.Value
+                        kitCollection(lplr.Name .. ':pinata', function(v)
+                            if getItem('candy') then
+                                bedwars.Client:Get(remotes.DepositCoins):CallServer(v)
+                            end
+                        end, r, true)
+                    end)
+                end
+
+                if LuciaSpyToggle.Enabled then
+                    setupLuciaSpy()
+                end
+            else
+                Folder:ClearAllChildren()
+                table.clear(Reference)
+                table.clear(collectedPinatas)
+                table.clear(trackedPinatas)
+            end
+        end,
+        Tooltip = 'Lucia (Pinata) Kit Module'
+    })
+
+    AutoDepositToggle = Lucia:CreateToggle({
+        Name = 'Auto Deposit',
+        Default = false,
+        Tooltip = 'Automatically deposit candies into your pinata',
+        Function = function(callback)
+            if RangeSlider and RangeSlider.Object then RangeSlider.Object.Visible = callback end
+            if DelayToggle and DelayToggle.Object then DelayToggle.Object.Visible = callback end
+            if DelaySlider and DelaySlider.Object then DelaySlider.Object.Visible = (callback and DelayToggle.Enabled) end
+
+            if not callback then
+                if DelaySlider and DelaySlider.Object then
+                    DelaySlider.Object.Visible = false
+                end
+            else
+                if DelayToggle and DelayToggle.Enabled then
+                    if DelaySlider and DelaySlider.Object then
+                        DelaySlider.Object.Visible = true
+                    end
+                end
+            end
+        end
+    })
+
+    RangeSlider = Lucia:CreateSlider({
+        Name = 'Range',
+        Min = 1,
+        Max = 18,
+        Default = 8,
+        Suffix = ' studs',
+        Visible = false
+    })
+
+    DelayToggle = Lucia:CreateToggle({
+        Name = 'Delay',
+        Default = false,
+        Visible = false,
+        Function = function(callback)
+            if DelaySlider and DelaySlider.Object then
+                DelaySlider.Object.Visible = callback
+            end
+        end
+    })
+
+    DelaySlider = Lucia:CreateSlider({
+        Name = 'Delay Amount',
+        Min = 0,
+        Max = 2,
+        Default = 0.5,
+        Decimal = 10,
+        Suffix = 's',
+        Visible = false
+    })
+
+    LuciaESPToggle = Lucia:CreateToggle({
+        Name = 'Pinata ESP',
+        Tooltip = 'Shows pinata locations',
+        Function = function(callback)
+            if CandyESPToggle and CandyESPToggle.Object then
+                CandyESPToggle.Object.Visible = callback
+            end
+            if IgnoreTeammatesESP and IgnoreTeammatesESP.Object then
+                IgnoreTeammatesESP.Object.Visible = callback
+            end
+            if ESPBackground and ESPBackground.Object then
+                ESPBackground.Object.Visible = callback
+            end
+            if ESPColor and ESPColor.Object then
+                ESPColor.Object.Visible = callback
+            end
+
+            if not callback then
+                if ESPColor and ESPColor.Object then
+                    ESPColor.Object.Visible = false
+                end
+            else
+                if ESPBackground and ESPBackground.Enabled then
+                    if ESPColor and ESPColor.Object then
+                        ESPColor.Object.Visible = true
+                    end
+                end
+            end
+
+            if Lucia.Enabled then
+                if callback then
+                    findExistingPinatas()
+                else
+                    Folder:ClearAllChildren()
+                    table.clear(Reference)
+                end
+            end
+        end
+    })
+
+    CandyESPToggle = Lucia:CreateToggle({
+        Name = 'Candy ESP',
+        Visible = false,
+        Tooltip = 'Shows candy amount in pinatas',
+        Function = function(callback)
+            for pinataPart in pairs(Reference) do
+                updateCandyDisplay(pinataPart)
+            end
+        end
+    })
+
+    IgnoreTeammatesESP = Lucia:CreateToggle({
+        Name = 'Ignore Teammates',
+        Visible = false,
+        Tooltip = 'Hide ESP for teammates',
+        Function = function(callback)
+            if Lucia.Enabled and LuciaESPToggle.Enabled then
+                refreshESP()
+            end
+        end
+    })
+
+    ESPBackground = Lucia:CreateToggle({
+        Name = 'Background',
+        Visible = false,
+        Function = function(callback)
+            if ESPColor and ESPColor.Object then
+                ESPColor.Object.Visible = callback
+            end
+            for _, ref in pairs(Reference) do
+                if ref.frame then
+                    ref.frame.BackgroundTransparency = 1 - (callback and ESPColor.Opacity or 0)
+                    if ref.billboard.Blur then
+                        ref.billboard.Blur.Visible = callback
+                    end
+                end
+            end
+        end
+    })
+
+    ESPColor = Lucia:CreateColorSlider({
+        Name = 'Background Color',
+        DefaultValue = 0,
+        DefaultOpacity = 0.5,
+        Visible = false,
+        Function = function(hue, sat, val, opacity)
+            ESPColor.Hue = hue
+            ESPColor.Sat = sat
+            ESPColor.Value = val
+            ESPColor.Opacity = opacity
+
+            for _, ref in pairs(Reference) do
+                if ref.frame then
+                    ref.frame.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+                    ref.frame.BackgroundTransparency = 1 - opacity
+                end
+            end
+        end,
+        Darker = true
+    })
+
+    LuciaSpyToggle = Lucia:CreateToggle({
+        Name = 'Lucia Spy',
+        Default = false,
+        Tooltip = 'Notifies when players deposit, break, or open pinatas',
+        Function = function(callback)
+            if IgnoreTeammatesSpy and IgnoreTeammatesSpy.Object then
+                IgnoreTeammatesSpy.Object.Visible = callback
+            end
+            if DisplayNameToggle and DisplayNameToggle.Object then
+                DisplayNameToggle.Object.Visible = callback
+            end
+
+            if Lucia.Enabled and callback then
+                setupLuciaSpy()
+            else
+                table.clear(trackedPinatas)
+            end
+        end
+    })
+
+    IgnoreTeammatesSpy = Lucia:CreateToggle({
+        Name = 'Ignore Teammates',
+        Default = true,
+        Visible = false
+    })
+
+    DisplayNameToggle = Lucia:CreateToggle({
+        Name = 'Display Name',
+        Default = false,
+        Visible = false,
+        Tooltip = 'Show display names instead of usernames'
+    })
+
+    task.defer(function()
+        if RangeSlider and RangeSlider.Object then RangeSlider.Object.Visible = false end
+        if DelayToggle and DelayToggle.Object then DelayToggle.Object.Visible = false end
+        if DelaySlider and DelaySlider.Object then DelaySlider.Object.Visible = false end
+        if CandyESPToggle and CandyESPToggle.Object then CandyESPToggle.Object.Visible = false end
+        if IgnoreTeammatesESP and IgnoreTeammatesESP.Object then IgnoreTeammatesESP.Object.Visible = false end
+        if ESPBackground and ESPBackground.Object then ESPBackground.Object.Visible = false end
+        if ESPColor and ESPColor.Object then ESPColor.Object.Visible = false end
+        if IgnoreTeammatesSpy and IgnoreTeammatesSpy.Object then IgnoreTeammatesSpy.Object.Visible = false end
+        if DisplayNameToggle and DisplayNameToggle.Object then DisplayNameToggle.Object.Visible = false end
+    end)
 end)
 
 run(function()
