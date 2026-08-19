@@ -21825,8 +21825,8 @@ run(function()
         end))
     end
 
-    Lucia = vape.Categories.Inventory:CreateModule({
-        Name = 'LuciaSpy',
+    Lucia = vape.Categories.Kits:CreateModule({
+        Name = 'AutoLucia',
         Function = function(callback)
             if callback then
                 if LuciaESPToggle.Enabled then
