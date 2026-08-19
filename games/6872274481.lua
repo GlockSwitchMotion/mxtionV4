@@ -11337,7 +11337,7 @@ run(function()
 	local api = vape or mainapi
 	local replicatedStorage = game:GetService('ReplicatedStorage')
 	local players = game:GetService('Players')
-	local lplr = players.LocalPlayer -- Fixed: Explicitly defined local player
+	local lplr = players.LocalPlayer
 
 	local function formatLoot(items)
 		local formatted = {}
@@ -11357,18 +11357,15 @@ run(function()
 
 		local playerName = player.DisplayName or player.Name
 		local lootSummary = formatLoot(items)
+		local notificationText = playerName..' got '..lootSummary..' from metal detector'
 
-		-- Fixed: Using dot notation instead of colon notation
-		if api and api.CreateNotification then
-			api.CreateNotification(
-				'Metal Detector',
-				playerName..' got '..lootSummary..' from metal detector',
-				6,
-				'info'
-			)
+		-- Uses your exact Vape notification structure & custom icon
+		if vape and vape.CreateNotification then
+			vape.CreateNotification("Mxtion v4", notificationText, 5, "assets/WarningNotification.png")
+		elseif api and api.CreateNotification then
+			api.CreateNotification("Mxtion v4", notificationText, 5, "assets/WarningNotification.png")
 		else
-			-- Fallback in case Vape notification structure differs
-			print('[Metal Detector] '..playerName..' got '..lootSummary)
+			print('[Mxtion v4] '..notificationText)
 		end
 	end
 
@@ -11451,7 +11448,6 @@ run(function()
 
 		if not netManaged then return end
 
-		-- Broadened keyword search for Bedwars remotes
 		for _, remote in ipairs(netManaged:GetChildren()) do
 			if remote:IsA('RemoteEvent') then
 				local name = remote.Name:lower()
