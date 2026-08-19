@@ -21332,7 +21332,7 @@ end)
 
 run(function()
 	local WhiteHits
-	WhiteHits = vape.Categories.Legit:CreateModule({
+	WhiteHits = vape.Categories.Render:CreateModule({
 		Name = "WhiteHits",
 		Function = function(callback)
 			if callback then
