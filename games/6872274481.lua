@@ -11333,15 +11333,15 @@ end)
 run(function()
 	local MetalDetectorSpy
 	local FilterSelf
-	local PendingRewards = {}
 
 	local api = vape or mainapi
 	local replicatedStorage = game:GetService('ReplicatedStorage')
 	local players = game:GetService('Players')
+	local lplr = players.LocalPlayer -- Fixed: Explicitly defined local player
 
 	local function formatLoot(items)
 		local formatted = {}
-		for itemName, amount in items do
+		for itemName, amount in pairs(items) do
 			local cleanName = tostring(itemName):gsub('_', ' '):lower()
 			if amount > 1 and not cleanName:match('s$') and cleanName ~= 'iron' then
 				cleanName = cleanName..'s'
@@ -11353,38 +11353,44 @@ run(function()
 
 	local function sendMetalDetectorAlert(player, items)
 		if not player or not items or next(items) == nil then return end
-		if FilterSelf.Enabled and player == lplr then return end
+		if FilterSelf and FilterSelf.Enabled and player == lplr then return end
 
 		local playerName = player.DisplayName or player.Name
 		local lootSummary = formatLoot(items)
 
+		-- Fixed: Using dot notation instead of colon notation
 		if api and api.CreateNotification then
-			api:CreateNotification(
+			api.CreateNotification(
 				'Metal Detector',
 				playerName..' got '..lootSummary..' from metal detector',
 				6,
 				'info'
 			)
+		else
+			-- Fallback in case Vape notification structure differs
+			print('[Metal Detector] '..playerName..' got '..lootSummary)
 		end
 	end
 
 	-- Flexible reward parser for Bedwars NetManaged remotes
-	local function parseRewardData(arg1, arg2, arg3)
+	local function parseRewardData(...)
+		local args = {...}
 		local targetPlayer = nil
 		local items = {}
 
-		local function extractFrom(val)
+		local function inspect(val)
 			if typeof(val) == 'Instance' and val:IsA('Player') then
 				targetPlayer = val
 			elseif type(val) == 'table' then
+				-- Check player references
 				if val.player and typeof(val.player) == 'Instance' and val.player:IsA('Player') then
 					targetPlayer = val.player
 				elseif val.Player and typeof(val.Player) == 'Instance' and val.Player:IsA('Player') then
 					targetPlayer = val.Player
+				elseif val.fromPlayer and typeof(val.fromPlayer) == 'Instance' and val.fromPlayer:IsA('Player') then
+					targetPlayer = val.fromPlayer
 				elseif val.userId then
 					targetPlayer = players:GetPlayerByUserId(val.userId)
-				elseif val.fromPlayer and typeof(val.fromPlayer) == 'Instance' then
-					targetPlayer = val.fromPlayer
 				end
 
 				-- Case 1: Single item {itemType = 'iron', amount = 26}
@@ -11395,7 +11401,7 @@ run(function()
 
 				-- Case 2: Array of items {{itemType = 'iron', amount = 26}, ...}
 				if type(val.items) == 'table' then
-					for _, itemData in val.items do
+					for _, itemData in pairs(val.items) do
 						if type(itemData) == 'table' and itemData.itemType then
 							local itm = tostring(itemData.itemType)
 							items[itm] = (items[itm] or 0) + (tonumber(itemData.amount) or 1)
@@ -11405,7 +11411,7 @@ run(function()
 
 				-- Case 3: Rewards table {rewards = {iron = 26, diamond = 4}}
 				if type(val.rewards) == 'table' then
-					for k, v in val.rewards do
+					for k, v in pairs(val.rewards) do
 						if type(v) == 'table' and v.itemType then
 							local itm = tostring(v.itemType)
 							items[itm] = (items[itm] or 0) + (tonumber(v.amount) or 1)
@@ -11416,22 +11422,20 @@ run(function()
 				end
 
 				-- Case 4: Key-value dictionary {iron = 26, emerald = 2}
-				for k, v in val do
-					if type(k) == 'string' and tonumber(v) and (
-						k:lower():find('iron') or 
-						k:lower():find('diamond') or 
-						k:lower():find('emerald') or 
-						k:lower():find('gold')
-					) then
-						items[k] = (items[k] or 0) + tonumber(v)
+				for k, v in pairs(val) do
+					if type(k) == 'string' and tonumber(v) then
+						local lowerKey = k:lower()
+						if lowerKey:find('iron') or lowerKey:find('diamond') or lowerKey:find('emerald') or lowerKey:find('gold') or lowerKey:find('balloon') then
+							items[k] = (items[k] or 0) + tonumber(v)
+						end
 					end
 				end
 			end
 		end
 
-		extractFrom(arg1)
-		extractFrom(arg2)
-		extractFrom(arg3)
+		for _, arg in ipairs(args) do
+			inspect(arg)
+		end
 
 		return targetPlayer, items
 	end
@@ -11447,12 +11451,13 @@ run(function()
 
 		if not netManaged then return end
 
-		for _, remote in netManaged:GetChildren() do
-			local name = remote.Name:lower()
-			if name:find('metaldetector') or name:find('treasure') or name:find('mound') then
-				if remote:IsA('RemoteEvent') then
-					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(arg1, arg2, arg3)
-						local player, items = parseRewardData(arg1, arg2, arg3)
+		-- Broadened keyword search for Bedwars remotes
+		for _, remote in ipairs(netManaged:GetChildren()) do
+			if remote:IsA('RemoteEvent') then
+				local name = remote.Name:lower()
+				if name:find('metal') or name:find('detector') or name:find('treasure') or name:find('mound') or name:find('dig') then
+					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(...)
+						local player, items = parseRewardData(...)
 						if player and items and next(items) ~= nil then
 							sendMetalDetectorAlert(player, items)
 						end
@@ -11468,15 +11473,15 @@ run(function()
 			if callback then
 				hookNetRemotes()
 
-				-- Backup listener if NetManaged loads asynchronously
+				-- Backup listener for dynamically added remotes
 				local rbxts = replicatedStorage:WaitForChild('rbxts_include', 5)
 				if rbxts then
 					MetalDetectorSpy:Clean(rbxts.DescendantAdded:Connect(function(child)
 						if child:IsA('RemoteEvent') then
 							local name = child.Name:lower()
-							if name:find('metaldetector') or name:find('treasure') or name:find('mound') then
-								MetalDetectorSpy:Clean(child.OnClientEvent:Connect(function(a1, a2, a3)
-									local player, items = parseRewardData(a1, a2, a3)
+							if name:find('metal') or name:find('detector') or name:find('treasure') or name:find('mound') or name:find('dig') then
+								MetalDetectorSpy:Clean(child.OnClientEvent:Connect(function(...)
+									local player, items = parseRewardData(...)
 									if player and items and next(items) ~= nil then
 										sendMetalDetectorAlert(player, items)
 									end
