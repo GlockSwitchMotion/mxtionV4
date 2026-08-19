@@ -21331,6 +21331,56 @@ run(function()
 end)
 
 run(function()
+    local RegentCD
+    local CD
+    local lastDash = -math.huge
+    local old = nil
+    
+    RegentCD = vape.Categories.Kits:CreateModule({
+        Name = "RegentCooldown",
+        Tooltip = "change the cooldown for the void axe",
+        Function = function(callback)
+            if callback then
+                local old = bedwars.CooldownController.isOnCooldown
+                if lastDash == nil then
+                    lastDash = -1
+                end
+                bedwars.CooldownController.isOnCooldown = function(self, id)
+                    if id == bedwars.CooldownIDS.VOID_AXE then
+                        local currentTime = tick()
+                        if lastDash < 0 or (currentTime - lastDash >= CD.Value) then
+                            lastDash = currentTime
+                            return false 
+                        else
+                            return true 
+                        end
+                    end
+                    return old(self, id)
+                end
+            else
+                if old then
+                    bedwars.CooldownController.isOnCooldown = old
+                end
+            end
+        end
+    })
+
+    CD = RegentCD:CreateSlider({
+        Name = "Cooldown",
+        Min = 0,
+        Max = 7,
+        Default = 0,
+        Decimal = 1,
+        Suffix = function(val)
+            if val == 1 then
+                return 'second'
+            end
+            return 'seconds'
+        end,
+    })
+end)
+
+run(function()
 	local Speed
 	local Value
 	local WallCheck
