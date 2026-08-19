@@ -5475,7 +5475,7 @@ end)
 run(function()
     local TeamchestESP
     local Empty
-    local HideMyTeam
+    local HideMyTeamItems
     local Color = {}
     local window, headerTitle, chestIcon
     
@@ -5559,7 +5559,7 @@ run(function()
         headerTitle.Size = UDim2.new(1, -60, 0, 26)
         headerTitle.Position = UDim2.fromOffset(48, 11)
         headerTitle.BackgroundTransparency = 1
-        headerTitle.Text = 'Enemy Team Chests'
+        headerTitle.Text = 'Enemy Chest Items'
         headerTitle.TextXAlignment = Enum.TextXAlignment.Left
         headerTitle.TextSize = 13
         headerTitle.TextColor3 = uipallet.Text
@@ -5588,7 +5588,6 @@ run(function()
         slot.UIStroke.Color = color.Light(uipallet.Main, 0.034)
     end
 
-    -- Helper to format folder names into proper labels (e.g., "Red Team Chest")
     local function formatTeamName(str)
         local cleaned = str:gsub('team_crate_', ''):gsub('team_crate', ''):gsub('chest_', ''):gsub('owner_', ''):gsub('_', ' '):gsub('^%s*(.-)%s*$', '%1')
         if cleaned == '' or cleaned:lower() == 'chest' then
@@ -5598,32 +5597,61 @@ run(function()
         return cleaned .. ' Team Chest'
     end
 
-    -- Strict check to see if a given string/folder belongs to the local player's team
-    local function isLocalPlayerTeam(folderTeamStr)
-        if not folderTeamStr then return false end
-        folderTeamStr = tostring(folderTeamStr):lower()
+    -- Resolves what team a specific player or item belongs to
+    local function getItemContributorTeam(item, folderTeam)
+        -- 1. Check direct attributes on the item instance
+        local placedBy = item:GetAttribute('PlacedBy') 
+            or item:GetAttribute('Owner') 
+            or item:GetAttribute('Creator')
+            or item:GetAttribute('Player')
+            or (item:FindFirstChild('PlacedBy') and item.PlacedBy.Value)
+            or (item:FindFirstChild('Owner') and item.Owner.Value)
 
-        -- Get local player team indicators
+        -- 2. If a player object, UserId, or player name was stored on the item, resolve their team
+        if placedBy then
+            local targetPlayer = nil
+            if typeof(placedBy) == 'Instance' and placedBy:IsA('Player') then
+                targetPlayer = placedBy
+            elseif type(placedBy) == 'number' then
+                targetPlayer = game:GetService('Players'):GetPlayerByUserId(placedBy)
+            elseif type(placedBy) == 'string' then
+                targetPlayer = game:GetService('Players'):FindFirstChild(placedBy)
+            end
+
+            if targetPlayer then
+                local pTeam = targetPlayer:GetAttribute('Team') or (targetPlayer.Team and targetPlayer.Team.Name)
+                if pTeam then return tostring(pTeam) end
+            end
+        end
+
+        -- 3. Fallback: Check item-level Team attribute or default to the chest folder's team
+        local itemTeam = item:GetAttribute('Team') or item:GetAttribute('TeamColor')
+        return itemTeam and tostring(itemTeam) or tostring(folderTeam or '')
+    end
+
+    -- Strict check comparing an item's contributor team against the local player's team
+    local function isMyTeamItem(itemContributorTeamStr)
+        if not itemContributorTeamStr or itemContributorTeamStr == '' then return false end
+        itemContributorTeamStr = tostring(itemContributorTeamStr):lower()
+
         local teamObj = lplr.Team
         local myTeamName = teamObj and teamObj.Name:lower() or ''
         local myTeamAttr = tostring(lplr:GetAttribute('Team') or ''):lower()
         local myTeamColor = teamObj and tostring(teamObj.TeamColor.Name):lower() or ''
 
-        -- Sanitize keywords for clean matching
         local sanitize = function(str)
             return str:gsub('team', ''):gsub('_', ''):gsub(' ', '')
         end
 
-        local cleanFolderStr = sanitize(folderTeamStr)
+        local cleanStr = sanitize(itemContributorTeamStr)
 
-        if myTeamName ~= '' and cleanFolderStr:find(sanitize(myTeamName)) then return true end
-        if myTeamAttr ~= '' and cleanFolderStr:find(sanitize(myTeamAttr)) then return true end
-        if myTeamColor ~= '' and cleanFolderStr:find(sanitize(myTeamColor)) then return true end
+        if myTeamName ~= '' and cleanStr:find(sanitize(myTeamName)) then return true end
+        if myTeamAttr ~= '' and cleanStr:find(sanitize(myTeamAttr)) then return true end
+        if myTeamColor ~= '' and cleanStr:find(sanitize(myTeamColor)) then return true end
 
         return false
     end
 
-    -- Scans folders and groups chest contents separately per team
     local function getTeamChestData()
         local teamChests = {}
         local repStorage = game:GetService('ReplicatedStorage')
@@ -5643,17 +5671,11 @@ run(function()
         local function scanFolder(folder, currentTeam)
             if not folder then return end
 
-            local teamName = currentTeam or folder:GetAttribute('Team') or folder.Name
-
-            -- If "Hide My Team" is on and this folder is identified as our team, skip it
-            if HideMyTeam and HideMyTeam.Enabled and isLocalPlayerTeam(teamName) then
-                return
-            end
+            local chestTeam = currentTeam or folder:GetAttribute('Team') or folder.Name
 
             for _, item in ipairs(folder:GetChildren()) do
                 if item:IsA('Folder') or item:IsA('Model') then
                     local subTeam = item:GetAttribute('Team') or item.Name
-                    -- Pass along the team name or parent folder team
                     scanFolder(item, subTeam)
                 else
                     local name = item:GetAttribute('ItemType') 
@@ -5667,25 +5689,28 @@ run(function()
                         or 1
 
                     if name ~= 'ChestOwners' and name ~= 'Owner' and name ~= 'Team' then
-                        local itemList = getTeamList(teamName)
-                        table.insert(itemList, {
-                            itemType = tostring(name),
-                            amount = tonumber(amount) or 1
-                        })
+                        -- Check contributor team per item
+                        local contributorTeam = getItemContributorTeam(item, chestTeam)
+
+                        -- Exclude item if put by our team and toggle is active
+                        if not (HideMyTeamItems and HideMyTeamItems.Enabled and isMyTeamItem(contributorTeam)) then
+                            local itemList = getTeamList(chestTeam)
+                            table.insert(itemList, {
+                                itemType = tostring(name),
+                                amount = tonumber(amount) or 1
+                            })
+                        end
                     end
                 end
             end
         end
 
-        -- 1. Scan BlockChest
         local blockChest = repStorage:FindFirstChild('BlockChest')
         if blockChest then scanFolder(blockChest) end
 
-        -- 2. Scan ChestOwners
         local chestOwners = repStorage:FindFirstChild('ChestOwners')
         if chestOwners then scanFolder(chestOwners) end
 
-        -- 3. Scan Inventories
         local inventoriesFolder = repStorage:FindFirstChild('Inventories') or repStorage:FindFirstChild('inventories')
         if inventoriesFolder then
             for _, folder in ipairs(inventoriesFolder:GetChildren()) do
@@ -5742,7 +5767,7 @@ run(function()
         end
 
         window.Visible = true
-        headerTitle.Text = (HideMyTeam and HideMyTeam.Enabled) and 'Enemy Team Chests' or 'All Team Chests'
+        headerTitle.Text = (HideMyTeamItems and HideMyTeamItems.Enabled) and 'Enemy Chest Items' or 'All Chest Items'
 
         for _, section in ipairs(dynamicSections) do
             section.header.Visible = false
@@ -5809,12 +5834,12 @@ run(function()
                 window.Visible = false
             end
         end,
-        Tooltip = 'Shows chest contents for enemy teams on separate lines'
+        Tooltip = 'Shows items in team crates while excluding items added by your team'
     })
 
-    HideMyTeam = TeamchestESP:CreateToggle({
-        Name = 'Hide My Team',
-        Tooltip = 'Hides your own team\'s chest so only enemy chests are displayed',
+    HideMyTeamItems = TeamchestESP:CreateToggle({
+        Name = 'Hide My Team Items',
+        Tooltip = 'Excludes items put into the chest by your own teammates',
         Default = true,
         Function = function()
             if TeamchestESP.Enabled then refresh() end
