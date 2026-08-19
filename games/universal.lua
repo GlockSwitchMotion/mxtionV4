@@ -8367,7 +8367,7 @@ run(function()
     local localPlayer = Players.LocalPlayer
 
     local lockedPositions = {}
-    local positionHistory = {} -- { [ent] = { {cf=CFrame, t=tick()}, ... } }
+    local positionHistory = {}
 
     local function getLocalRoot()
         local char = localPlayer.Character
@@ -8458,33 +8458,35 @@ run(function()
                             end
 
                         elseif mode == 'Desync' then
-                            -- Record real position every frame into history buffer
                             if not positionHistory[ent] then
                                 positionHistory[ent] = {}
                             end
 
                             local history = positionHistory[ent]
 
-                            -- Store current real CFrame with timestamp
+                            -- Store real CFrame every frame with timestamp
                             table.insert(history, { cf = root.CFrame, t = now })
 
-                            -- Find the oldest entry that is at least 1 second old
+                            -- Walk backwards to find most recent entry at least 1s old
                             local delayedCF = nil
-                            for i = 1, #history do
+                            local trimIndex = 0
+
+                            for i = #history, 1, -1 do
                                 if now - history[i].t >= 1 then
                                     delayedCF = history[i].cf
-                                else
-                                    -- Trim everything older than what we just used
-                                    if i > 1 then
-                                        for j = 1, i - 1 do
-                                            table.remove(history, 1)
-                                        end
-                                    end
+                                    trimIndex = i
                                     break
                                 end
                             end
 
-                            -- Apply delayed position so target appears to move but 1s behind
+                            -- Trim entries before the one we used
+                            if trimIndex > 1 then
+                                for _ = 1, trimIndex - 1 do
+                                    table.remove(history, 1)
+                                end
+                            end
+
+                            -- Apply delayed CFrame so target moves but 1s behind
                             if delayedCF then
                                 root.CFrame = delayedCF
                             end
