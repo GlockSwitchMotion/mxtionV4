@@ -21335,19 +21335,15 @@ run(function()
 				
 				if remote then
 					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(data)
-						-- Only process BillboardRiseEffect data — must have position (bounty rewards never do)
-						if type(data) ~= 'table' then return end
-						if not data.itemType or not data.position then return end
-						-- Extra guard: if it has 'amount' it's a bounty reward, not a metal find
-						if data.amount then return end
+						if type(data) ~= 'table' or not data.itemType or not data.position then return end
 						
 						local item = tostring(data.itemType):lower()
 						if not validItems[item] then return end
 						
 						local pos = data.position
 						
-						local posKey   = math.floor(pos.X / 15) .. "_" .. math.floor(pos.Y / 15) .. "_" .. math.floor(pos.Z / 15)
-						local cacheKey = item .. "_" .. posKey
+						local posKey   = math.floor(pos.X / 15) .. '_' .. math.floor(pos.Y / 15) .. '_' .. math.floor(pos.Z / 15)
+						local cacheKey = item .. '_' .. posKey
 						
 						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then return end
 						debounceCache[cacheKey] = tick()
@@ -21366,7 +21362,7 @@ run(function()
 						end
 						
 						local isLocalPlayer = false
-						if entitylib.isAlive and entitylib.character.RootPart then
+						if entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
 							local dist = (entitylib.character.RootPart.Position - pos).Magnitude
 							if dist < closestDist then
 								isLocalPlayer = true
@@ -21374,12 +21370,17 @@ run(function()
 						end
 						
 						if isLocalPlayer then return end
+						if not closestPlayer or not closestPlayer.Player then return end
 						
-						if closestPlayer and closestPlayer.Player then
-							local playerName    = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
-							local formattedItem = item:gsub("^%l", string.upper)
-							notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
-						end
+						-- Skip BountyHunter kit players — their rewards come through this same remote
+						local kit = closestPlayer.Player:GetAttribute('Kit')
+							or closestPlayer.Player:GetAttribute('SelectedKit')
+							or closestPlayer.Player:GetAttribute('PlayerKit')
+						if kit and tostring(kit):lower():find('bounty') then return end
+						
+						local playerName    = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+						local formattedItem = item:gsub('^%l', string.upper)
+						notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
 					end))
 				else
 					if MetalDetectorSpy.Enabled then
@@ -21400,68 +21401,80 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local remote = nil
+				-- BountyHunter rewards come through BillboardRiseEffect (same as MetalDetector)
 				pcall(function()
-					remote = replicatedStorage.zbxts_include.node_modules["@zbxts"].net.out._NetManaged.BountyHunterRewardClaimed
+					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BillboardRiseEffect
 				end)
+
+				local validItems = {
+					iron = true,
+					diamond = true,
+					emerald = true,
+					gold = true
+				}
 
 				if remote then
 					local debounceCache = {}
 
 					BountyHunterSpy:Clean(remote.OnClientEvent:Connect(function(data)
-						-- Only process BountyHunterRewardClaimed data — must have amount (metal finds never do)
-						if type(data) ~= 'table' then return end
-						if not data.itemType or not data.amount then return end
-						-- Extra guard: if it has 'position' it's a BillboardRiseEffect, not a bounty reward
-						if data.position then return end
+						if type(data) ~= 'table' or not data.itemType or not data.position then return end
 
-						local item   = tostring(data.itemType):lower()
-						local amount = tonumber(data.amount) or 1
+						local item = tostring(data.itemType):lower()
+						if not validItems[item] then return end
 
-						local cacheKey = item
+						local pos = data.position
+
+						local posKey   = math.floor(pos.X / 15) .. '_' .. math.floor(pos.Y / 15) .. '_' .. math.floor(pos.Z / 15)
+						local cacheKey = item .. '_' .. posKey
+
 						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then return end
 						debounceCache[cacheKey] = tick()
 
-						-- Find the nearest visible BountyHunter kit player to attribute the reward
+						-- Find the nearest player to the drop position
 						local closestPlayer = nil
-						local closestDist   = math.huge
+						local closestDist   = 25
 
 						for _, ent in entitylib.List do
-							if ent and ent.Player and ent.RootPart then
-								local kit = ent.Player:GetAttribute("Kit")
-									or ent.Player:GetAttribute("SelectedKit")
-									or ent.Player:GetAttribute("PlayerKit")
-								if kit and tostring(kit):lower():find("bounty") then
-									local char = ent.Player.Character
-									if char and char:FindFirstChild("HumanoidRootPart") then
-										local lrp  = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
-										local dist = lrp and (char.HumanoidRootPart.Position - lrp.Position).Magnitude or math.huge
-										local _, onScreen = workspace.CurrentCamera:WorldToViewportPoint(char.HumanoidRootPart.Position)
-										if onScreen and dist < closestDist then
-											closestDist   = dist
-											closestPlayer = ent
-										end
-									end
+							if ent and ent.RootPart then
+								local dist = (ent.RootPart.Position - pos).Magnitude
+								if dist < closestDist then
+									closestDist   = dist
+									closestPlayer = ent
 								end
 							end
 						end
 
-						local formattedItem = item:gsub("^%l", string.upper)
-
-						if closestPlayer and closestPlayer.Player then
-							local name = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
-							notif('BountyHunterSpy', ('%s (BountyHunter) claimed %dx %s!'):format(name, amount, formattedItem), 5, 'info')
-						else
-							notif('BountyHunterSpy', ('A BountyHunter claimed %dx %s!'):format(amount, formattedItem), 5, 'info')
+						-- Check local player too
+						local isLocalPlayer = false
+						if entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
+							local dist = (entitylib.character.RootPart.Position - pos).Magnitude
+							if dist < closestDist then
+								isLocalPlayer = true
+								closestDist   = dist
+							end
 						end
+
+						if isLocalPlayer then return end
+						if not closestPlayer or not closestPlayer.Player then return end
+
+						-- ONLY fire if the nearest player is a BountyHunter
+						local kit = closestPlayer.Player:GetAttribute('Kit')
+							or closestPlayer.Player:GetAttribute('SelectedKit')
+							or closestPlayer.Player:GetAttribute('PlayerKit')
+						if not kit or not tostring(kit):lower():find('bounty') then return end
+
+						local name          = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+						local formattedItem = item:gsub('^%l', string.upper)
+						notif('BountyHunterSpy', ('{name} (BountyHunter) found {formattedItem}!'):gsub('{name}', name):gsub('{formattedItem}', formattedItem), 5, 'info')
 					end))
 				else
 					if BountyHunterSpy.Enabled then
-						notif('BountyHunterSpy', 'Could not find the BountyHunterRewardClaimed remote.', 5, 'warning')
+						notif('BountyHunterSpy', 'Could not find the BillboardRiseEffect remote.', 5, 'warning')
 					end
 				end
 			end
 		end,
-		Tooltip = 'Notifies you when a BountyHunter player claims iron, gold, or other rewards'
+		Tooltip = 'Notifies you when a BountyHunter player earns loot rewards'
 	})
 end)
 
