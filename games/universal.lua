@@ -8370,6 +8370,18 @@ run(function()
         return ent.Player and ent.Player.Character
     end
 
+    -- Robust player lookup: matches display name OR username, case insensitive
+    local function findPlayerByName(name)
+        if name == "" then return nil end
+        local lower = name:lower()
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p.Name:lower() == lower or p.DisplayName:lower() == lower then
+                return p
+            end
+        end
+        return nil
+    end
+
     local function createKAClone(ent)
         local root = ent.RootPart
         local char = getChar(ent)
@@ -8469,10 +8481,18 @@ run(function()
             if callback then
                 FalseBan:Clean(runService.RenderStepped:Connect(function(dt)
                     local targets = {}
+
+                    -- Robust lookup: match by username OR display name
                     for _, name in ipairs(TargetList.ListEnabled) do
+                        local matchedPlayer = findPlayerByName(name)
                         for _, ent in ipairs(entitylib.List) do
-                            if ent.Player and ent.Player.Name == name and ent.RootPart then
-                                table.insert(targets, ent)
+                            if ent.Player and ent.RootPart then
+                                -- Match via our robust lookup or direct name fallback
+                                if ent.Player == matchedPlayer or
+                                   ent.Player.Name:lower() == name:lower() or
+                                   ent.Player.DisplayName:lower() == name:lower() then
+                                    table.insert(targets, ent)
+                                end
                             end
                         end
                     end
@@ -8604,7 +8624,7 @@ run(function()
 
     TargetList = FalseBan:CreateTextList({
         Name = 'Target Players',
-        Placeholder = 'username',
+        Placeholder = 'username or displayname',
     })
 
     HackMode = FalseBan:CreateDropdown({
