@@ -11246,6 +11246,7 @@ run(function()
 	})
 	UIToggle = AutoBank:CreateToggle({Name = 'Display resources', Default = true})
 end)
+
 run(function()
 	local AutoBankAlert
 	local FilterSelf
@@ -11256,11 +11257,11 @@ run(function()
 	local replicatedStorage = game:GetService('ReplicatedStorage')
 	local lplr = players.LocalPlayer
 
-	local lastLocalChestCounts = { emerald = 0, diamond = 0 }
+	-- Cache local inventory state to track item deposits
+	local lastResourceCount = { emerald = 0, diamond = 0 }
 
-	local function sendBankNotification(player, actionType, itemsSummary)
+	local function sendBankNotification(player, itemsSummary)
 		if not itemsSummary or #itemsSummary == 0 then return end
-		-- Respect FilterSelf if enabled
 		if FilterSelf and FilterSelf.Enabled and player == lplr then return end
 
 		local playerName = (player and (player.DisplayName or player.Name)) or "A player"
@@ -11268,9 +11269,9 @@ run(function()
 			playerName = "You"
 		end
 
-		local text = playerName .. ' ' .. actionType .. ' ' .. table.concat(itemsSummary, ', ')
+		local text = playerName .. ' deposited ' .. table.concat(itemsSummary, ', ') .. ' into bank'
 
-		-- Sends the Vape Notification
+		-- Requested notification format
 		if vape and vape.CreateNotification then
 			vape.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
 		elseif api and api.CreateNotification then
@@ -11280,7 +11281,30 @@ run(function()
 		end
 	end
 
-	-- Universal table reader to extract Emeralds & Diamonds from Bank/Chest network events
+	-- Counts local Diamonds and Emeralds in character + backpack
+	local function getResourceCount(player)
+		local count = { emerald = 0, diamond = 0 }
+		if not player then return count end
+
+		local containers = { player:FindFirstChild("Backpack"), player.Character }
+		for _, container in ipairs(containers) do
+			if container then
+				for _, item in ipairs(container:GetChildren()) do
+					local name = item.Name:lower()
+					local amt = item:GetAttribute("Amount") or item:GetAttribute("StackSize") or item.StackSize or 1
+					
+					if name:find("emerald") then
+						count.emerald = count.emerald + amt
+					elseif name:find("diamond") then
+						count.diamond = count.diamond + amt
+					end
+				end
+			end
+		end
+		return count
+	end
+
+	-- Parser for remote events if Bedwars fires server-side chest responses
 	local function parseBankData(...)
 		local args = {...}
 		local targetPlayer = nil
@@ -11290,7 +11314,6 @@ run(function()
 			if typeof(val) == 'Instance' and val:IsA('Player') then
 				targetPlayer = val
 			elseif type(val) == 'table' then
-				-- Extract player reference
 				if val.player and typeof(val.player) == 'Instance' and val.player:IsA('Player') then
 					targetPlayer = val.player
 				elseif val.fromPlayer and typeof(val.fromPlayer) == 'Instance' and val.fromPlayer:IsA('Player') then
@@ -11299,7 +11322,6 @@ run(function()
 					targetPlayer = players:GetPlayerByUserId(val.userId)
 				end
 
-				-- Direct item checks
 				local itemType = val.itemType or val.item or val.name
 				local amount = tonumber(val.amount or val.count or val.quantity or 1) or 1
 
@@ -11312,7 +11334,6 @@ run(function()
 					end
 				end
 
-				-- Table dictionary checks { emerald = 4, diamond = 2 }
 				for k, v in pairs(val) do
 					if type(k) == 'string' and tonumber(v) then
 						local lowerKey = k:lower()
@@ -11333,7 +11354,37 @@ run(function()
 		return targetPlayer, items
 	end
 
-	-- Listen to network events related to chest deposits or bank transactions
+	-- Background monitoring loop for inventory decreases (deposits)
+	local function startDepositTracker()
+		AutoBankAlert:Clean(task.spawn(function()
+			lastResourceCount = getResourceCount(lplr)
+
+			while task.wait(0.3) do
+				local currentCount = getResourceCount(lplr)
+				local minThreshold = AlertThreshold and AlertThreshold.Value or 1
+
+				-- Detect drop in resources (meaning item was placed in chest / bank)
+				local emDeposited = lastResourceCount.emerald - currentCount.emerald
+				local diaDeposited = lastResourceCount.diamond - currentCount.diamond
+
+				local itemsSummary = {}
+				if emDeposited >= minThreshold then
+					table.insert(itemsSummary, emDeposited .. (emDeposited > 1 and " Emeralds" or " Emerald"))
+				end
+				if diaDeposited >= minThreshold then
+					table.insert(itemsSummary, diaDeposited .. (diaDeposited > 1 and " Diamonds" or " Diamond"))
+				end
+
+				if #itemsSummary > 0 then
+					sendBankNotification(lplr, itemsSummary)
+				end
+
+				lastResourceCount = currentCount
+			end
+		end))
+	end
+
+	-- Hook NetManaged remotes as secondary fallback
 	local function hookBankRemotes()
 		local netManaged = replicatedStorage:FindFirstChild('rbxts_include')
 			and replicatedStorage.rbxts_include:FindFirstChild('node_modules')
@@ -11347,24 +11398,23 @@ run(function()
 		for _, remote in ipairs(netManaged:GetChildren()) do
 			if remote:IsA('RemoteEvent') then
 				local name = remote.Name:lower()
-				-- Catch Bank, Deposit, Chest, and PersonalChest remotes
 				if name:find('chest') or name:find('bank') or name:find('deposit') or name:find('store') then
 					AutoBankAlert:Clean(remote.OnClientEvent:Connect(function(...)
 						local player, items = parseBankData(...)
-						player = player or lplr -- Fallback to local player if self-triggered remote omits player arg
+						player = player or lplr
 						
-						local gains = {}
 						local minAmt = AlertThreshold and AlertThreshold.Value or 1
+						local itemsSummary = {}
 
 						if items.emerald >= minAmt then
-							table.insert(gains, items.emerald .. (items.emerald > 1 and " Emeralds" or " Emerald"))
+							table.insert(itemsSummary, items.emerald .. (items.emerald > 1 and " Emeralds" or " Emerald"))
 						end
 						if items.diamond >= minAmt then
-							table.insert(gains, items.diamond .. (items.diamond > 1 and " Diamonds" or " Diamond"))
+							table.insert(itemsSummary, items.diamond .. (items.diamond > 1 and " Diamonds" or " Diamond"))
 						end
 
-						if #gains > 0 then
-							sendBankNotification(player, "deposited into bank:", gains)
+						if #itemsSummary > 0 then
+							sendBankNotification(player, itemsSummary)
 						end
 					end))
 				end
@@ -11372,19 +11422,23 @@ run(function()
 		end
 	end
 
-	AutoBankAlert = api.Categories.Inventory:CreateModule({
+	-- Register module under the Inventory Category
+	local category = (api and api.Categories and api.Categories.Inventory) or (api and api.Categories and api.Categories.Utility)
+
+	AutoBankAlert = category:CreateModule({
 		Name = 'AutoBankAlert',
 		Function = function(callback)
 			if callback then
+				startDepositTracker()
 				hookBankRemotes()
 			end
 		end,
-		Tooltip = 'Alerts you when players (including yourself) deposit Emeralds or Diamonds'
+		Tooltip = 'Notifies you when Emeralds or Diamonds are deposited into a chest or bank'
 	})
 
 	FilterSelf = AutoBankAlert:CreateToggle({
 		Name = 'Ignore Self',
-		Default = false, -- Set to FALSE so your own deposits trigger notifications
+		Default = false,
 		Tooltip = 'Do not send notifications when you deposit items yourself'
 	})
 
