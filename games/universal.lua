@@ -8356,13 +8356,104 @@ run(function()
 end)
 
 run(function()
+
     local FalseBan
     local TargetList
     local HackMode
     local SpeedValue
     local RadiusValue
-    
+
     local lockedPositions = {}
+    local cloneData = {}
+
+    local function createKAClone(ent)
+        local root = ent.RootPart
+        local char = ent.Character
+        if not char or not root then return nil end
+
+        local clone = char:Clone()
+        clone.Name = "KA_Clone_" .. ent.Player.Name
+        clone.Parent = workspace
+
+        -- Strip all scripts so clone is purely cosmetic
+        for _, v in ipairs(clone:GetDescendants()) do
+            if v:IsA("Script") or v:IsA("LocalScript") then
+                v:Destroy()
+            end
+        end
+
+        -- Disable all query/touch/shadow on clone parts
+        -- so NO hits register on clone at all
+        for _, v in ipairs(clone:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanQuery = false
+                v.CanTouch = false
+                v.CanCollide = false
+                v.CastShadow = false
+            end
+        end
+
+        -- Position clone 9 studs behind real target
+        clone:SetPrimaryPartCFrame(
+            root.CFrame * CFrame.new(0, 0, 9)
+        )
+
+        -- Build Motor6D weld map original -> clone for animation mirroring
+        local weldMap = {}
+        for _, m in ipairs(char:GetDescendants()) do
+            if m:IsA("Motor6D") then
+                for _, cm in ipairs(clone:GetDescendants()) do
+                    if cm:IsA("Motor6D") and cm.Name == m.Name then
+                        weldMap[m] = cm
+                        break
+                    end
+                end
+            end
+        end
+
+        return {
+            clone = clone,
+            weldMap = weldMap
+        }
+    end
+
+    local function removeKAClone(ent)
+        local data = cloneData[ent]
+        if not data then return end
+        if data.clone and data.clone.Parent then
+            data.clone:Destroy()
+        end
+        cloneData[ent] = nil
+    end
+
+    local function cleanAllClones()
+        for ent in pairs(cloneData) do
+            removeKAClone(ent)
+        end
+    end
+
+    local function setCharVisibility(char, visible)
+        if not char then return end
+        local mod = visible and 0 or 1
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") or v:IsA("MeshPart") then
+                v.LocalTransparencyModifier = mod
+            end
+        end
+    end
+
+    local function restoreChar(char)
+        if not char then return end
+        setCharVisibility(char, true)
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanQuery = true
+                v.CanTouch = true
+                v.CanCollide = true
+                v.Massless = false
+            end
+        end
+    end
 
     FalseBan = vape.Categories.Blatant:CreateModule({
         Name = 'FalseBan',
@@ -8377,97 +8468,147 @@ run(function()
                             end
                         end
                     end
-                    
+
+                    local mode = HackMode.Value
+
+                    -- Cleanup clones for targets no longer in list or mode switched away from KA
+                    for ent in pairs(cloneData) do
+                        local stillTargeted = false
+                        for _, t in ipairs(targets) do
+                            if t == ent then
+                                stillTargeted = true
+                                break
+                            end
+                        end
+                        if not stillTargeted or mode ~= 'KA' then
+                            restoreChar(ent.Character)
+                            removeKAClone(ent)
+                        end
+                    end
+
                     for _, ent in ipairs(targets) do
                         local root = ent.RootPart
                         local hum = ent.Humanoid
-                        if root and hum and hum.Health > 0 then
-                            local mode = HackMode.Value
+                        if not (root and hum and hum.Health > 0) then continue end
 
-                            if mode == 'AutoDodge' then
-                                -- Cycles up and down every 0.2 seconds
-                                local cycle = (tick() % 0.4) < 0.2 and 1 or -1
-                                root.CFrame = root.CFrame + Vector3.new(0, cycle * SpeedValue.Value * dt, 0)
+                        if mode == 'AutoDodge' then
+                            -- Additive vertical cycle, target free to move normally
+                            local cycle = (tick() % 0.4) < 0.2 and 1 or -1
+                            root.CFrame = root.CFrame + Vector3.new(0, cycle * SpeedValue.Value * dt, 0)
 
-                            elseif mode == 'PlayerAttach' then
-                                -- Attaches target directly behind your character's root part
-                                if entitylib.isAlive and entitylib.character.RootPart then
-                                    local myRoot = entitylib.character.RootPart
-                                    root.CFrame = myRoot.CFrame * CFrame.new(0, 0, 3)
-                                end
+                        elseif mode == 'PlayerAttach' then
+                            if entitylib.isAlive and entitylib.character.RootPart then
+                                local myRoot = entitylib.character.RootPart
+                                root.CFrame = myRoot.CFrame * CFrame.new(0, 0, 3)
+                            end
 
-                            elseif mode == 'Orbit' then
-                                if entitylib.isAlive and entitylib.character.RootPart then
-                                    local myPos = entitylib.character.RootPart.Position
-                                    local angle = tick() * (SpeedValue.Value / 20)
-                                    local offset = CFrame.new(math.cos(angle) * RadiusValue.Value, 5, math.sin(angle) * RadiusValue.Value)
-                                    root.CFrame = CFrame.new(myPos) * offset
-                                end
-
-                            elseif mode == 'Shake' then
-                                local shake = Vector3.new(
-                                    (math.random() - 0.5) * SpeedValue.Value,
-                                    (math.random() - 0.5) * SpeedValue.Value,
-                                    (math.random() - 0.5) * SpeedValue.Value
+                        elseif mode == 'Orbit' then
+                            if entitylib.isAlive and entitylib.character.RootPart then
+                                local myPos = entitylib.character.RootPart.Position
+                                local angle = tick() * (SpeedValue.Value / 20)
+                                local offset = CFrame.new(
+                                    math.cos(angle) * RadiusValue.Value,
+                                    5,
+                                    math.sin(angle) * RadiusValue.Value
                                 )
-                                root.CFrame = root.CFrame + shake * dt
+                                root.CFrame = CFrame.new(myPos) * offset
+                            end
 
-                            elseif mode == 'PushAway' then
-                                if entitylib.isAlive and entitylib.character.RootPart then
-                                    local dir = (root.Position - entitylib.character.RootPart.Position).Unit
-                                    root.CFrame = root.CFrame + (dir * SpeedValue.Value * dt)
-                                end
+                        elseif mode == 'Shake' then
+                            local shake = Vector3.new(
+                                (math.random() - 0.5) * SpeedValue.Value,
+                                (math.random() - 0.5) * SpeedValue.Value,
+                                (math.random() - 0.5) * SpeedValue.Value
+                            )
+                            root.CFrame = root.CFrame + shake * dt
 
-                            elseif mode == 'Desync' then
-                                -- Locks target to their current position so they don't drift away continuously
-                                if not lockedPositions[ent] then
-                                    lockedPositions[ent] = root.Position
+                        elseif mode == 'PushAway' then
+                            if entitylib.isAlive and entitylib.character.RootPart then
+                                local dir = (root.Position - entitylib.character.RootPart.Position).Unit
+                                root.CFrame = root.CFrame + (dir * SpeedValue.Value * dt)
+                            end
+
+                        elseif mode == 'Desync' then
+                            -- Capture full CFrame once, re-assert every frame = completely frozen
+                            if not lockedPositions[ent] then
+                                lockedPositions[ent] = root.CFrame
+                            end
+                            root.CFrame = lockedPositions[ent]
+
+                        elseif mode == 'KA' then
+                            local char = ent.Character
+                            if not char then continue end
+
+                            -- Build clone on first activation
+                            if not cloneData[ent] then
+                                cloneData[ent] = createKAClone(ent)
+                                setCharVisibility(char, false)
+                            end
+
+                            local data = cloneData[ent]
+                            if not data then continue end
+                            local clone = data.clone
+
+                            -- Guard: re-hide real char every frame in case game resets transparency
+                            setCharVisibility(char, false)
+
+                            -- Sync clone position 9 studs behind real root every frame
+                            clone:SetPrimaryPartCFrame(
+                                root.CFrame * CFrame.new(0, 0, 9)
+                            )
+
+                            -- Mirror all Motor6D transforms so animations are 1:1
+                            for origMotor, cloneMotor in pairs(data.weldMap) do
+                                cloneMotor.C0 = origMotor.C0
+                                cloneMotor.C1 = origMotor.C1
+                                cloneMotor.Transform = origMotor.Transform
+                            end
+
+                            -- Re-assert clone parts are unhittable every frame
+                            -- in case Roblox resets these properties
+                            for _, v in ipairs(clone:GetDescendants()) do
+                                if v:IsA("BasePart") then
+                                    v.CanQuery = false
+                                    v.CanTouch = false
+                                    v.CanCollide = false
                                 end
-                                
-                                local desyncTime = tick() * (SpeedValue.Value / 5)
-                                local desyncOffset = Vector3.new(
-                                    math.sin(desyncTime) * (RadiusValue.Value / 4),
-                                    math.cos(desyncTime * 2) * 1.5,
-                                    math.cos(desyncTime) * (RadiusValue.Value / 4)
-                                )
-                                local desyncAngle = CFrame.Angles(
-                                    math.rad(math.sin(desyncTime * 3) * 45),
-                                    math.rad(tick() * 360 % 360),
-                                    math.rad(math.cos(desyncTime * 3) * 45)
-                                )
-                                
-                                -- Anchors position relative to fixed locked CFrame
-                                root.CFrame = (CFrame.new(lockedPositions[ent]) + desyncOffset) * desyncAngle
                             end
                         end
                     end
                 end))
             else
+                -- Module disabled: full cleanup
                 table.clear(lockedPositions)
+                cleanAllClones()
+                for _, ent in ipairs(entitylib.List) do
+                    if ent.Character then
+                        restoreChar(ent.Character)
+                    end
+                end
             end
         end,
         Tooltip = 'client sided'
     })
-    
+
     TargetList = FalseBan:CreateTextList({
         Name = 'Target Players',
         Placeholder = 'username',
     })
-    
+
     HackMode = FalseBan:CreateDropdown({
         Name = 'Hack Mode',
-        List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync'},
+        List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'KA'},
         Default = 'AutoDodge',
-        Tooltip = 'AutoDodge: 0.2s Up/Down cycle | PlayerAttach: Behind you | Orbit: Circle around | Shake: Jitter | PushAway: Repel | Desync: Fixed station desync'
+        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | KA: Clone decoy, unhittable clone, invisible real target'
     })
-    
+
     SpeedValue = FalseBan:CreateSlider({
         Name = 'Speed',
         Min = 1,
         Max = 200,
         Default = 50,
     })
-    
+
     RadiusValue = FalseBan:CreateSlider({
         Name = 'Orbit/Desync Radius',
         Min = 5,
