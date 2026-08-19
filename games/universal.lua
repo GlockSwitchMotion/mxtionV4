@@ -8363,17 +8363,26 @@ run(function()
     local SpeedValue
     local RadiusValue
 
+    local Players = game:GetService("Players")
+    local localPlayer = Players.LocalPlayer
+
     local lockedPositions = {}
     local cloneData = {}
+
+    local function getLocalRoot()
+        local char = localPlayer.Character
+        if not char then return nil end
+        return char:FindFirstChild("HumanoidRootPart")
+    end
 
     local function getChar(ent)
         return ent.Player and ent.Player.Character
     end
 
     local function findPlayerByName(name)
-        if name == "" then return nil end
+        if not name or name == "" then return nil end
         local lower = name:lower()
-        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        for _, p in ipairs(Players:GetPlayers()) do
             if p.Name:lower() == lower or p.DisplayName:lower() == lower then
                 return p
             end
@@ -8382,27 +8391,32 @@ run(function()
     end
 
     local function createKAClone(ent)
+        local myRoot = getLocalRoot()
+        if not myRoot then return nil end
+
         local root = ent.RootPart
         local char = getChar(ent)
         if not char or not root then return nil end
-        if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
 
+        -- Clone the character
         local clone = char:Clone()
         clone.Name = "KA_Clone_" .. ent.Player.Name
         clone.Parent = workspace
 
+        -- Strip scripts and animation controllers
         for _, v in ipairs(clone:GetDescendants()) do
             if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("AnimationController") then
                 v:Destroy()
             end
         end
 
+        -- Disable humanoid
         local cloneHum = clone:FindFirstChildOfClass("Humanoid")
         if cloneHum then
             cloneHum.PlatformStand = true
-            cloneHum:SetStateEnabled(Enum.HumanoidStateType.None, true)
         end
 
+        -- Make all parts anchored and unhittable
         for _, v in ipairs(clone:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.CanQuery = false
@@ -8413,14 +8427,13 @@ run(function()
             end
         end
 
-        -- Place clone behind YOUR character at creation
+        -- Place behind local player using pure Roblox API
         local primaryPart = clone:FindFirstChild("HumanoidRootPart")
         if primaryPart then
-            clone:SetPrimaryPartCFrame(
-                entitylib.character.RootPart.CFrame * CFrame.new(0, 0, 6)
-            )
+            clone:SetPrimaryPartCFrame(myRoot.CFrame * CFrame.new(0, 0, 6))
         end
 
+        -- Build Motor6D weld map
         local weldMap = {}
         for _, m in ipairs(char:GetDescendants()) do
             if m:IsA("Motor6D") and m.Part0 and m.Part1 then
@@ -8483,15 +8496,16 @@ run(function()
         Function = function(callback)
             if callback then
                 FalseBan:Clean(runService.RenderStepped:Connect(function(dt)
-                    local targets = {}
 
+                    -- Build target list
+                    local targets = {}
                     for _, name in ipairs(TargetList.ListEnabled) do
                         local matchedPlayer = findPlayerByName(name)
                         for _, ent in ipairs(entitylib.List) do
                             if ent.Player and ent.RootPart then
-                                if ent.Player == matchedPlayer or
-                                   ent.Player.Name:lower() == name:lower() or
-                                   ent.Player.DisplayName:lower() == name:lower() then
+                                if ent.Player == matchedPlayer
+                                or ent.Player.Name:lower() == name:lower()
+                                or ent.Player.DisplayName:lower() == name:lower() then
                                     table.insert(targets, ent)
                                 end
                             end
@@ -8500,13 +8514,11 @@ run(function()
 
                     local mode = HackMode.Value
 
+                    -- Cleanup stale clones
                     for ent in pairs(cloneData) do
                         local stillTargeted = false
                         for _, t in ipairs(targets) do
-                            if t == ent then
-                                stillTargeted = true
-                                break
-                            end
+                            if t == ent then stillTargeted = true break end
                         end
                         if not stillTargeted or mode ~= 'KA' then
                             restoreChar(getChar(ent))
@@ -8530,21 +8542,21 @@ run(function()
                             ) * (currentCF - currentCF.Position)
 
                         elseif mode == 'PlayerAttach' then
-                            if entitylib.isAlive and entitylib.character.RootPart then
-                                local myRoot = entitylib.character.RootPart
+                            local myRoot = getLocalRoot()
+                            if myRoot then
                                 root.CFrame = myRoot.CFrame * CFrame.new(0, 0, 3)
                             end
 
                         elseif mode == 'Orbit' then
-                            if entitylib.isAlive and entitylib.character.RootPart then
-                                local myPos = entitylib.character.RootPart.Position
+                            local myRoot = getLocalRoot()
+                            if myRoot then
+                                local myPos = myRoot.Position
                                 local angle = tick() * (SpeedValue.Value / 20)
-                                local offset = CFrame.new(
-                                    math.cos(angle) * RadiusValue.Value,
-                                    5,
-                                    math.sin(angle) * RadiusValue.Value
+                                root.CFrame = CFrame.new(
+                                    myPos.X + math.cos(angle) * RadiusValue.Value,
+                                    myPos.Y + 5,
+                                    myPos.Z + math.sin(angle) * RadiusValue.Value
                                 )
-                                root.CFrame = CFrame.new(myPos) * offset
                             end
 
                         elseif mode == 'Shake' then
@@ -8556,8 +8568,9 @@ run(function()
                             root.CFrame = root.CFrame + shake * dt
 
                         elseif mode == 'PushAway' then
-                            if entitylib.isAlive and entitylib.character.RootPart then
-                                local dir = (root.Position - entitylib.character.RootPart.Position).Unit
+                            local myRoot = getLocalRoot()
+                            if myRoot then
+                                local dir = (root.Position - myRoot.Position).Unit
                                 root.CFrame = root.CFrame + (dir * SpeedValue.Value * dt)
                             end
 
@@ -8570,11 +8583,15 @@ run(function()
                         elseif mode == 'KA' then
                             local char = getChar(ent)
                             if not char then continue end
-                            if not entitylib.isAlive or not entitylib.character.RootPart then continue end
 
+                            local myRoot = getLocalRoot()
+                            if not myRoot then continue end
+
+                            -- Build clone if not yet built
                             if not cloneData[ent] then
-                                cloneData[ent] = createKAClone(ent)
-                                if cloneData[ent] then
+                                local built = createKAClone(ent)
+                                if built then
+                                    cloneData[ent] = built
                                     setCharVisibility(char, false)
                                 end
                             end
@@ -8584,26 +8601,30 @@ run(function()
 
                             local clone = data.clone
                             if not clone or not clone.Parent then
+                                -- Clone lost, restore and retry next frame
+                                restoreChar(char)
                                 cloneData[ent] = nil
                                 continue
                             end
 
+                            -- Keep real target invisible every frame
                             setCharVisibility(char, false)
 
-                            -- Track clone to YOUR position + 6 studs behind you
+                            -- Track clone to 6 studs behind local player
                             if data.primaryPart then
                                 clone:SetPrimaryPartCFrame(
-                                    entitylib.character.RootPart.CFrame * CFrame.new(0, 0, 6)
+                                    myRoot.CFrame * CFrame.new(0, 0, 6)
                                 )
                             end
 
-                            -- Mirror target animations onto clone
+                            -- Mirror animations from real target onto clone
                             for origMotor, cloneMotor in pairs(data.weldMap) do
                                 if origMotor and origMotor.Parent and cloneMotor and cloneMotor.Parent then
                                     cloneMotor.Transform = origMotor.Transform
                                 end
                             end
 
+                            -- Re-assert unhittable every frame
                             for _, v in ipairs(clone:GetDescendants()) do
                                 if v:IsA("BasePart") then
                                     v.CanQuery = false
