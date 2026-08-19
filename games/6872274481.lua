@@ -21345,11 +21345,9 @@ run(function()
 						local pos = data.position
 						
 						-- 2. Anti-Lag & Anti-Spam Cache
-						-- Groups drops that happen in the same ~15 stud area so we don't calculate distance 50 times
 						local posKey = math.floor(pos.X / 15) .. "_" .. math.floor(pos.Y / 15) .. "_" .. math.floor(pos.Z / 15)
 						local cacheKey = item .. "_" .. posKey
 						
-						-- If we already processed this item in this area in the last 1.5 seconds, ignore it
 						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then
 							return 
 						end
@@ -21380,6 +21378,16 @@ run(function()
 						
 						if isLocalPlayer then
 							return
+						end
+						
+						-- 4. Skip if the closest player is a BountyHunter — that's their reward, not a metal find
+						if closestPlayer and closestPlayer.Player then
+							local kit = closestPlayer.Player:GetAttribute("Kit")
+								or closestPlayer.Player:GetAttribute("SelectedKit")
+								or closestPlayer.Player:GetAttribute("PlayerKit")
+							if kit and tostring(kit):lower():find("bounty") then
+								return
+							end
 						end
 						
 						if closestPlayer and closestPlayer.Player then
