@@ -11333,43 +11333,61 @@ end)
 run(function()
 	local MetalDetectorSpy
 	local FilterSelf
+	local DebugMode
 
 	local api = vape or mainapi
 	local replicatedStorage = game:GetService('ReplicatedStorage')
 	local players = game:GetService('Players')
 	local lplr = players.LocalPlayer
 
+	-- Format raw item dictionary into human-readable text
+	-- Example input: {iron = 35, emerald = 2, diamond = 1}
+	-- Output: "35 iron, 1 diamond, 2 emeralds"
 	local function formatLoot(items)
 		local formatted = {}
 		for itemName, amount in pairs(items) do
-			local cleanName = tostring(itemName):gsub('_', ' '):lower()
-			if amount > 1 and not cleanName:match('s$') and cleanName ~= 'iron' then
-				cleanName = cleanName..'s'
+			if tonumber(amount) and tonumber(amount) > 0 then
+				local cleanName = tostring(itemName):gsub('_', ' '):lower()
+				-- Capitalize first letter of each word
+				cleanName = cleanName:gsub("(%a)([%w_']*)", function(first, rest)
+					return first:upper() .. rest:lower()
+				end)
+				
+				-- Handle pluralization for items > 1
+				if amount > 1 and not cleanName:match('s$') and cleanName ~= 'Iron' then
+					cleanName = cleanName .. 's'
+				end
+				
+				table.insert(formatted, tostring(amount) .. ' ' .. cleanName)
 			end
-			table.insert(formatted, tostring(amount)..' '..cleanName)
 		end
+		
+		if #formatted == 0 then
+			return "Treasure"
+		end
+		
 		return table.concat(formatted, ', ')
 	end
 
 	local function sendMetalDetectorAlert(player, items)
-		if not player or not items or next(items) == nil then return end
+		if not items or next(items) == nil then return end
 		if FilterSelf and FilterSelf.Enabled and player == lplr then return end
 
-		local playerName = player.DisplayName or player.Name
+		local playerName = (player and (player.DisplayName or player.Name)) or "Someone"
 		local lootSummary = formatLoot(items)
-		local notificationText = playerName..' got '..lootSummary..' from metal detector'
+		local notificationText = playerName .. ' dug up ' .. lootSummary .. '!'
 
-		-- Uses your exact Vape notification structure & custom icon
+		-- Custom Vape Notification Format
 		if vape and vape.CreateNotification then
-			vape.CreateNotification("Mxtion v4", notificationText, 5, "assets/WarningNotification.png")
+			vape.CreateNotification("Metal Detector", notificationText, 6, "assets/WarningNotification.png")
 		elseif api and api.CreateNotification then
-			api.CreateNotification("Mxtion v4", notificationText, 5, "assets/WarningNotification.png")
+			api.CreateNotification("Metal Detector", notificationText, 6, "assets/WarningNotification.png")
 		else
-			print('[Mxtion v4] '..notificationText)
+			print('[Metal Detector] ' .. notificationText)
 		end
 	end
 
-	-- Flexible reward parser for Bedwars NetManaged remotes
+	-- Universal table inspector to extract players & items caught
 	local function parseRewardData(...)
 		local args = {...}
 		local targetPlayer = nil
@@ -11379,7 +11397,7 @@ run(function()
 			if typeof(val) == 'Instance' and val:IsA('Player') then
 				targetPlayer = val
 			elseif type(val) == 'table' then
-				-- Check player references
+				-- Extract player reference
 				if val.player and typeof(val.player) == 'Instance' and val.player:IsA('Player') then
 					targetPlayer = val.player
 				elseif val.Player and typeof(val.Player) == 'Instance' and val.Player:IsA('Player') then
@@ -11390,35 +11408,20 @@ run(function()
 					targetPlayer = players:GetPlayerByUserId(val.userId)
 				end
 
-				-- Case 1: Single item {itemType = 'iron', amount = 26}
-				if val.itemType and val.amount then
-					local itm = tostring(val.itemType)
-					items[itm] = (items[itm] or 0) + (tonumber(val.amount) or 1)
-				end
-
-				-- Case 2: Array of items {{itemType = 'iron', amount = 26}, ...}
+				-- Case 1: Structured items array [{itemType = "emerald", amount = 2}]
 				if type(val.items) == 'table' then
 					for _, itemData in pairs(val.items) do
-						if type(itemData) == 'table' and itemData.itemType then
-							local itm = tostring(itemData.itemType)
-							items[itm] = (items[itm] or 0) + (tonumber(itemData.amount) or 1)
+						if type(itemData) == 'table' then
+							local itm = itemData.itemType or itemData.item or itemData.name
+							local amt = itemData.amount or itemData.count or 1
+							if itm then
+								items[tostring(itm)] = (items[tostring(itm)] or 0) + tonumber(amt)
+							end
 						end
 					end
 				end
 
-				-- Case 3: Rewards table {rewards = {iron = 26, diamond = 4}}
-				if type(val.rewards) == 'table' then
-					for k, v in pairs(val.rewards) do
-						if type(v) == 'table' and v.itemType then
-							local itm = tostring(v.itemType)
-							items[itm] = (items[itm] or 0) + (tonumber(v.amount) or 1)
-						elseif type(k) == 'string' and tonumber(v) then
-							items[k] = (items[k] or 0) + tonumber(v)
-						end
-					end
-				end
-
-				-- Case 4: Key-value dictionary {iron = 26, emerald = 2}
+				-- Case 2: Direct key-value dictionary {iron = 26, emerald = 2, diamond = 1}
 				for k, v in pairs(val) do
 					if type(k) == 'string' and tonumber(v) then
 						local lowerKey = k:lower()
@@ -11437,7 +11440,6 @@ run(function()
 		return targetPlayer, items
 	end
 
-	-- Hook all Bedwars network events related to Metal Detector
 	local function hookNetRemotes()
 		local netManaged = replicatedStorage:FindFirstChild('rbxts_include')
 			and replicatedStorage.rbxts_include:FindFirstChild('node_modules')
@@ -11450,15 +11452,24 @@ run(function()
 
 		for _, remote in ipairs(netManaged:GetChildren()) do
 			if remote:IsA('RemoteEvent') then
-				local name = remote.Name:lower()
-				if name:find('metal') or name:find('detector') or name:find('treasure') or name:find('mound') or name:find('dig') then
-					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(...)
-						local player, items = parseRewardData(...)
-						if player and items and next(items) ~= nil then
-							sendMetalDetectorAlert(player, items)
+				MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(...)
+					local args = {...}
+					
+					if DebugMode and DebugMode.Enabled then
+						local name = remote.Name:lower()
+						if name:find('metal') or name:find('treasure') or name:find('mound') or name:find('dig') or name:find('claim') then
+							print("[MetalDetector Debug] Fired:", remote.Name)
+							for i, arg in ipairs(args) do
+								print("  Arg", i, ":", arg)
+							end
 						end
-					end))
-				end
+					end
+
+					local player, items = parseRewardData(...)
+					if items and next(items) ~= nil then
+						sendMetalDetectorAlert(player, items)
+					end
+				end))
 			end
 		end
 	end
@@ -11469,32 +11480,34 @@ run(function()
 			if callback then
 				hookNetRemotes()
 
-				-- Backup listener for dynamically added remotes
 				local rbxts = replicatedStorage:WaitForChild('rbxts_include', 5)
 				if rbxts then
 					MetalDetectorSpy:Clean(rbxts.DescendantAdded:Connect(function(child)
 						if child:IsA('RemoteEvent') then
-							local name = child.Name:lower()
-							if name:find('metal') or name:find('detector') or name:find('treasure') or name:find('mound') or name:find('dig') then
-								MetalDetectorSpy:Clean(child.OnClientEvent:Connect(function(...)
-									local player, items = parseRewardData(...)
-									if player and items and next(items) ~= nil then
-										sendMetalDetectorAlert(player, items)
-									end
-								end))
-							end
+							MetalDetectorSpy:Clean(child.OnClientEvent:Connect(function(...)
+								local player, items = parseRewardData(...)
+								if items and next(items) ~= nil then
+									sendMetalDetectorAlert(player, items)
+								end
+							end))
 						end
 					end))
 				end
 			end
 		end,
-		Tooltip = 'Notifies you when someone digs up treasure with Metal Detector and shows their loot'
+		Tooltip = 'Notifies you when treasure is dug up with Metal Detector and lists exact items caught'
 	})
 
 	FilterSelf = MetalDetectorSpy:CreateToggle({
 		Name = 'Ignore Self',
-		Default = true,
+		Default = false, -- Default set to FALSE so you can test it on yourself right away
 		Tooltip = 'Do not send notifications when you dig up treasure yourself'
+	})
+
+	DebugMode = MetalDetectorSpy:CreateToggle({
+		Name = 'Debug Mode',
+		Default = false,
+		Tooltip = 'Prints network payloads to F9 console for testing'
 	})
 end)
 
