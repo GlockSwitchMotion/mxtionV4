@@ -21408,16 +21408,28 @@ run(function()
 		Function = function(callback)
 			if callback then
 				local remote = nil
+
+				-- Try the zbxts path first (as seen in Cobalt screenshot)
 				pcall(function()
-					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BountyHunterRewardClaimed
+					remote = replicatedStorage.zbxts_include.node_modules["@zbxts"].net.out._NetManaged.BountyHunterRewardClaimed
 				end)
+				-- Fallback: try rbxts path
+				if not remote then
+					pcall(function()
+						remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BountyHunterRewardClaimed
+					end)
+				end
+				-- Last resort: search whole ReplicatedStorage
+				if not remote then
+					pcall(function()
+						remote = replicatedStorage:FindFirstDescendant("BountyHunterRewardClaimed")
+					end)
+				end
 
 				if remote then
-					-- Debounce cache to avoid spam if the remote fires multiple times quickly
 					local debounceCache = {}
 
 					BountyHunterSpy:Clean(remote.OnClientEvent:Connect(function(data)
-						-- Instant exit if data isn't what we expect
 						if type(data) ~= 'table' or not data.itemType or not data.amount then return end
 
 						local item   = tostring(data.itemType):lower()
@@ -21425,12 +21437,10 @@ run(function()
 
 						-- Debounce: ignore duplicate fires for same item within 1.5s
 						local cacheKey = item
-						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then
-							return
-						end
+						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then return end
 						debounceCache[cacheKey] = tick()
 
-						-- Find the nearest BountyHunter player on screen to attribute the reward to
+						-- Find nearest visible BountyHunter kit player to attribute the reward
 						local closestPlayer = nil
 						local closestDist   = math.huge
 
@@ -21442,9 +21452,9 @@ run(function()
 								if kit and tostring(kit):lower():find("bounty") then
 									local char = ent.Player.Character
 									if char and char:FindFirstChild("HumanoidRootPart") then
-										local camera = workspace.CurrentCamera
-										local _, onScreen = camera:WorldToViewportPoint(char.HumanoidRootPart.Position)
-										local dist = (char.HumanoidRootPart.Position - (lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") and lplr.Character.HumanoidRootPart.Position or Vector3.zero)).Magnitude
+										local lrp = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+										local dist = lrp and (char.HumanoidRootPart.Position - lrp.Position).Magnitude or math.huge
+										local _, onScreen = workspace.CurrentCamera:WorldToViewportPoint(char.HumanoidRootPart.Position)
 										if onScreen and dist < closestDist then
 											closestDist   = dist
 											closestPlayer = ent
@@ -21455,16 +21465,13 @@ run(function()
 						end
 
 						local formattedItem = item:gsub("^%l", string.upper)
-						local msg
 
 						if closestPlayer and closestPlayer.Player then
-							local playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
-							msg = ('%s (BountyHunter) claimed %dx %s!'):format(playerName, amount, formattedItem)
+							local name = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+							notif('BountyHunterSpy', ('%s (BountyHunter) claimed %dx %s!'):format(name, amount, formattedItem), 5, 'info')
 						else
-							msg = ('A BountyHunter claimed %dx %s!'):format(amount, formattedItem)
+							notif('BountyHunterSpy', ('A BountyHunter claimed %dx %s!'):format(amount, formattedItem), 5, 'info')
 						end
-
-						notif('BountyHunterSpy', msg, 5, 'info')
 					end))
 				else
 					if BountyHunterSpy.Enabled then
