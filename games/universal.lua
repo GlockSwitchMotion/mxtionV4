@@ -8370,7 +8370,6 @@ run(function()
         return ent.Player and ent.Player.Character
     end
 
-    -- Robust player lookup: matches display name OR username, case insensitive
     local function findPlayerByName(name)
         if name == "" then return nil end
         local lower = name:lower()
@@ -8386,6 +8385,7 @@ run(function()
         local root = ent.RootPart
         local char = getChar(ent)
         if not char or not root then return nil end
+        if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
 
         local clone = char:Clone()
         clone.Name = "KA_Clone_" .. ent.Player.Name
@@ -8413,9 +8413,12 @@ run(function()
             end
         end
 
+        -- Place clone behind YOUR character at creation
         local primaryPart = clone:FindFirstChild("HumanoidRootPart")
         if primaryPart then
-            clone:SetPrimaryPartCFrame(root.CFrame * CFrame.new(0, 0, -6))
+            clone:SetPrimaryPartCFrame(
+                entitylib.character.RootPart.CFrame * CFrame.new(0, 0, 6)
+            )
         end
 
         local weldMap = {}
@@ -8482,12 +8485,10 @@ run(function()
                 FalseBan:Clean(runService.RenderStepped:Connect(function(dt)
                     local targets = {}
 
-                    -- Robust lookup: match by username OR display name
                     for _, name in ipairs(TargetList.ListEnabled) do
                         local matchedPlayer = findPlayerByName(name)
                         for _, ent in ipairs(entitylib.List) do
                             if ent.Player and ent.RootPart then
-                                -- Match via our robust lookup or direct name fallback
                                 if ent.Player == matchedPlayer or
                                    ent.Player.Name:lower() == name:lower() or
                                    ent.Player.DisplayName:lower() == name:lower() then
@@ -8569,6 +8570,7 @@ run(function()
                         elseif mode == 'KA' then
                             local char = getChar(ent)
                             if not char then continue end
+                            if not entitylib.isAlive or not entitylib.character.RootPart then continue end
 
                             if not cloneData[ent] then
                                 cloneData[ent] = createKAClone(ent)
@@ -8588,12 +8590,14 @@ run(function()
 
                             setCharVisibility(char, false)
 
+                            -- Track clone to YOUR position + 6 studs behind you
                             if data.primaryPart then
                                 clone:SetPrimaryPartCFrame(
-                                    root.CFrame * CFrame.new(0, 0, -6)
+                                    entitylib.character.RootPart.CFrame * CFrame.new(0, 0, 6)
                                 )
                             end
 
+                            -- Mirror target animations onto clone
                             for origMotor, cloneMotor in pairs(data.weldMap) do
                                 if origMotor and origMotor.Parent and cloneMotor and cloneMotor.Parent then
                                     cloneMotor.Transform = origMotor.Transform
@@ -8631,7 +8635,7 @@ run(function()
         Name = 'Hack Mode',
         List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'KA'},
         Default = 'AutoDodge',
-        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | KA: Clone decoy -6 offset, invisible real target'
+        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | KA: Clone behind you, real target invisible'
     })
 
     SpeedValue = FalseBan:CreateSlider({
