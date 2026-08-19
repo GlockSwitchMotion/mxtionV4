@@ -8367,17 +8367,11 @@ run(function()
     local localPlayer = Players.LocalPlayer
 
     local lockedPositions = {}
-    local cloneData = {}
 
     local function getLocalRoot()
         local char = localPlayer.Character
         if not char then return nil end
         return char:FindFirstChild("HumanoidRootPart")
-    end
-
-    local function getChar(ent)
-        -- entitylib stores character directly on entity object
-        return ent.Character or (ent.Player and ent.Player.Character)
     end
 
     local function findPlayerByName(name)
@@ -8389,101 +8383,6 @@ run(function()
             end
         end
         return nil
-    end
-
-    local function createKAClone(ent)
-        local myRoot = getLocalRoot()
-        if not myRoot then return nil end
-
-        local root = ent.RootPart
-        local char = getChar(ent)
-        if not char or not root then return nil end
-
-        local clone = char:Clone()
-        clone.Name = "KA_Clone_" .. ent.Player.Name
-        clone.Parent = workspace
-
-        for _, v in ipairs(clone:GetDescendants()) do
-            if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("AnimationController") then
-                v:Destroy()
-            end
-        end
-
-        local cloneHum = clone:FindFirstChildOfClass("Humanoid")
-        if cloneHum then
-            cloneHum.PlatformStand = true
-        end
-
-        for _, v in ipairs(clone:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanQuery = false
-                v.CanTouch = false
-                v.CanCollide = false
-                v.CastShadow = false
-                v.Anchored = true
-            end
-        end
-
-        local primaryPart = clone:FindFirstChild("HumanoidRootPart")
-        if primaryPart then
-            clone:SetPrimaryPartCFrame(myRoot.CFrame * CFrame.new(0, 0, 6))
-        end
-
-        local weldMap = {}
-        for _, m in ipairs(char:GetDescendants()) do
-            if m:IsA("Motor6D") and m.Part0 and m.Part1 then
-                for _, cm in ipairs(clone:GetDescendants()) do
-                    if cm:IsA("Motor6D") and cm.Name == m.Name then
-                        weldMap[m] = cm
-                        break
-                    end
-                end
-            end
-        end
-
-        return {
-            clone = clone,
-            weldMap = weldMap,
-            primaryPart = primaryPart
-        }
-    end
-
-    local function removeKAClone(ent)
-        local data = cloneData[ent]
-        if not data then return end
-        if data.clone and data.clone.Parent then
-            data.clone:Destroy()
-        end
-        cloneData[ent] = nil
-    end
-
-    local function cleanAllClones()
-        for ent in pairs(cloneData) do
-            removeKAClone(ent)
-        end
-    end
-
-    local function setCharVisibility(char, visible)
-        if not char then return end
-        local mod = visible and 0 or 1
-        for _, v in ipairs(char:GetDescendants()) do
-            if v:IsA("BasePart") or v:IsA("MeshPart") then
-                v.LocalTransparencyModifier = mod
-            end
-        end
-    end
-
-    local function restoreChar(char)
-        if not char then return end
-        setCharVisibility(char, true)
-        for _, v in ipairs(char:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanQuery = true
-                v.CanTouch = true
-                v.CanCollide = true
-                v.Massless = false
-            end
-        end
     end
 
     FalseBan = vape.Categories.Blatant:CreateModule({
@@ -8507,17 +8406,6 @@ run(function()
                     end
 
                     local mode = HackMode.Value
-
-                    for ent in pairs(cloneData) do
-                        local stillTargeted = false
-                        for _, t in ipairs(targets) do
-                            if t == ent then stillTargeted = true break end
-                        end
-                        if not stillTargeted or mode ~= 'KA' then
-                            restoreChar(getChar(ent))
-                            removeKAClone(ent)
-                        end
-                    end
 
                     for _, ent in ipairs(targets) do
                         local root = ent.RootPart
@@ -8573,61 +8461,24 @@ run(function()
                             end
                             root.CFrame = lockedPositions[ent]
 
-                        elseif mode == 'KA' then
-                            local char = getChar(ent)
-                            if not char then continue end
+                        elseif mode == 'Speed' then
+                            -- Move target forward at 24 studs/s in the direction they are facing
+                            -- This makes them look like they are speeding on everyone elses screen
+                            local facing = root.CFrame.LookVector
+                            root.CFrame = root.CFrame + (facing * 24 * dt)
 
-                            local myRoot = getLocalRoot()
-                            if not myRoot then continue end
-
-                            if not cloneData[ent] then
-                                local built = createKAClone(ent)
-                                if built then
-                                    cloneData[ent] = built
-                                    setCharVisibility(char, false)
-                                end
-                            end
-
-                            local data = cloneData[ent]
-                            if not data then continue end
-
-                            local clone = data.clone
-                            if not clone or not clone.Parent then
-                                restoreChar(char)
-                                cloneData[ent] = nil
-                                continue
-                            end
-
-                            setCharVisibility(char, false)
-
-                            if data.primaryPart then
-                                clone:SetPrimaryPartCFrame(
-                                    myRoot.CFrame * CFrame.new(0, 0, 6)
-                                )
-                            end
-
-                            for origMotor, cloneMotor in pairs(data.weldMap) do
-                                if origMotor and origMotor.Parent and cloneMotor and cloneMotor.Parent then
-                                    cloneMotor.Transform = origMotor.Transform
-                                end
-                            end
-
-                            for _, v in ipairs(clone:GetDescendants()) do
-                                if v:IsA("BasePart") then
-                                    v.CanQuery = false
-                                    v.CanTouch = false
-                                    v.CanCollide = false
-                                end
-                            end
+                            -- Also set their humanoid walkspeed so animation plays at speed rate
+                            hum.WalkSpeed = 24
                         end
                     end
                 end))
             else
                 table.clear(lockedPositions)
-                cleanAllClones()
+                -- Reset walkspeed on disable for all targeted entities
                 for _, ent in ipairs(entitylib.List) do
-                    local char = getChar(ent)
-                    if char then restoreChar(char) end
+                    if ent.Humanoid then
+                        ent.Humanoid.WalkSpeed = 16
+                    end
                 end
             end
         end,
@@ -8641,9 +8492,9 @@ run(function()
 
     HackMode = FalseBan:CreateDropdown({
         Name = 'Hack Mode',
-        List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'KA'},
+        List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'Speed'},
         Default = 'AutoDodge',
-        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | KA: Clone behind you, real target invisible'
+        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | Speed: Target looks like they are speeding at 24'
     })
 
     SpeedValue = FalseBan:CreateSlider({
