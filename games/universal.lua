@@ -8366,42 +8366,55 @@ run(function()
     local lockedPositions = {}
     local cloneData = {}
 
+    local function getChar(ent)
+        -- Correct way to get character through entitylib
+        return ent.Player and ent.Player.Character
+    end
+
     local function createKAClone(ent)
         local root = ent.RootPart
-        local char = ent.Character
+        local char = getChar(ent)
         if not char or not root then return nil end
 
         local clone = char:Clone()
         clone.Name = "KA_Clone_" .. ent.Player.Name
         clone.Parent = workspace
 
-        -- Strip all scripts so clone is purely cosmetic
+        -- Strip all scripts
         for _, v in ipairs(clone:GetDescendants()) do
-            if v:IsA("Script") or v:IsA("LocalScript") then
+            if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("AnimationController") then
                 v:Destroy()
             end
         end
 
-        -- Disable all query/touch/shadow on clone parts
-        -- so NO hits register on clone at all
+        -- Disable humanoid so clone doesnt animate on its own
+        local cloneHum = clone:FindFirstChildOfClass("Humanoid")
+        if cloneHum then
+            cloneHum.PlatformStand = true
+            cloneHum:SetStateEnabled(Enum.HumanoidStateType.None, true)
+        end
+
+        -- Set all clone parts unhittable and invisible shadow
         for _, v in ipairs(clone:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.CanQuery = false
                 v.CanTouch = false
                 v.CanCollide = false
                 v.CastShadow = false
+                v.Anchored = true -- anchor so physics dont mess it up
             end
         end
 
-        -- Position clone 9 studs behind real target
-        clone:SetPrimaryPartCFrame(
-            root.CFrame * CFrame.new(0, 0, 9)
-        )
+        -- Initial position 9 studs behind real target
+        local primaryPart = clone:FindFirstChild("HumanoidRootPart")
+        if primaryPart then
+            clone:SetPrimaryPartCFrame(root.CFrame * CFrame.new(0, 0, 9))
+        end
 
-        -- Build Motor6D weld map original -> clone for animation mirroring
+        -- Build Motor6D map: original char -> clone
         local weldMap = {}
         for _, m in ipairs(char:GetDescendants()) do
-            if m:IsA("Motor6D") then
+            if m:IsA("Motor6D") and m.Part0 and m.Part1 then
                 for _, cm in ipairs(clone:GetDescendants()) do
                     if cm:IsA("Motor6D") and cm.Name == m.Name then
                         weldMap[m] = cm
@@ -8413,7 +8426,8 @@ run(function()
 
         return {
             clone = clone,
-            weldMap = weldMap
+            weldMap = weldMap,
+            primaryPart = primaryPart
         }
     end
 
@@ -8471,7 +8485,7 @@ run(function()
 
                     local mode = HackMode.Value
 
-                    -- Cleanup clones for targets no longer in list or mode switched away from KA
+                    -- Cleanup clones when mode switches away from KA or target removed
                     for ent in pairs(cloneData) do
                         local stillTargeted = false
                         for _, t in ipairs(targets) do
@@ -8481,7 +8495,7 @@ run(function()
                             end
                         end
                         if not stillTargeted or mode ~= 'KA' then
-                            restoreChar(ent.Character)
+                            restoreChar(getChar(ent))
                             removeKAClone(ent)
                         end
                     end
@@ -8492,9 +8506,17 @@ run(function()
                         if not (root and hum and hum.Health > 0) then continue end
 
                         if mode == 'AutoDodge' then
-                            -- Additive vertical cycle, target free to move normally
+                            -- Read the server replicated position fresh each frame
+                            -- then apply vertical offset on top without locking X/Z
+                            -- this means they can walk freely, we just push Y
+                            local currentCF = root.CFrame
                             local cycle = (tick() % 0.4) < 0.2 and 1 or -1
-                            root.CFrame = root.CFrame + Vector3.new(0, cycle * SpeedValue.Value * dt, 0)
+                            local yShift = cycle * SpeedValue.Value * dt
+                            root.CFrame = CFrame.new(
+                                currentCF.X,
+                                currentCF.Y + yShift,
+                                currentCF.Z
+                            ) * (currentCF - currentCF.Position) -- preserve rotation
 
                         elseif mode == 'PlayerAttach' then
                             if entitylib.isAlive and entitylib.character.RootPart then
@@ -8529,43 +8551,51 @@ run(function()
                             end
 
                         elseif mode == 'Desync' then
-                            -- Capture full CFrame once, re-assert every frame = completely frozen
                             if not lockedPositions[ent] then
                                 lockedPositions[ent] = root.CFrame
                             end
                             root.CFrame = lockedPositions[ent]
 
                         elseif mode == 'KA' then
-                            local char = ent.Character
+                            local char = getChar(ent)
                             if not char then continue end
 
-                            -- Build clone on first activation
+                            -- Build clone first time
                             if not cloneData[ent] then
                                 cloneData[ent] = createKAClone(ent)
-                                setCharVisibility(char, false)
+                                if cloneData[ent] then
+                                    setCharVisibility(char, false)
+                                end
                             end
 
                             local data = cloneData[ent]
                             if not data then continue end
+
                             local clone = data.clone
-
-                            -- Guard: re-hide real char every frame in case game resets transparency
-                            setCharVisibility(char, false)
-
-                            -- Sync clone position 9 studs behind real root every frame
-                            clone:SetPrimaryPartCFrame(
-                                root.CFrame * CFrame.new(0, 0, 9)
-                            )
-
-                            -- Mirror all Motor6D transforms so animations are 1:1
-                            for origMotor, cloneMotor in pairs(data.weldMap) do
-                                cloneMotor.C0 = origMotor.C0
-                                cloneMotor.C1 = origMotor.C1
-                                cloneMotor.Transform = origMotor.Transform
+                            if not clone or not clone.Parent then
+                                -- Clone got destroyed somehow, rebuild next frame
+                                cloneData[ent] = nil
+                                continue
                             end
 
-                            -- Re-assert clone parts are unhittable every frame
-                            -- in case Roblox resets these properties
+                            -- Re-hide real char every frame, game may reset this
+                            setCharVisibility(char, false)
+
+                            -- Move clone to 9 studs behind real root each frame
+                            if data.primaryPart then
+                                clone:SetPrimaryPartCFrame(
+                                    root.CFrame * CFrame.new(0, 0, 9)
+                                )
+                            end
+
+                            -- Mirror Motor6D transforms for 1:1 animation sync
+                            for origMotor, cloneMotor in pairs(data.weldMap) do
+                                if origMotor and origMotor.Parent and cloneMotor and cloneMotor.Parent then
+                                    cloneMotor.Transform = origMotor.Transform
+                                end
+                            end
+
+                            -- Re-assert unhittable every frame
                             for _, v in ipairs(clone:GetDescendants()) do
                                 if v:IsA("BasePart") then
                                     v.CanQuery = false
@@ -8577,13 +8607,11 @@ run(function()
                     end
                 end))
             else
-                -- Module disabled: full cleanup
                 table.clear(lockedPositions)
                 cleanAllClones()
                 for _, ent in ipairs(entitylib.List) do
-                    if ent.Character then
-                        restoreChar(ent.Character)
-                    end
+                    local char = getChar(ent)
+                    if char then restoreChar(char) end
                 end
             end
         end,
