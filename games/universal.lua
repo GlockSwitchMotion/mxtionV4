@@ -8463,11 +8463,8 @@ run(function()
                             end
 
                             local history = positionHistory[ent]
-
-                            -- Store real CFrame every frame with timestamp
                             table.insert(history, { cf = root.CFrame, t = now })
 
-                            -- Walk backwards to find most recent entry at least 1s old
                             local delayedCF = nil
                             local trimIndex = 0
 
@@ -8479,14 +8476,12 @@ run(function()
                                 end
                             end
 
-                            -- Trim entries before the one we used
                             if trimIndex > 1 then
                                 for _ = 1, trimIndex - 1 do
                                     table.remove(history, 1)
                                 end
                             end
 
-                            -- Apply delayed CFrame so target moves but 1s behind
                             if delayedCF then
                                 root.CFrame = delayedCF
                             end
@@ -8495,6 +8490,36 @@ run(function()
                             local facing = root.CFrame.LookVector
                             root.CFrame = root.CFrame + (facing * 24 * dt)
                             hum.WalkSpeed = 24
+
+                        elseif mode == 'Swing' then
+                            -- Get target character and find their equipped tool
+                            local char = ent.Player and ent.Player.Character
+                            if not char then continue end
+
+                            local tool = char:FindFirstChildOfClass("Tool")
+                            if not tool then continue end
+
+                            -- Play the swing animation clientside by firing the animator
+                            -- Find any animation in the tool or character animator
+                            local animator = char:FindFirstChild("Animate") -- default roblox animate script
+                            local humanoidAnimator = hum:FindFirstChildOfClass("Animator")
+
+                            if humanoidAnimator then
+                                -- Look for a swing/attack animation track already loaded
+                                for _, track in ipairs(humanoidAnimator:GetPlayingAnimationTracks()) do
+                                    -- Stop it and replay to force the swing loop
+                                    track:Stop(0)
+                                    track:Play(0)
+                                end
+                            end
+
+                            -- Also directly activate the tool to trigger its swing event clientside
+                            local fakeEvent = tool:FindFirstChildOfClass("RemoteEvent")
+                            if fakeEvent then
+                                fakeEvent:FireServer()
+                            end
+
+                            tool:Activate()
                         end
                     end
                 end))
@@ -8518,9 +8543,9 @@ run(function()
 
     HackMode = FalseBan:CreateDropdown({
         Name = 'Hack Mode',
-        List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'Speed'},
+        List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'Speed', 'Swing'},
         Default = 'AutoDodge',
-        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: 1s delayed movement | Speed: Target looks like speeding at 24'
+        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: 1s delayed movement | Speed: Speeding at 24 | Swing: Always swinging sword'
     })
 
     SpeedValue = FalseBan:CreateSlider({
