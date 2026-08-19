@@ -165,24 +165,6 @@ local function addCorner(parent, radius)
 	return corner
 end
 
-local function addCamoOverlay(parent, transparency, radius)
-	local camoOverlay = Instance.new('ImageLabel')
-	camoOverlay.Name = 'CamoOverlay'
-	camoOverlay.Size = UDim2.fromScale(1, 1)
-	camoOverlay.Position = UDim2.fromOffset(0, 0)
-	camoOverlay.BackgroundTransparency = 1
-	camoOverlay.BorderSizePixel = 0
-	camoOverlay.Image = 'rbxassetid://81366222918936'
-	camoOverlay.ImageTransparency = transparency or 0.38
-	camoOverlay.ScaleType = Enum.ScaleType.Crop
-	camoOverlay.ZIndex = 1
-	camoOverlay.Active = false
-	camoOverlay.Parent = parent
-	addCorner(camoOverlay, radius or UDim.new(0, 5))
-
-	return camoOverlay
-end
-
 local function addCloseButton(parent, offset)
 	local close = Instance.new('ImageButton')
 	close.Name = 'Close'
@@ -2569,7 +2551,6 @@ function mainapi:CreateGUI()
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-	addCamoOverlay(window)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
 	logo.Size = UDim2.fromOffset(155, 40)
@@ -2660,7 +2641,6 @@ function mainapi:CreateGUI()
 	settingsversion.FontFace = uipallet.Font
 	settingsversion.Parent = settingspane
 	addCorner(settingspane)
-	addCamoOverlay(settingspane)
 	local settingschildren = Instance.new('Frame')
 	settingschildren.Name = 'Children'
 	settingschildren.Size = UDim2.new(1, 0, 1, -57)
@@ -2679,11 +2659,9 @@ function mainapi:CreateGUI()
 
 		local button = Instance.new('TextButton')
 		button.Size = UDim2.fromOffset(220, 40)
-		button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		button.BackgroundTransparency = 1
+		button.BackgroundColor3 = uipallet.Main
 		button.BorderSizePixel = 0
 		button.AutoButtonColor = false
-		button.ZIndex = 2
 		button.Text = '          Rebind GUI'
 		button.TextXAlignment = Enum.TextXAlignment.Left
 		button.TextColor3 = color.Dark(uipallet.Text, 0.16)
@@ -2769,11 +2747,9 @@ function mainapi:CreateGUI()
 		local button = Instance.new('TextButton')
 		button.Name = categorysettings.Name
 		button.Size = UDim2.fromOffset(220, 40)
-		button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		button.BackgroundTransparency = 1
+		button.BackgroundColor3 = uipallet.Main
 		button.BorderSizePixel = 0
 		button.AutoButtonColor = false
-		button.ZIndex = 2
 		button.Text = (categorysettings.Icon and '                                 ' or '             ')..categorysettings.Name
 		button.TextXAlignment = Enum.TextXAlignment.Left
 		button.TextColor3 = color.Dark(uipallet.Text, 0.16)
@@ -2827,7 +2803,7 @@ function mainapi:CreateGUI()
 			if icon then
 				icon.ImageColor3 = button.TextColor3
 			end
-			button.BackgroundTransparency = self.Enabled and 0.85 or 1
+			button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 			categorysettings.Window.Visible = self.Enabled
 		end
 
@@ -2835,18 +2811,14 @@ function mainapi:CreateGUI()
 			if not optionapi.Enabled then
 				button.TextColor3 = uipallet.Text
 				if buttonicon then buttonicon.ImageColor3 = uipallet.Text end
-				tween:Tween(button, uipallet.Tween, {
-					BackgroundTransparency = 0.85
-				})
+				button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 			end
 		end)
 		button.MouseLeave:Connect(function()
 			if not optionapi.Enabled then
 				button.TextColor3 = color.Dark(uipallet.Text, 0.16)
 				if buttonicon then buttonicon.ImageColor3 = color.Dark(uipallet.Text, 0.16) end
-				tween:Tween(button, uipallet.Tween, {
-					BackgroundTransparency = 1
-				})
+				button.BackgroundColor3 = uipallet.Main
 			end
 		end)
 		button.MouseButton1Click:Connect(function()
@@ -3082,11 +3054,9 @@ function mainapi:CreateGUI()
 		local button = Instance.new('TextButton')
 		button.Name = categorysettings.Name
 		button.Size = UDim2.fromOffset(220, 40)
-		button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		button.BackgroundTransparency = 1
+		button.BackgroundColor3 = uipallet.Main
 		button.BorderSizePixel = 0
 		button.AutoButtonColor = false
-		button.ZIndex = 2
 		button.Text = '          '..categorysettings.Name
 		button.TextXAlignment = Enum.TextXAlignment.Left
 		button.TextColor3 = color.Dark(uipallet.Text, 0.16)
@@ -3741,7 +3711,18 @@ function mainapi:CreateCategory(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-	addCamoOverlay(window)
+	local camoOverlay = Instance.new('ImageLabel')
+	camoOverlay.Name = 'CamoOverlay'
+	camoOverlay.Size = UDim2.fromScale(1, 1)
+	camoOverlay.BackgroundTransparency = 1
+	camoOverlay.BorderSizePixel = 0
+	camoOverlay.Image = 'rbxassetid://81366222918936'
+	-- Keep the pattern clearly visible on the dark category backgrounds.
+	camoOverlay.ImageTransparency = 0.38
+	camoOverlay.ScaleType = Enum.ScaleType.Crop
+	camoOverlay.ZIndex = 1
+	camoOverlay.Active = false
+	camoOverlay.Parent = window
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -4261,7 +4242,6 @@ function mainapi:CreateOverlay(categorysettings)
 	local blur = addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-	addCamoOverlay(window)
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -4538,7 +4518,6 @@ function mainapi:CreateCategoryList(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-	addCamoOverlay(window)
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -5127,7 +5106,6 @@ function mainapi:CreateSearch()
 	searchbkg.AnchorPoint = Vector2.new(xoffset, 0)
 	searchbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
 	searchbkg.Parent = clickgui
-	addCamoOverlay(searchbkg)
 	local searchicon = Instance.new('ImageLabel')
 	searchicon.Name = 'Icon'
 	searchicon.Size = UDim2.fromOffset(14, 14)
