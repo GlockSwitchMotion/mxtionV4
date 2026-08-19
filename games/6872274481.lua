@@ -21403,6 +21403,7 @@ end)
 run(function()
 	local LuciaSpy
 	local window, nameLabel, candyIcon, candyAmount, pinataIcon, pinataAmount
+	local lastTargetPlayer = nil
 	
 	local function buildWindow()
 		window = Instance.new('Frame')
@@ -21470,19 +21471,45 @@ run(function()
 		pinataAmount.Parent = window
 	end
 	
-	-- Uses the exact same targeting system as InventoryESP
 	local function getTarget()
-		local best, highest = nil, tick()
+		-- 1. Try to get the combat target (Killaura, etc.)
+		local bestEnt, highest = nil, tick()
 		for ent, expiry in targetinfo.Targets do
-			if expiry < tick() then
-				targetinfo.Targets[ent] = nil
-				continue
-			end
-			if expiry > highest then
-				best, highest = ent, expiry
+			if expiry > tick() and expiry > highest then
+				bestEnt, highest = ent, expiry
 			end
 		end
-		return best
+		if bestEnt and bestEnt.Player then return bestEnt.Player end
+		
+		-- 2. Find the closest Lucia player to your mouse cursor (Teammates or Enemies)
+		local mousePos = inputService:GetMouseLocation()
+		local bestPlayer = nil
+		local bestDist = 400 
+		
+		for _, plr in playersService:GetPlayers() do
+			if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				local isLucia = (plr:GetAttribute('PlayingAsKits') == 'lucia' or plr:GetAttribute('PlayingAsKits') == 'Lucia')
+				if isLucia then
+					local pos, onScreen = gameCamera:WorldToViewportPoint(plr.Character.HumanoidRootPart.Position)
+					if onScreen then
+						local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+						if dist < bestDist then
+							bestDist = dist
+							bestPlayer = plr
+						end
+					end
+				end
+			end
+		end
+		if bestPlayer then return bestPlayer end
+		
+		-- 3. If nobody is around and YOU are playing Lucia, default to showing your own stats
+		local isLocalLucia = (lplr:GetAttribute('PlayingAsKits') == 'lucia' or lplr:GetAttribute('PlayingAsKits') == 'Lucia')
+		if isLocalLucia then
+			return lplr
+		end
+		
+		return nil
 	end
 	
 	LuciaSpy = vape.Categories.Inventory:CreateModule({
@@ -21495,13 +21522,17 @@ run(function()
 					task.wait(0.1)
 					if vape.ThreadFix then setthreadidentity(8) end
 					
-					local ent = getTarget()
-					local player = ent and ent.Player
+					local currentTarget = getTarget()
+					if currentTarget then
+						lastTargetPlayer = currentTarget
+					end
+					
+					local player = lastTargetPlayer
 					
 					-- Validate player and kit
 					local isLucia = player and (player:GetAttribute('PlayingAsKits') == 'lucia' or player:GetAttribute('PlayingAsKits') == 'Lucia')
 					
-					if not player or not isLucia or player == lplr then
+					if not player or not isLucia then
 						window.Visible = false
 						continue
 					end
@@ -21522,16 +21553,14 @@ run(function()
 					
 					-- 2. Find placed Piñata stats
 					local pinataStoredCandy = 0
-					local activePinatas = 0
 					
-					-- Check attributes on the player first (sometimes games sync it here)
+					-- Check attributes on the player first
 					pinataStoredCandy = player:GetAttribute("PinataCandy") or player:GetAttribute("LuciaPinataCandy") or 0
 					
 					-- If not found on player, scan workspace blocks for their placed piñatas
 					if pinataStoredCandy == 0 then
 						for _, block in collectionService:GetTagged("block") do
 							if block.Name:find("pinata") and block:GetAttribute("PlacedByUserId") == player.UserId then
-								activePinatas += 1
 								pinataStoredCandy += (block:GetAttribute("Candy") or block:GetAttribute("CandyValue") or block:GetAttribute("CandyAmount") or 0)
 							end
 						end
@@ -21544,8 +21573,8 @@ run(function()
 					-- Get images (fallbacks to empty if not found)
 					local cIcon = bedwars.getIcon({itemType = "lucia_candy"}, true)
 					local pIcon = bedwars.getIcon({itemType = "lucia_pinata"}, true)
-					candyIcon.Image = cIcon ~= "" and cIcon or "rbxassetid://13824558482" 
-					pinataIcon.Image = pIcon ~= "" and pIcon or "rbxassetid://13824584285"
+					candyIcon.Image = (cIcon and cIcon ~= "") and cIcon or "rbxassetid://13824558482" 
+					pinataIcon.Image = (pIcon and pIcon ~= "") and pIcon or "rbxassetid://13824584285"
 					
 					candyAmount.Text = "Candy: " .. tostring(candyCount)
 					pinataAmount.Text = "Piñata Stored: " .. tostring(pinataStoredCandy)
