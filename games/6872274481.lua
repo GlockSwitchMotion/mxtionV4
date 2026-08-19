@@ -21467,6 +21467,73 @@ run(function()
 end)
 
 run(function()
+	local MetalDetectorSpy
+	
+	MetalDetectorSpy = vape.Categories.Inventory:CreateModule({
+		Name = 'MetalDetectorSpy',
+		Function = function(callback)
+			if callback then
+				-- Find the specific remote event from your screenshot
+				local remote = nil
+				pcall(function()
+					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BillboardRiseEffect
+				end)
+				
+				if remote then
+					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(data)
+						if type(data) == 'table' and data.itemType and data.position then
+							local item = data.itemType
+							local pos = data.position
+							
+							local closestPlayer = nil
+							local closestDist = 20 -- Max distance (in studs) to link the loot to a player
+							
+							-- Check all enemies/teammates to see who is closest to the drop
+							for _, ent in entitylib.List do
+								if ent and ent.RootPart then
+									local dist = (ent.RootPart.Position - pos).Magnitude
+									if dist < closestDist then
+										closestDist = dist
+										closestPlayer = ent
+									end
+								end
+							end
+							
+							-- Check the local player
+							if entitylib.isAlive and entitylib.character.RootPart then
+								local dist = (entitylib.character.RootPart.Position - pos).Magnitude
+								if dist < closestDist then
+									closestDist = dist
+									closestPlayer = entitylib.character
+								end
+							end
+							
+							-- Format the names for the notification
+							local playerName = "Someone"
+							if closestPlayer and closestPlayer.Player then
+								playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+							elseif closestPlayer == entitylib.character then
+								playerName = "You"
+							end
+							
+							local formattedItem = item:gsub("^%l", string.upper)
+							
+							-- Send the notification
+							notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
+						end
+					end))
+				else
+					if MetalDetectorSpy.Enabled then
+						notif('MetalDetectorSpy', 'Could not find the BillboardRiseEffect remote.', 5, 'warning')
+					end
+				end
+			end
+		end,
+		Tooltip = 'Notifies you when someone gets metal detector loot'
+	})
+end)
+
+run(function()
 	local KnitInit, Knit
 	repeat
 		KnitInit, Knit = pcall(function()
