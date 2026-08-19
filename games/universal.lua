@@ -8367,7 +8367,6 @@ run(function()
     local cloneData = {}
 
     local function getChar(ent)
-        -- Correct way to get character through entitylib
         return ent.Player and ent.Player.Character
     end
 
@@ -8380,38 +8379,33 @@ run(function()
         clone.Name = "KA_Clone_" .. ent.Player.Name
         clone.Parent = workspace
 
-        -- Strip all scripts
         for _, v in ipairs(clone:GetDescendants()) do
             if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("AnimationController") then
                 v:Destroy()
             end
         end
 
-        -- Disable humanoid so clone doesnt animate on its own
         local cloneHum = clone:FindFirstChildOfClass("Humanoid")
         if cloneHum then
             cloneHum.PlatformStand = true
             cloneHum:SetStateEnabled(Enum.HumanoidStateType.None, true)
         end
 
-        -- Set all clone parts unhittable and invisible shadow
         for _, v in ipairs(clone:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.CanQuery = false
                 v.CanTouch = false
                 v.CanCollide = false
                 v.CastShadow = false
-                v.Anchored = true -- anchor so physics dont mess it up
+                v.Anchored = true
             end
         end
 
-        -- Initial position 9 studs behind real target
         local primaryPart = clone:FindFirstChild("HumanoidRootPart")
         if primaryPart then
-            clone:SetPrimaryPartCFrame(root.CFrame * CFrame.new(0, 0, 9))
+            clone:SetPrimaryPartCFrame(root.CFrame * CFrame.new(0, 0, -6))
         end
 
-        -- Build Motor6D map: original char -> clone
         local weldMap = {}
         for _, m in ipairs(char:GetDescendants()) do
             if m:IsA("Motor6D") and m.Part0 and m.Part1 then
@@ -8485,7 +8479,6 @@ run(function()
 
                     local mode = HackMode.Value
 
-                    -- Cleanup clones when mode switches away from KA or target removed
                     for ent in pairs(cloneData) do
                         local stillTargeted = false
                         for _, t in ipairs(targets) do
@@ -8506,9 +8499,6 @@ run(function()
                         if not (root and hum and hum.Health > 0) then continue end
 
                         if mode == 'AutoDodge' then
-                            -- Read the server replicated position fresh each frame
-                            -- then apply vertical offset on top without locking X/Z
-                            -- this means they can walk freely, we just push Y
                             local currentCF = root.CFrame
                             local cycle = (tick() % 0.4) < 0.2 and 1 or -1
                             local yShift = cycle * SpeedValue.Value * dt
@@ -8516,7 +8506,7 @@ run(function()
                                 currentCF.X,
                                 currentCF.Y + yShift,
                                 currentCF.Z
-                            ) * (currentCF - currentCF.Position) -- preserve rotation
+                            ) * (currentCF - currentCF.Position)
 
                         elseif mode == 'PlayerAttach' then
                             if entitylib.isAlive and entitylib.character.RootPart then
@@ -8560,7 +8550,6 @@ run(function()
                             local char = getChar(ent)
                             if not char then continue end
 
-                            -- Build clone first time
                             if not cloneData[ent] then
                                 cloneData[ent] = createKAClone(ent)
                                 if cloneData[ent] then
@@ -8573,29 +8562,24 @@ run(function()
 
                             local clone = data.clone
                             if not clone or not clone.Parent then
-                                -- Clone got destroyed somehow, rebuild next frame
                                 cloneData[ent] = nil
                                 continue
                             end
 
-                            -- Re-hide real char every frame, game may reset this
                             setCharVisibility(char, false)
 
-                            -- Move clone to 9 studs behind real root each frame
                             if data.primaryPart then
                                 clone:SetPrimaryPartCFrame(
-                                    root.CFrame * CFrame.new(0, 0, 9)
+                                    root.CFrame * CFrame.new(0, 0, -6)
                                 )
                             end
 
-                            -- Mirror Motor6D transforms for 1:1 animation sync
                             for origMotor, cloneMotor in pairs(data.weldMap) do
                                 if origMotor and origMotor.Parent and cloneMotor and cloneMotor.Parent then
                                     cloneMotor.Transform = origMotor.Transform
                                 end
                             end
 
-                            -- Re-assert unhittable every frame
                             for _, v in ipairs(clone:GetDescendants()) do
                                 if v:IsA("BasePart") then
                                     v.CanQuery = false
@@ -8627,7 +8611,7 @@ run(function()
         Name = 'Hack Mode',
         List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'KA'},
         Default = 'AutoDodge',
-        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | KA: Clone decoy, unhittable clone, invisible real target'
+        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | KA: Clone decoy -6 offset, invisible real target'
     })
 
     SpeedValue = FalseBan:CreateSlider({
