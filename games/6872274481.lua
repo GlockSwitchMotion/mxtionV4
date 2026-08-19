@@ -21401,6 +21401,179 @@ run(function()
 end)
 
 run(function()
+	local LuciaSpy
+	local window, nameLabel, candyIcon, candyAmount, pinataIcon, pinataAmount
+	
+	local function buildWindow()
+		window = Instance.new('Frame')
+		window.Name = 'LuciaSpyWindow'
+		window.Size = UDim2.fromOffset(240, 80)
+		window.Position = UDim2.fromOffset(12, 260)
+		window.BackgroundColor3 = uipallet.Main
+		window.BackgroundTransparency = 0.5
+		window.Visible = false
+		window.Parent = vape.gui.ScaledGui
+		
+		local corner = Instance.new('UICorner')
+		corner.CornerRadius = UDim.new(0, 5)
+		corner.Parent = window
+		
+		nameLabel = Instance.new('TextLabel')
+		nameLabel.Size = UDim2.new(1, -20, 0, 20)
+		nameLabel.Position = UDim2.fromOffset(14, 8)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.TextColor3 = uipallet.Text
+		nameLabel.TextSize = 13
+		nameLabel.Font = uipallet.Font
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.Parent = window
+		
+		local divider = Instance.new('Frame')
+		divider.Size = UDim2.new(1, 0, 0, 1)
+		divider.Position = UDim2.fromOffset(0, 30)
+		divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+		divider.BorderSizePixel = 0
+		divider.Parent = window
+		
+		-- Candy Section
+		candyIcon = Instance.new('ImageLabel')
+		candyIcon.Size = UDim2.fromOffset(20, 20)
+		candyIcon.Position = UDim2.fromOffset(14, 35)
+		candyIcon.BackgroundTransparency = 1
+		candyIcon.Parent = window
+		
+		candyAmount = Instance.new('TextLabel')
+		candyAmount.Size = UDim2.new(1, -50, 0, 20)
+		candyAmount.Position = UDim2.fromOffset(40, 35)
+		candyAmount.BackgroundTransparency = 1
+		candyAmount.TextColor3 = Color3.new(1, 1, 1)
+		candyAmount.TextSize = 13
+		candyAmount.Font = uipallet.Font
+		candyAmount.TextXAlignment = Enum.TextXAlignment.Left
+		candyAmount.Parent = window
+		
+		-- Pinata Section
+		pinataIcon = Instance.new('ImageLabel')
+		pinataIcon.Size = UDim2.fromOffset(20, 20)
+		pinataIcon.Position = UDim2.fromOffset(14, 55)
+		pinataIcon.BackgroundTransparency = 1
+		pinataIcon.Parent = window
+		
+		pinataAmount = Instance.new('TextLabel')
+		pinataAmount.Size = UDim2.new(1, -50, 0, 20)
+		pinataAmount.Position = UDim2.fromOffset(40, 55)
+		pinataAmount.BackgroundTransparency = 1
+		pinataAmount.TextColor3 = Color3.new(1, 1, 1)
+		pinataAmount.TextSize = 13
+		pinataAmount.Font = uipallet.Font
+		pinataAmount.TextXAlignment = Enum.TextXAlignment.Left
+		pinataAmount.Parent = window
+	end
+	
+	-- Uses the exact same targeting system as InventoryESP
+	local function getTarget()
+		local best, highest = nil, tick()
+		for ent, expiry in targetinfo.Targets do
+			if expiry < tick() then
+				targetinfo.Targets[ent] = nil
+				continue
+			end
+			if expiry > highest then
+				best, highest = ent, expiry
+			end
+		end
+		return best
+	end
+	
+	LuciaSpy = vape.Categories.Inventory:CreateModule({
+		Name = 'LuciaSpy',
+		Function = function(callback)
+			if callback then
+				if not window then buildWindow() end
+				
+				repeat
+					task.wait(0.1)
+					if vape.ThreadFix then setthreadidentity(8) end
+					
+					local ent = getTarget()
+					local player = ent and ent.Player
+					
+					-- Validate player and kit
+					local isLucia = player and (player:GetAttribute('PlayingAsKits') == 'lucia' or player:GetAttribute('PlayingAsKits') == 'Lucia')
+					
+					if not player or not isLucia or player == lplr then
+						window.Visible = false
+						continue
+					end
+					
+					local inventory = store.inventories[player] or {items = {}}
+					
+					-- 1. Count Candy and Pinatas in Inventory
+					local candyCount = 0
+					local pinatasInInventory = 0
+					
+					for _, item in pairs(inventory.items) do
+						if item.itemType == "lucia_candy" or item.itemType == "candy" then
+							candyCount += (item.amount or 1)
+						elseif item.itemType == "lucia_pinata" or item.itemType == "pinata" then
+							pinatasInInventory += (item.amount or 1)
+						end
+					end
+					
+					-- 2. Find placed Piñata stats
+					local pinataStoredCandy = 0
+					local activePinatas = 0
+					
+					-- Check attributes on the player first (sometimes games sync it here)
+					pinataStoredCandy = player:GetAttribute("PinataCandy") or player:GetAttribute("LuciaPinataCandy") or 0
+					
+					-- If not found on player, scan workspace blocks for their placed piñatas
+					if pinataStoredCandy == 0 then
+						for _, block in collectionService:GetTagged("block") do
+							if block.Name:find("pinata") and block:GetAttribute("PlacedByUserId") == player.UserId then
+								activePinatas += 1
+								pinataStoredCandy += (block:GetAttribute("Candy") or block:GetAttribute("CandyValue") or block:GetAttribute("CandyAmount") or 0)
+							end
+						end
+					end
+					
+					-- Update GUI elements
+					window.Visible = true
+					nameLabel.Text = player.DisplayName .. " (Lucia)"
+					
+					-- Get images (fallbacks to empty if not found)
+					local cIcon = bedwars.getIcon({itemType = "lucia_candy"}, true)
+					local pIcon = bedwars.getIcon({itemType = "lucia_pinata"}, true)
+					candyIcon.Image = cIcon ~= "" and cIcon or "rbxassetid://13824558482" 
+					pinataIcon.Image = pIcon ~= "" and pIcon or "rbxassetid://13824584285"
+					
+					candyAmount.Text = "Candy: " .. tostring(candyCount)
+					pinataAmount.Text = "Piñata Stored: " .. tostring(pinataStoredCandy)
+					
+					-- 3. Dynamically dock below InventoryESP
+					local invWindow = vape.gui.ScaledGui:FindFirstChild("ViewInventory")
+					if invWindow and invWindow.Visible then
+						window.Position = UDim2.fromOffset(
+							invWindow.Position.X.Offset, 
+							invWindow.Position.Y.Offset + invWindow.Size.Y.Offset + 10 -- 10 pixels below
+						)
+					else
+						-- Default position if InventoryESP is off or hidden
+						window.Position = UDim2.fromOffset(12, 260)
+					end
+					
+				until not LuciaSpy.Enabled
+				
+				if window then window.Visible = false end
+			else
+				if window then window.Visible = false end
+			end
+		end,
+		Tooltip = 'Displays Lucia Candy and Piñata information for the targeted player'
+	})
+end)
+
+run(function()
 	local KnitInit, Knit
 	repeat
 		KnitInit, Knit = pcall(function()
