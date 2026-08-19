@@ -21523,54 +21523,74 @@ run(function()
 		Name = 'MetalDetectorSpy',
 		Function = function(callback)
 			if callback then
-				-- Find the specific remote event from your screenshot
 				local remote = nil
 				pcall(function()
 					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.BillboardRiseEffect
 				end)
 				
+				-- 1. Whitelist of valid metal detector loots to drop irrelevant events instantly
+				local validItems = {
+					iron = true,
+					diamond = true,
+					emerald = true,
+					gold = true
+				}
+				
+				local debounceCache = {}
+				
 				if remote then
 					MetalDetectorSpy:Clean(remote.OnClientEvent:Connect(function(data)
-						if type(data) == 'table' and data.itemType and data.position then
-							local item = data.itemType
-							local pos = data.position
-							
-							local closestPlayer = nil
-							local closestDist = 25 -- Max distance (in studs) to link the loot to a player
-							
-							-- Check all enemies/teammates to see who is closest to the drop
-							for _, ent in entitylib.List do
-								if ent and ent.RootPart then
-									local dist = (ent.RootPart.Position - pos).Magnitude
-									if dist < closestDist then
-										closestDist = dist
-										closestPlayer = ent
-									end
-								end
-							end
-							
-							-- Check the local player
-							local isLocalPlayer = false
-							if entitylib.isAlive and entitylib.character.RootPart then
-								local dist = (entitylib.character.RootPart.Position - pos).Magnitude
+						-- Instant exit if the event data isn't what we want
+						if type(data) ~= 'table' or not data.itemType or not data.position then return end
+						
+						local item = tostring(data.itemType):lower()
+						if not validItems[item] then return end
+						
+						local pos = data.position
+						
+						-- 2. Anti-Lag & Anti-Spam Cache
+						-- Groups drops that happen in the same ~15 stud area so we don't calculate distance 50 times
+						local posKey = math.floor(pos.X / 15) .. "_" .. math.floor(pos.Y / 15) .. "_" .. math.floor(pos.Z / 15)
+						local cacheKey = item .. "_" .. posKey
+						
+						-- If we already processed this item in this area in the last 1.5 seconds, ignore it
+						if debounceCache[cacheKey] and (tick() - debounceCache[cacheKey]) < 1.5 then
+							return 
+						end
+						debounceCache[cacheKey] = tick()
+						
+						-- 3. Only now do we run the distance calculations
+						local closestPlayer = nil
+						local closestDist = 25 
+						
+						for _, ent in entitylib.List do
+							if ent and ent.RootPart then
+								local dist = (ent.RootPart.Position - pos).Magnitude
 								if dist < closestDist then
 									closestDist = dist
-									isLocalPlayer = true
+									closestPlayer = ent
 								end
 							end
-							
-							-- If YOU are the closest player to the drop, ignore it entirely
-							if isLocalPlayer then
-								return
+						end
+						
+						local isLocalPlayer = false
+						if entitylib.isAlive and entitylib.character.RootPart then
+							local dist = (entitylib.character.RootPart.Position - pos).Magnitude
+							if dist < closestDist then
+								closestDist = dist
+								isLocalPlayer = true
 							end
+						end
+						
+						if isLocalPlayer then
+							return
+						end
+						
+						if closestPlayer and closestPlayer.Player then
+							local playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+							local formattedItem = item:gsub("^%l", string.upper)
 							
-							-- If another player was closest, send the notification
-							if closestPlayer and closestPlayer.Player then
-								local playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
-								local formattedItem = item:gsub("^%l", string.upper)
-								
-								notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
-							end
+							notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
 						end
 					end))
 				else
