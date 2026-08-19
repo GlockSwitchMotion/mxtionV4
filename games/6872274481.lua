@@ -21486,7 +21486,7 @@ run(function()
 							local pos = data.position
 							
 							local closestPlayer = nil
-							local closestDist = 20 -- Max distance (in studs) to link the loot to a player
+							local closestDist = 25 -- Max distance (in studs) to link the loot to a player
 							
 							-- Check all enemies/teammates to see who is closest to the drop
 							for _, ent in entitylib.List do
@@ -21500,26 +21500,27 @@ run(function()
 							end
 							
 							-- Check the local player
+							local isLocalPlayer = false
 							if entitylib.isAlive and entitylib.character.RootPart then
 								local dist = (entitylib.character.RootPart.Position - pos).Magnitude
 								if dist < closestDist then
 									closestDist = dist
-									closestPlayer = entitylib.character
+									isLocalPlayer = true
 								end
 							end
 							
-							-- Format the names for the notification
-							local playerName = "Someone"
-							if closestPlayer and closestPlayer.Player then
-								playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
-							elseif closestPlayer == entitylib.character then
-								playerName = "You"
+							-- If YOU are the closest player to the drop, ignore it entirely
+							if isLocalPlayer then
+								return
 							end
 							
-							local formattedItem = item:gsub("^%l", string.upper)
-							
-							-- Send the notification
-							notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
+							-- If another player was closest, send the notification
+							if closestPlayer and closestPlayer.Player then
+								local playerName = closestPlayer.Player.DisplayName or closestPlayer.Player.Name
+								local formattedItem = item:gsub("^%l", string.upper)
+								
+								notif('MetalDetectorSpy', `{playerName} found {formattedItem}!`, 5, 'info')
+							end
 						end
 					end))
 				else
@@ -21529,7 +21530,7 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Notifies you when someone gets metal detector loot'
+		Tooltip = 'Notifies you when other players get metal detector loot'
 	})
 end)
 
