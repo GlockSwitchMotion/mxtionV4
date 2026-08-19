@@ -11246,7 +11246,6 @@ run(function()
 	})
 	UIToggle = AutoBank:CreateToggle({Name = 'Display resources', Default = true})
 end)
-
 run(function()
 	local AutoBankAlert
 	local FilterSelf
@@ -11257,14 +11256,18 @@ run(function()
 	local replicatedStorage = game:GetService('ReplicatedStorage')
 	local lplr = players.LocalPlayer
 
-	-- Cache chest and inventory states for players/teams
-	local trackedResources = {}
+	local lastLocalChestCounts = { emerald = 0, diamond = 0 }
 
 	local function sendBankNotification(player, actionType, itemsSummary)
 		if not itemsSummary or #itemsSummary == 0 then return end
+		-- Respect FilterSelf if enabled
 		if FilterSelf and FilterSelf.Enabled and player == lplr then return end
 
 		local playerName = (player and (player.DisplayName or player.Name)) or "A player"
+		if player == lplr then
+			playerName = "You"
+		end
+
 		local text = playerName .. ' ' .. actionType .. ' ' .. table.concat(itemsSummary, ', ')
 
 		-- Sends the Vape Notification
@@ -11348,12 +11351,15 @@ run(function()
 				if name:find('chest') or name:find('bank') or name:find('deposit') or name:find('store') then
 					AutoBankAlert:Clean(remote.OnClientEvent:Connect(function(...)
 						local player, items = parseBankData(...)
+						player = player or lplr -- Fallback to local player if self-triggered remote omits player arg
 						
 						local gains = {}
-						if items.emerald >= (AlertThreshold and AlertThreshold.Value or 1) then
+						local minAmt = AlertThreshold and AlertThreshold.Value or 1
+
+						if items.emerald >= minAmt then
 							table.insert(gains, items.emerald .. (items.emerald > 1 and " Emeralds" or " Emerald"))
 						end
-						if items.diamond >= (AlertThreshold and AlertThreshold.Value or 1) then
+						if items.diamond >= minAmt then
 							table.insert(gains, items.diamond .. (items.diamond > 1 and " Diamonds" or " Diamond"))
 						end
 
@@ -11366,19 +11372,19 @@ run(function()
 		end
 	end
 
-	AutoBankAlert = api.Categories.Utility:CreateModule({
+	AutoBankAlert = api.Categories.Inventory:CreateModule({
 		Name = 'AutoBankAlert',
 		Function = function(callback)
 			if callback then
 				hookBankRemotes()
 			end
 		end,
-		Tooltip = 'Alerts you when players deposit Emeralds or Diamonds into team/personal chests'
+		Tooltip = 'Alerts you when players (including yourself) deposit Emeralds or Diamonds'
 	})
 
 	FilterSelf = AutoBankAlert:CreateToggle({
 		Name = 'Ignore Self',
-		Default = false,
+		Default = false, -- Set to FALSE so your own deposits trigger notifications
 		Tooltip = 'Do not send notifications when you deposit items yourself'
 	})
 
