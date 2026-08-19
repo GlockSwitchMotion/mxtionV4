@@ -11452,78 +11452,142 @@ run(function()
 end)
 
 run(function()
-	-- Metal Detector Spy
-	local metalDetectorSpy = {
-		enabled = false,
-		metalCounts = {},
-		connection = nil
-	}
+	local MetalDetectorSpy
+	local FilterSelf
 
-	local function notifyMetalDrop(metalType, count)
-		local message = metalType:upper() .. " x" .. count
-		if vape and vape.Notifications and vape.Notifications.CreateNotification then
-			vape.Notifications.CreateNotification("Metal Spy", message, 3, "assets/WarningNotification.png")
+	local api = vape or mainapi
+	local players = game:GetService('Players')
+	local lplr = players.LocalPlayer
+
+	-- Keeps track of cached player counts to calculate incoming additions
+	local trackedInventories = {}
+
+	local function sendLootNotification(player, lootSummary)
+		if not player or not lootSummary or #lootSummary == 0 then return end
+		if FilterSelf and FilterSelf.Enabled and player == lplr then return end
+
+		local playerName = player.DisplayName or player.Name
+		local text = playerName .. ' received ' .. table.concat(lootSummary, ', ')
+
+		-- Sends the notification
+		if vape and vape.CreateNotification then
+			vape.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
+		elseif api and api.CreateNotification then
+			api.CreateNotification("Mxtion v4", text, 5, "assets/WarningNotification.png")
+		else
+			print('[Mxtion v4] ' .. text)
 		end
 	end
 
-	local metalDetectorSpyModule = vape.Categories.World:CreateModule({
-		Name = "Metal Detector Spy",
-		Function = function(call)
-			metalDetectorSpy.enabled = call
-			
-			if call then
-				if metalDetectorSpy.connection then
-					metalDetectorSpy.connection:Disconnect()
+	-- Checks if a player has the Metal Detector kit equipped or holds the metal detector item
+	local function isMetalDetectorUser(player)
+		if not player then return false end
+		
+		-- 1. Check Bedwars Kit Attribute
+		local kit = player:GetAttribute("Kit") or player:GetAttribute("equippedKit")
+		if kit and tostring(kit):lower():find("metal_detector") then
+			return true
+		end
+
+		-- 2. Check Backpack / Inventory for metal detector item
+		local backpack = player:FindFirstChild("Backpack")
+		local char = player.Character
+		
+		local function hasDetectorItem(container)
+			if not container then return false end
+			for _, item in ipairs(container:GetChildren()) do
+				if item.Name:lower():find("metal_detector") or item.Name:lower():find("metaldetector") then
+					return true
 				end
+			end
+			return false
+		end
+
+		return hasDetectorItem(backpack) or hasDetectorItem(char)
+	end
+
+	-- Reads current counts for Diamonds & Emeralds only
+	local function getValuableResources(player)
+		local counts = { emerald = 0, diamond = 0 }
+		local backpack = player:FindFirstChild("Backpack")
+		local char = player.Character
+
+		local function scanContainer(container)
+			if not container then return end
+			for _, item in ipairs(container:GetChildren()) do
+				local name = item.Name:lower()
+				local amount = item:GetAttribute("Amount") or item:GetAttribute("StackSize") or item.StackSize or 1
 				
-				table.clear(metalDetectorSpy.metalCounts)
-				
-				-- Try to find BillboardRiseEffect signal
-				local found = false
-				local function findAndConnect(parent, depth)
-					if depth > 5 or found then return end
-					for _, v in pairs(parent:GetChildren()) do
-						if v.Name == "BillboardRiseEffect" and v:IsA("RemoteEvent") then
-							metalDetectorSpy.connection = v.OnClientEvent:Connect(function(data)
-								if data and data.itemType then
-									local metalType = tostring(data.itemType)
-									metalDetectorSpy.metalCounts[metalType] = (metalDetectorSpy.metalCounts[metalType] or 0) + 1
-									notifyMetalDrop(metalType, metalDetectorSpy.metalCounts[metalType])
-									warn("Metal caught: " .. metalType .. " (Total: " .. metalDetectorSpy.metalCounts[metalType] .. ")")
-								end
-							end)
-							found = true
-							break
+				if name:find("emerald") then
+					counts.emerald = counts.emerald + amount
+				elseif name:find("diamond") then
+					counts.diamond = counts.diamond + amount
+				end
+			end
+		end
+
+		scanContainer(backpack)
+		scanContainer(char)
+		return counts
+	end
+
+	-- Main Tracker Loop
+	local function startInventoryTracking()
+		MetalDetectorSpy:Clean(task.spawn(function()
+			while task.wait(0.5) do
+				for _, player in ipairs(players:GetPlayers()) do
+					-- Only track players using the Metal Detector kit
+					if isMetalDetectorUser(player) then
+						local currentLoot = getValuableResources(player)
+						local lastLoot = trackedInventories[player]
+
+						if lastLoot then
+							local gains = {}
+							
+							-- Calculate positive gains
+							local emGained = currentLoot.emerald - lastLoot.emerald
+							local diaGained = currentLoot.diamond - lastLoot.diamond
+
+							if emGained > 0 then
+								table.insert(gains, emGained .. (emGained > 1 and " Emeralds" or " Emerald"))
+							end
+							
+							if diaGained > 0 then
+								table.insert(gains, diaGained .. (diaGained > 1 and " Diamonds" or " Diamond"))
+							end
+
+							-- Notify if valuable loot was received
+							if #gains > 0 then
+								sendLootNotification(player, gains)
+							end
 						end
-						findAndConnect(v, depth + 1)
+
+						-- Update cache
+						trackedInventories[player] = currentLoot
+					else
+						trackedInventories[player] = nil
 					end
 				end
-				
-				findAndConnect(replicatedStorage, 0)
-				if not found then
-					warn("Metal Detector Spy: BillboardRiseEffect not found in ReplicatedStorage")
-				end
-			else
-				if metalDetectorSpy.connection then
-					metalDetectorSpy.connection:Disconnect()
-					metalDetectorSpy.connection = nil
-				end
-				table.clear(metalDetectorSpy.metalCounts)
 			end
-		end
+		end))
+	end
+
+	MetalDetectorSpy = api.Categories.Utility:CreateModule({
+		Name = 'MetalDetectorSpy',
+		Function = function(callback)
+			if callback then
+				startInventoryTracking()
+			else
+				table.clear(trackedInventories)
+			end
+		end,
+		Tooltip = 'Tracks Metal Detector users and alerts when they gain Emeralds or Diamonds'
 	})
 
-	metalDetectorSpyModule:CreateToggle({
-		Name = "Show Counts",
-		Function = function(call)
-			if call and next(metalDetectorSpy.metalCounts) then
-				local countText = ""
-				for metal, count in pairs(metalDetectorSpy.metalCounts) do
-					countText = countText .. metal .. ": " .. count .. " | "
-				end
-				vape.Notifications.CreateNotification("Metal Counts", countText:sub(1, -4), 5, "assets/WarningNotification.png")
-			end
-		end
+	FilterSelf = MetalDetectorSpy:CreateToggle({
+		Name = 'Ignore Self',
+		Default = false,
+		Tooltip = 'Do not send notifications when you receive valuable loot yourself'
 	})
 end)
 
@@ -21859,82 +21923,4 @@ run(function()
 		end,
 		Default = true
 	})
-end
-
--- Metal Detector Spy
-local metalDetectorSpy = {
-	enabled = false,
-	metalCounts = {},
-	connection = nil
-}
-
-local function notifyMetalDrop(metalType, count)
-	local message = metalType:upper() .. " x" .. count
-	if vapeEvents and vapeEvents.notification then
-		vapeEvents.notification:Fire("Metal Drop", message, 3)
-	end
-end
-
-local metalDetectorSpyModule = vape.Categories.World:CreateModule({
-	Name = "Metal Detector Spy",
-	Function = function(call)
-		metalDetectorSpy.enabled = call
-		
-		if call then
-			if metalDetectorSpy.connection then
-				metalDetectorSpy.connection:Disconnect()
-			end
-			
-			table.clear(metalDetectorSpy.metalCounts)
-			
-			-- Try to find BillboardRiseEffect signal
-			local found = false
-			local function findAndConnect(parent, depth)
-				if depth > 5 or found then return end
-				for _, v in pairs(parent:GetChildren()) do
-					if v.Name == "BillboardRiseEffect" and v:IsA("RemoteEvent") then
-						metalDetectorSpy.connection = v.OnClientEvent:Connect(function(data)
-							if data and data.itemType then
-								local metalType = tostring(data.itemType)
-								metalDetectorSpy.metalCounts[metalType] = (metalDetectorSpy.metalCounts[metalType] or 0) + 1
-								notifyMetalDrop(metalType, metalDetectorSpy.metalCounts[metalType])
-								warn("Metal caught: " .. metalType .. " (Total: " .. metalDetectorSpy.metalCounts[metalType] .. ")")
-							end
-						end)
-						found = true
-						break
-					end
-					findAndConnect(v, depth + 1)
-				end
-			end
-			
-			findAndConnect(replicatedStorage, 0)
-			if not found then
-				warn("Metal Detector Spy: BillboardRiseEffect not found in ReplicatedStorage")
-			end
-		else
-			if metalDetectorSpy.connection then
-				metalDetectorSpy.connection:Disconnect()
-				metalDetectorSpy.connection = nil
-			end
-			table.clear(metalDetectorSpy.metalCounts)
-		end
-	end
-})
-
-metalDetectorSpyModule:CreateToggle({
-	Name = "Show Counts",
-	Function = function(call)
-		if call and next(metalDetectorSpy.metalCounts) then
-			local countText = ""
-			for metal, count in pairs(metalDetectorSpy.metalCounts) do
-				countText = countText .. metal .. ": " .. count .. " | "
-			end
-			starterGui:SetCore("SendNotification", {
-				Title = "Metal Counts",
-				Text = countText:sub(1, -4),
-				Duration = 5
-			})
-		end
-	end
-})
+end)
