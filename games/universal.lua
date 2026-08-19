@@ -8367,6 +8367,7 @@ run(function()
     local localPlayer = Players.LocalPlayer
 
     local lockedPositions = {}
+    local positionHistory = {} -- { [ent] = { {cf=CFrame, t=tick()}, ... } }
 
     local function getLocalRoot()
         local char = localPlayer.Character
@@ -8406,6 +8407,7 @@ run(function()
                     end
 
                     local mode = HackMode.Value
+                    local now = tick()
 
                     for _, ent in ipairs(targets) do
                         local root = ent.RootPart
@@ -8456,25 +8458,47 @@ run(function()
                             end
 
                         elseif mode == 'Desync' then
-                            if not lockedPositions[ent] then
-                                lockedPositions[ent] = root.CFrame
+                            -- Record real position every frame into history buffer
+                            if not positionHistory[ent] then
+                                positionHistory[ent] = {}
                             end
-                            root.CFrame = lockedPositions[ent]
+
+                            local history = positionHistory[ent]
+
+                            -- Store current real CFrame with timestamp
+                            table.insert(history, { cf = root.CFrame, t = now })
+
+                            -- Find the oldest entry that is at least 1 second old
+                            local delayedCF = nil
+                            for i = 1, #history do
+                                if now - history[i].t >= 1 then
+                                    delayedCF = history[i].cf
+                                else
+                                    -- Trim everything older than what we just used
+                                    if i > 1 then
+                                        for j = 1, i - 1 do
+                                            table.remove(history, 1)
+                                        end
+                                    end
+                                    break
+                                end
+                            end
+
+                            -- Apply delayed position so target appears to move but 1s behind
+                            if delayedCF then
+                                root.CFrame = delayedCF
+                            end
 
                         elseif mode == 'Speed' then
-                            -- Move target forward at 24 studs/s in the direction they are facing
-                            -- This makes them look like they are speeding on everyone elses screen
                             local facing = root.CFrame.LookVector
                             root.CFrame = root.CFrame + (facing * 24 * dt)
-
-                            -- Also set their humanoid walkspeed so animation plays at speed rate
                             hum.WalkSpeed = 24
                         end
                     end
                 end))
             else
                 table.clear(lockedPositions)
-                -- Reset walkspeed on disable for all targeted entities
+                table.clear(positionHistory)
                 for _, ent in ipairs(entitylib.List) do
                     if ent.Humanoid then
                         ent.Humanoid.WalkSpeed = 16
@@ -8494,7 +8518,7 @@ run(function()
         Name = 'Hack Mode',
         List = {'AutoDodge', 'PlayerAttach', 'Orbit', 'Shake', 'PushAway', 'Desync', 'Speed'},
         Default = 'AutoDodge',
-        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: Fully frozen | Speed: Target looks like they are speeding at 24'
+        Tooltip = 'AutoDodge: Free move + vertical cycle | PlayerAttach: Behind you | Orbit: Circle | Shake: Jitter | PushAway: Repel | Desync: 1s delayed movement | Speed: Target looks like speeding at 24'
     })
 
     SpeedValue = FalseBan:CreateSlider({
