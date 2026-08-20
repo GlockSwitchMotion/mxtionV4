@@ -22680,35 +22680,30 @@ run(function()
 		return moveDir
 	end
 
-	-- IMPROVED BRIDGING: Builds like a human would, in a line ahead
+	-- IMPROVED BRIDGING: Builds a straight single-line bridge ahead
 	local function smartBridge(rootPart, moveDir)
 		local wool = getWoolItem()
 		if not wool or getWoolAmount() <= 1 then return end
 
-		-- Build blocks ahead in a line (like a normal player would)
-		for i = 1, 2 do
-			local checkPos = rootPart.Position
-				+ moveDir * (3 * i)
-				- Vector3.new(0, 3.5, 0)
+		-- Build a single block directly ahead in movement direction
+		local checkPos = rootPart.Position + moveDir * 3 - Vector3.new(0, 3.5, 0)
 
-			-- Check if there's ground below
-			local hit = workspace:FindPartOnRayWithIgnoreList(
-				Ray.new(rootPart.Position + moveDir * (3 * i), Vector3.new(0, -5, 0)),
-				{lplr.Character}
+		-- Check if there's ground below
+		local hit = workspace:FindPartOnRayWithIgnoreList(
+			Ray.new(rootPart.Position + moveDir * 3, Vector3.new(0, -5, 0)),
+			{lplr.Character}
+		)
+
+		-- Only build if there's no ground (void below)
+		if not hit then
+			pcall(bedwars.placeBlock,
+				Vector3.new(
+					math.round(checkPos.X / 3) * 3,
+					math.round(checkPos.Y / 3) * 3,
+					math.round(checkPos.Z / 3) * 3
+				),
+				wool.itemType, false
 			)
-
-			-- Only build if there's no ground
-			if not hit then
-				pcall(bedwars.placeBlock,
-					Vector3.new(
-						math.round(checkPos.X / 3) * 3,
-						math.round(checkPos.Y / 3) * 3,
-						math.round(checkPos.Z / 3) * 3
-					),
-					wool.itemType, false
-				)
-				task.wait(0.05)
-			end
 		end
 	end
 
