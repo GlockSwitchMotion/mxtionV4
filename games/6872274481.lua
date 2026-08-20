@@ -21186,29 +21186,46 @@ end)
 
 run(function()
     local InstantJade
+    local UserInputService = game:GetService("UserInputService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
 
     local abilityUsedEvent = ReplicatedStorage["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].abilityUsed
+    local clickConnection
+
+    -- Helper function to check if the held item is the Jade Hammer
+    local function isHoldingJadeHammer()
+        local char = Players.LocalPlayer.Character
+        if not char then return false end
+
+        local tool = char:FindFirstChildOfClass("Tool")
+        return tool and tool.Name:lower():find("jade_hammer") ~= nil
+    end
 
     InstantJade = vape.Categories.Kits:CreateModule({
         Name = "InstantJade",
-        Tooltip = "Replays the Jade Hammer ability client event",
+        Tooltip = "Replays Jade Hammer client event on left click when holding Jade Hammer",
         Function = function(callback)
             if callback then
-                local char = Players.LocalPlayer.Character
-                if char and firesignal then
-                    firesignal(abilityUsedEvent.OnClientEvent, char, "jade_hammer_jump")
-                end
-                
-                -- Reset toggle state cleanly on the next frame
-                task.defer(function()
-                    if InstantJade.ToggleButton then
-                        InstantJade:ToggleButton(false)
-                    elseif InstantJade.SetState then
-                        InstantJade:SetState(false)
+                -- Listen for mouse clicks while module is active
+                clickConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                    if gameProcessed then return end
+
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        if isHoldingJadeHammer() then
+                            local char = Players.LocalPlayer.Character
+                            if char and firesignal then
+                                firesignal(abilityUsedEvent.OnClientEvent, char, "jade_hammer_jump")
+                            end
+                        end
                     end
                 end)
+            else
+                -- Clean up connection when toggled off
+                if clickConnection then
+                    clickConnection:Disconnect()
+                    clickConnection = nil
+                end
             end
         end
     })
