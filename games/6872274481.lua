@@ -22411,7 +22411,27 @@ end)
 run(function()
 	local AutoPilot
 	local AutoPilotLoop
-	local pathfindingService = game:GetService("PathfindingService")
+	local blockPlaceController
+	local KnitInit, Knit
+	
+	task.spawn(function()
+		repeat
+			KnitInit, Knit = pcall(function()
+				return debug.getupvalue(require(lplr.PlayerScripts.TS.knit).setup, 9)
+			end)
+			task.wait()
+		until KnitInit
+		blockPlaceController = Knit.Controllers.BlockCreationController
+	end)
+
+	local function getWoolItem()
+		for _, item in store.inventory.inventory.items do
+			if item.itemType:find("wool") then
+				return item
+			end
+		end
+		return nil
+	end
 
 	local function getClosestTarget()
 		if not entitylib.isAlive then return nil end
@@ -22443,15 +22463,40 @@ run(function()
 			end
 		end
 		
-		if closestEnt and closestDist < 100 then
-			return {Type = "Player", Instance = closestEnt.Character, Position = closestEnt.RootPart.Position}
-		elseif closestBed then
+		if closestBed then
 			return {Type = "Bed", Instance = closestBed, Position = closestBed:GetPivot().Position}
 		elseif closestEnt then
 			return {Type = "Player", Instance = closestEnt.Character, Position = closestEnt.RootPart.Position}
 		end
-		
 		return nil
+	end
+
+	local function autoBuyItems()
+		if not store.shopLoaded then return end
+		local iron = getItem("iron")
+		if iron and iron.amount >= 40 then
+			-- Auto buy iron armor
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "iron_armor"})
+		end
+		if iron and iron.amount >= 16 then
+			-- Auto buy wool
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "wool_white"})
+		end
+	end
+
+	local function autoBridge(rootPart)
+		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 1.5) - Vector3.new(0, 3, 0)
+		local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 5)
+		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		if not hit then
+			local wool = getWoolItem()
+			if wool and blockPlaceController then
+				local targetBlockPos = Vector3.new(math.floor(checkPos.X / 3) * 3, math.floor(checkPos.Y / 3) * 3, math.floor(checkPos.Z / 3) * 3)
+				pcall(function()
+					blockPlaceController:placeBlock(targetBlockPos, wool.itemType)
+				end)
+			end
+		end
 	end
 
 	local function moveTowards(targetPos)
@@ -22461,12 +22506,14 @@ run(function()
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if not rootPart or not humanoid then return end
 		
+		autoBridge(rootPart)
+		
 		local direction = (targetPos - rootPart.Position) * Vector3.new(1, 0, 1)
 		if direction.Magnitude > 3 then
 			humanoid:Move(direction.Unit, false)
 			local camera = workspace.CurrentCamera
 			if camera then
-				camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetPos), 0.1)
+				camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetPos), 0.15)
 			end
 			local ray = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
 			local hit = workspace:FindPartOnRayWithIgnoreList(ray, {character})
@@ -22478,13 +22525,14 @@ run(function()
 		end
 	end
 
-	AutoPilot = vape.Categories.Minigames:CreateModule({
+	AutoPilot = vape.Categories.Utility:CreateModule({
 		Name = 'AutoPilot',
 		Function = function(callback)
 			if callback then
 				AutoPilotLoop = task.spawn(function()
 					while true do
 						task.wait(0.1)
+						autoBuyItems()
 						local target = getClosestTarget()
 						if target then
 							moveTowards(target.Position)
@@ -22493,8 +22541,20 @@ run(function()
 								if dist < 18 then
 									local sword = getSword()
 									if sword then
-										-- Optional sword usage triggers
+										-- Automatically swing sword at nearby players
+										local swordMeta = bedwars.ItemMeta[sword.itemType]
+										pcall(function()
+											bedwars.SwordController:swingSword(sword)
+										end)
 									end
+								end
+							elseif target.Type == "Bed" then
+								local dist = (target.Position - entitylib.character.RootPart.Position).Magnitude
+								if dist < 8 then
+									-- Break the bed
+									pcall(function()
+										bedwars.BlockBreakController:startBreaking(target.Position)
+									end)
 								end
 							end
 						end
@@ -22507,6 +22567,6 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Automatically plays the game with simple combat & navigation'
+		Tooltip = 'Full AFK Autopilot: Auto-Fights, Auto-Bridges, Auto-Buys & Breaks Beds.'
 	})
 end)
