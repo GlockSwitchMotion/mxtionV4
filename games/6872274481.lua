@@ -22408,6 +22408,70 @@ run(function()
 end)
 
 run(function()
+    local PlayerAttachModule
+    local RangeSlider
+    local HeightOffsetSlider
+
+    PlayerAttachModule = vape.Categories.Blatant:CreateModule({
+        Name = 'PlayerAttach',
+        Function = function(callback)
+            if callback then
+                PlayerAttachModule:Clean(runService.RenderStepped:Connect(function()
+                    if not entitylib.isAlive or not entitylib.character.RootPart then return end
+                    
+                    local myRoot = entitylib.character.RootPart
+                    local closestTarget = nil
+                    local closestDist = RangeSlider.Value
+
+                    -- Scan entity list for valid targets within range
+                    for _, ent in ipairs(entitylib.List) do
+                        if ent.Targetable and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
+                            local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
+                            if dist <= closestDist then
+                                closestDist = dist
+                                closestTarget = ent
+                            end
+                        end
+                    end
+
+                    -- Horizontally align directly over the enemy player's head
+                    if closestTarget and closestTarget.RootPart then
+                        local targetRoot = closestTarget.RootPart
+                        local targetHead = closestTarget.Character and closestTarget.Character:FindFirstChild("Head")
+                        local basePos = targetHead and targetHead.Position or targetRoot.Position
+
+                        -- Offset vertically over the head while keeping horizontal alignment
+                        local attachedCFrame = CFrame.new(basePos + Vector3.new(0, HeightOffsetSlider.Value, 0)) * targetRoot.CFrame.Rotation
+                        myRoot.CFrame = attachedCFrame
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Attaches your character horizontally over an enemy head when in range'
+    })
+
+    RangeSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Trigger Range',
+        Min = 5,
+        Max = 30,
+        Default = 18,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+
+    HeightOffsetSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Height Above Head',
+        Min = 2,
+        Max = 10,
+        Default = 3,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+end)
+
+run(function()
 	local AutoPilot
 	local AutoPilotLoop
 	local renderConnection = nil
