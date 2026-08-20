@@ -22411,7 +22411,7 @@ run(function()
 	local AutoPilot
 	local AutoPilotLoop
 	local targetMovePosition = nil
-	local heartbeatConnection = nil
+	local renderConnection = nil
 
 	local function getWoolItem()
 		for _, item in pairs(store.inventory.inventory.items) do
@@ -22523,13 +22523,19 @@ run(function()
 		end
 	end
 
-	local function autoBridge(rootPart)
-		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 2) - Vector3.new(0, 3, 0)
+	local function smartBridge(rootPart, targetPos)
+		if not targetPos then return end
+		
+		local distance = (targetPos - rootPart.Position).Magnitude
+		if distance > 50 then return end
+		
+		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 3) - Vector3.new(0, 3.5, 0)
 		local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 6)
 		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		
 		if not hit then
 			local wool = getWoolItem()
-			if wool then
+			if wool and wool.amount > 1 then
 				local targetBlockPos = Vector3.new(
 					math.round(checkPos.X / 3) * 3,
 					math.round(checkPos.Y / 3) * 3,
@@ -22540,9 +22546,28 @@ run(function()
 		end
 	end
 
+	local function isWallBlocking(rootPart, direction)
+		local rayOrigin = rootPart.Position + Vector3.new(0, 1, 0)
+		local ray = Ray.new(rayOrigin, direction * 6)
+		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		return hit and hit.CanCollide
+	end
+
+	local function getStrafeDirection(rootPart, moveDir)
+		local leftDir = Vector3.new(-moveDir.Z, 0, moveDir.X).Unit
+		local rightDir = Vector3.new(moveDir.Z, 0, -moveDir.X).Unit
+		
+		if not isWallBlocking(rootPart, leftDir) then
+			return leftDir
+		elseif not isWallBlocking(rootPart, rightDir) then
+			return rightDir
+		end
+		return moveDir
+	end
+
 	local function startMovementLoop()
-		if heartbeatConnection then return end
-		heartbeatConnection = runService.Heartbeat:Connect(function()
+		if renderConnection then return end
+		renderConnection = runService.RenderStepped:Connect(function()
 			if not entitylib.isAlive or not targetMovePosition then return end
 			local character = lplr.Character
 			if not character then return end
@@ -22550,15 +22575,21 @@ run(function()
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
 			if not rootPart or not humanoid then return end
 
-			autoBridge(rootPart)
+			smartBridge(rootPart, targetMovePosition)
 
-			local direction = (targetMovePosition - rootPart.Position) * Vector3.new(1, 0, 1)
-			if direction.Magnitude > 3 then
-				humanoid:Move(direction.Unit, false)
-				local camera = workspace.CurrentCamera
-				if camera then
-					camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetMovePosition), 0.1)
+			local direction = (targetMovePosition - rootPart.Position)
+			local flatDistance = (direction * Vector3.new(1, 0, 1)).Magnitude
+			local moveDir = direction.Unit
+			
+			if flatDistance > 2 then
+				-- Check if wall blocks path
+				if isWallBlocking(rootPart, moveDir) then
+					moveDir = getStrafeDirection(rootPart, moveDir)
 				end
+				
+				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
+				
+				-- Jump if blocked
 				local fwdRay = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
 				local fwdHit = workspace:FindPartOnRayWithIgnoreList(fwdRay, {character})
 				if fwdHit and fwdHit.CanCollide then
@@ -22571,9 +22602,9 @@ run(function()
 	end
 
 	local function stopMovementLoop()
-		if heartbeatConnection then
-			heartbeatConnection:Disconnect()
-			heartbeatConnection = nil
+		if renderConnection then
+			renderConnection:Disconnect()
+			renderConnection = nil
 		end
 	end
 
@@ -22592,6 +22623,7 @@ run(function()
 						end
 
 						local selfPos = entitylib.character.RootPart.Position
+						local myTeam = lplr:GetAttribute("Team")
 						local iron = getItem("iron")
 						local ironAmt = iron and iron.amount or 0
 						local woolAmount = getWoolAmount()
@@ -22613,6 +22645,10 @@ run(function()
 								targetMovePosition = shopPart.Position
 								if (shopPart.Position - selfPos).Magnitude < 20 then
 									autoBuyItems()
+									-- Auto buy blocks
+									for i = 1, 5 do
+										buyItem("wool_white")
+									end
 								end
 							end
 
@@ -22623,6 +22659,10 @@ run(function()
 								targetMovePosition = shopPart.Position
 								if (shopPart.Position - selfPos).Magnitude < 20 then
 									autoBuyItems()
+									-- Auto buy blocks for bridge
+									for i = 1, 8 do
+										buyItem("wool_white")
+									end
 								end
 							end
 
@@ -22636,7 +22676,6 @@ run(function()
 
 						-- PRIORITY 4: Rush enemy bed
 						else
-							local myTeam = lplr:GetAttribute("Team")
 							local closestBed, closestBedDist = nil, math.huge
 							for _, v in pairs(collectionService:GetTagged('bed')) do
 								if v:GetAttribute("Team") ~= myTeam then
