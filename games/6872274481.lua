@@ -22409,21 +22409,24 @@ end)
 
 run(function()
     local PlayerAttachModule
+    local ModeDropdown
     local RangeSlider
     local HeightOffsetSlider
+    local ResistanceDistSlider
+    local BehindDistSlider
 
     PlayerAttachModule = vape.Categories.Blatant:CreateModule({
         Name = 'PlayerAttach',
         Function = function(callback)
             if callback then
-                PlayerAttachModule:Clean(runService.RenderStepped:Connect(function()
+                PlayerAttachModule:Clean(runService.RenderStepped:Connect(function(dt)
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
                     local myRoot = entitylib.character.RootPart
                     local closestTarget = nil
                     local closestDist = RangeSlider.Value
 
-                    -- Scan entity list for valid targets within range
+                    -- Scan entity list for valid targets within trigger range
                     for _, ent in ipairs(entitylib.List) do
                         if ent.Targetable and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
                             local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
@@ -22434,37 +22437,87 @@ run(function()
                         end
                     end
 
-                    -- Horizontally align directly over the enemy player's head
                     if closestTarget and closestTarget.RootPart then
                         local targetRoot = closestTarget.RootPart
-                        local targetHead = closestTarget.Character and closestTarget.Character:FindFirstChild("Head")
-                        local basePos = targetHead and targetHead.Position or targetRoot.Position
+                        local mode = ModeDropdown.Value
 
-                        -- Offset vertically over the head while keeping horizontal alignment
-                        local attachedCFrame = CFrame.new(basePos + Vector3.new(0, HeightOffsetSlider.Value, 0)) * targetRoot.CFrame.Rotation
-                        myRoot.CFrame = attachedCFrame
+                        if mode == 'OverHead' then
+                            -- Positions directly above the enemy player's head
+                            local targetHead = closestTarget.Character and closestTarget.Character:FindFirstChild("Head")
+                            local basePos = targetHead and targetHead.Position or targetRoot.Position
+                            local attachedCFrame = CFrame.new(basePos + Vector3.new(0, HeightOffsetSlider.Value, 0)) * targetRoot.CFrame.Rotation
+                            myRoot.CFrame = attachedCFrame
+
+                        elseif mode == 'Behind' then
+                            -- Positions directly behind the enemy player based on their look direction
+                            local behindCFrame = targetRoot.CFrame * CFrame.new(0, 0, BehindDistSlider.Value)
+                            myRoot.CFrame = behindCFrame
+
+                        elseif mode == 'Resistance' then
+                            -- Repels your character backward if the enemy gets closer than Resistance Distance
+                            local currentDist = (targetRoot.Position - myRoot.Position).Magnitude
+                            local minDistance = ResistanceDistSlider.Value
+
+                            if currentDist < minDistance then
+                                -- Direction pointing directly away from the target horizontally
+                                local pushDirection = (myRoot.Position - targetRoot.Position) * Vector3.new(1, 0, 1)
+                                if pushDirection.Magnitude == 0 then
+                                    pushDirection = -targetRoot.CFrame.LookVector * Vector3.new(1, 0, 1)
+                                end
+                                
+                                local pushVector = pushDirection.Unit * (minDistance - currentDist)
+                                myRoot.CFrame = myRoot.CFrame + pushVector
+                            end
+                        end
                     end
                 end))
             end
         end,
-        Tooltip = 'Attaches your character horizontally over an enemy head when in range'
+        Tooltip = 'Attaches overhead, behind, or maintains a repelling distance from players'
+    })
+
+    ModeDropdown = PlayerAttachModule:CreateDropdown({
+        Name = 'Mode',
+        List = {'OverHead', 'Behind', 'Resistance'},
+        Default = 'Behind',
+        Tooltip = 'OverHead: Floats over head | Behind: Locks behind target | Resistance: Prevents target from approaching'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
-        Name = 'Trigger Range',
+        Name = 'Detection Range',
         Min = 5,
-        Max = 30,
+        Max = 40,
         Default = 18,
         Suffix = function(val)
             return val == 1 and 'stud' or 'studs'
         end
     })
 
+    BehindDistSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Behind Distance',
+        Min = 2,
+        Max = 25,
+        Default = 12,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+
     HeightOffsetSlider = PlayerAttachModule:CreateSlider({
-        Name = 'Height Above Head',
+        Name = 'OverHead Height',
         Min = 2,
         Max = 10,
         Default = 3,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+
+    ResistanceDistSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Resistance Limit',
+        Min = 5,
+        Max = 25,
+        Default = 18,
         Suffix = function(val)
             return val == 1 and 'stud' or 'studs'
         end
