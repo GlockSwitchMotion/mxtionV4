@@ -22412,6 +22412,8 @@ run(function()
 	local AutoPilotLoop
 	local targetMovePosition = nil
 	local renderConnection = nil
+	local lastWallCheckTime = 0
+	local currentPathpoint = nil
 
 	local function getWoolItem()
 		for _, item in pairs(store.inventory.inventory.items) do
@@ -22523,7 +22525,56 @@ run(function()
 		end
 	end
 
-	local function smartBridge(rootPart, targetPos)
+	local function castRay(origin, direction, distance)
+		local ray = Ray.new(origin, direction.Unit * distance)
+		local hit, pos = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		return hit, pos
+	end
+
+	local function isPathBlocked(rootPart, direction, distance)
+		local hit = castRay(rootPart.Position + Vector3.new(0, 1, 0), direction, distance)
+		return hit and hit.CanCollide
+	end
+
+	local function getStrafeDirection(rootPart, targetDir)
+		-- Get perpendicular directions (left and right)
+		local leftDir = Vector3.new(-targetDir.Z, 0, targetDir.X).Unit
+		local rightDir = Vector3.new(targetDir.Z, 0, -targetDir.X).Unit
+		
+		-- Check left
+		if not isPathBlocked(rootPart, leftDir, 8) then
+			return leftDir
+		end
+		
+		-- Check right
+		if not isPathBlocked(rootPart, rightDir, 8) then
+			return rightDir
+		end
+		
+		-- If both blocked, go up and forward
+		return (targetDir + Vector3.new(0, 1, 0)).Unit
+	end
+
+	local function getSmartTarget(rootPart, targetPos)
+		local toTarget = (targetPos - rootPart.Position)
+		local direction = toTarget.Unit
+		local distance = toTarget.Magnitude
+		
+		-- Check if direct path is blocked
+		if distance > 5 and isPathBlocked(rootPart, direction, math.min(distance, 20)) then
+			-- Get around the wall
+			local strafeDir = getStrafeDirection(rootPart, direction)
+			return rootPart.Position + strafeDir * 15
+		end
+		
+		return targetPos
+	end
+
+	local function checkVoid(rootPart)
+		local ray = Ray.new(rootPart.Position, Vector3.new(0, -20, 0))
+		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		return not hit
+	end
 		-- Only bridge if moving to enemy bed and within reasonable distance
 		if not targetPos then return end
 		
@@ -22559,20 +22610,25 @@ run(function()
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
 			if not rootPart or not humanoid then return end
 
+			-- Void check - infinite jump
+			if checkVoid(rootPart) then
+				humanoid.Jump = true
+			end
+
+			-- Smart bridge
 			smartBridge(rootPart, targetMovePosition)
 
-			local direction = (targetMovePosition - rootPart.Position)
+			-- Get smart pathfinding around obstacles
+			local smartTarget = getSmartTarget(rootPart, targetMovePosition)
+			local direction = (smartTarget - rootPart.Position)
 			local flatDistance = (direction * Vector3.new(1, 0, 1)).Magnitude
 			
-			-- Move continuously until target reached
-			if flatDistance > 2 then
+			if flatDistance > 1.5 then
 				local moveDir = direction.Unit
 				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
 				
-				-- Auto jump if blocked
-				local fwdRay = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
-				local fwdHit = workspace:FindPartOnRayWithIgnoreList(fwdRay, {character})
-				if fwdHit and fwdHit.CanCollide then
+				-- Jump at obstacles
+				if isPathBlocked(rootPart, moveDir, 4) then
 					humanoid.Jump = true
 				end
 			else
@@ -22627,22 +22683,30 @@ run(function()
 							end
 
 						-- PRIORITY 2: Need wool and have iron to buy
-						elseif woolAmount < 24 and ironAmt >= 4 then
+						elseif woolAmount < 32 and ironAmt >= 4 then
 							local shopPart = getShopRootPart()
 							if shopPart then
 								targetMovePosition = shopPart.Position
 								if (shopPart.Position - selfPos).Magnitude < 20 then
 									autoBuyItems()
+									-- Keep buying blocks until we have enough
+									for i = 1, 5 do
+										buyItem("wool_white")
+									end
 								end
 							end
 
-						-- PRIORITY 3: Plenty of iron — go buy upgrades
+						-- PRIORITY 3: Plenty of iron — go buy upgrades and blocks
 						elseif ironAmt >= 100 then
 							local shopPart = getShopRootPart()
 							if shopPart then
 								targetMovePosition = shopPart.Position
 								if (shopPart.Position - selfPos).Magnitude < 20 then
 									autoBuyItems()
+									-- Buy blocks for bridging
+									for i = 1, 8 do
+										buyItem("wool_white")
+									end
 								end
 							end
 
