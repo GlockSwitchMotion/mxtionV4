@@ -22420,6 +22420,7 @@ run(function()
 	}
 	local currentPhase = Phase.FARM
 	local boughtBlocks = false
+	local enemyBedPos = nil
 
 	local function getItemAmount(itemType)
 		local amt = 0
@@ -22461,29 +22462,9 @@ run(function()
 		return nil
 	end
 
-	local function getShopPart()
-		if store and store.shop then
-			for _, v in pairs(store.shop) do
-				if v.RootPart then return v.RootPart end
-			end
-		end
-		for _, tag in pairs({'BedwarsItemShop', 'ItemShop', 'Shop', 'BedwarsShop'}) do
-			for _, v in pairs(collectionService:GetTagged(tag)) do
-				if v:IsA("Model") and v.PrimaryPart then return v.PrimaryPart end
-				if v:IsA("BasePart") then return v end
-			end
-		end
-		for _, v in pairs(workspace:GetDescendants()) do
-			if v.Name:lower():find("shop") and v:IsA("BasePart") then return v end
-		end
-		return nil
-	end
-
-	-- Buy directly using every shop in store.shop
 	local function buyBlocks()
-		if not store.shopLoaded then return end
 		for _, v in pairs(store.shop) do
-			if v.Shop and v.Id then
+			if v.Id then
 				local ok, item = pcall(function()
 					return bedwars.Shop.getShopItem("wool_white", lplr, {shopId = v.Id})
 				end)
@@ -22572,6 +22553,33 @@ run(function()
 					if d < nearestDist then
 						nearest     = ent
 						nearestDist = d
+					end
+				end
+			end
+		end
+		return nearest, nearestDist
+	end
+
+	-- Only returns enemy if they are between us and the bed
+	local function getEnemyInPath(bedPos)
+		if not entitylib.isAlive or not bedPos then return nil, math.huge end
+		local selfPos = entitylib.character.RootPart.Position
+		local myTeam  = lplr:GetAttribute("Team")
+		local nearest, nearestDist = nil, math.huge
+		local toBed = (bedPos - selfPos).Magnitude
+
+		for _, ent in pairs(entitylib.List) do
+			if ent.Targetable and ent.Player ~= lplr and ent.Character and ent.RootPart then
+				local entTeam = ent.Player and ent.Player:GetAttribute("Team")
+				if entTeam ~= myTeam then
+					local entPos = ent.RootPart.Position
+					local d = (entPos - selfPos).Magnitude
+					-- Enemy is in front of us (closer than bed or within 30 studs)
+					if d < toBed or d < 30 then
+						if d < nearestDist then
+							nearest     = ent
+							nearestDist = d
+						end
 					end
 				end
 			end
@@ -22677,6 +22685,7 @@ run(function()
 							targetMovePosition = nil
 							currentPhase       = Phase.FARM
 							boughtBlocks       = false
+							enemyBedPos        = nil
 							task.wait(1)
 							continue
 						end
@@ -22684,8 +22693,6 @@ run(function()
 						local selfPos = entitylib.character.RootPart.Position
 						local ironAmt = getItemAmount("iron")
 						local woolAmt = getWoolAmount()
-						local bed, bedPart, bedDist = getNearestEnemyBed()
-						local enemy, enemyDist = getNearestEnemy()
 
 						-- FARM
 						if currentPhase == Phase.FARM then
@@ -22698,64 +22705,77 @@ run(function()
 								boughtBlocks = false
 							end
 
-						-- SHOP
+						-- SHOP - buy instantly then lock in bed position and rush
 						elseif currentPhase == Phase.SHOP then
-							local shop = getShopPart()
-							if shop then
-								targetMovePosition = shop.Position
-								local dist = (shop.Position - selfPos).Magnitude
-								if dist < 30 and not boughtBlocks then
-									-- Try buying directly without needing shopId proximity
-									local bought = buyBlocks()
-									boughtBlocks = true
-									task.wait(0.5)
-									currentPhase = Phase.RUSH
-								elseif boughtBlocks then
-									currentPhase = Phase.RUSH
-								end
-							else
-								-- No shop found at all, rush anyway
+							if not boughtBlocks then
+								buyBlocks()
 								boughtBlocks = true
-								currentPhase = Phase.RUSH
+								-- Lock in the enemy bed position RIGHT NOW before rushing
+								local bed, _, _ = getNearestEnemyBed()
+								if bed then
+									pcall(function() enemyBedPos = bed:GetPivot().Position end)
+									if not enemyBedPos and bed:IsA("Model") and bed.PrimaryPart then
+										enemyBedPos = bed.PrimaryPart.Position
+									end
+								end
+							end
+							currentPhase = Phase.RUSH
+
+						-- RUSH - head to bed, kill anyone in the way, break bed
+						elseif currentPhase == Phase.RUSH then
+							local bed, bedPart, bedDist = getNearestEnemyBed()
+
+							-- Keep bed position updated
+							if bed then
+								pcall(function() enemyBedPos = bed:GetPivot().Position end)
+								if not enemyBedPos and bed:IsA("Model") and bed.PrimaryPart then
+									enemyBedPos = bed.PrimaryPart.Position
+								end
 							end
 
-						-- RUSH
-						elseif currentPhase == Phase.RUSH then
-							-- Kill enemy first if nearby
-							if enemy and enemyDist < 50 then
+							-- Check for enemy in our path to the bed
+							local enemy, enemyDist = getEnemyInPath(enemyBedPos)
+
+							if enemy and enemy.RootPart then
+								-- Enemy is in the way - deal with them first
 								local enemyPos = enemy.RootPart.Position
+
 								if enemyDist > 16 then
+									-- Chase them
 									targetMovePosition = enemyPos
 								elseif enemyDist < 10 then
+									-- Back up to ideal range
 									local backDir = (selfPos - enemyPos).Unit
-									targetMovePosition = selfPos + backDir * 6
+									targetMovePosition = selfPos + backDir * 5
 									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
 								else
+									-- Perfect range, hold position and swing
 									targetMovePosition = selfPos
 									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
 								end
+
+								-- Always swing when in range
 								if enemyDist <= 16 then
 									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
 								end
-							-- No enemy - go break bed
-							elseif bed then
-								local bedPos
-								pcall(function() bedPos = bed:GetPivot().Position end)
-								if not bedPos and bed:IsA("Model") and bed.PrimaryPart then
-									bedPos = bed.PrimaryPart.Position
+
+							else
+								-- No enemy in the way - go straight for the bed
+								if enemyBedPos then
+									targetMovePosition = enemyBedPos
 								end
-								if bedPos then
-									targetMovePosition = bedPos
-								end
+
+								-- Break bed when close enough
 								if bedDist < 10 and bedPart then
 									pcall(bedwars.breakBlock, bedwars, bedPart, false, false, true, false, nil)
 								end
 							end
 
-							-- Out of everything, reset
+							-- Out of resources - reset
 							if woolAmt <= 0 and ironAmt < 8 then
 								currentPhase = Phase.FARM
 								boughtBlocks = false
+								enemyBedPos  = nil
 							end
 						end
 					end
@@ -22769,8 +22789,9 @@ run(function()
 				targetMovePosition = nil
 				currentPhase       = Phase.FARM
 				boughtBlocks       = false
+				enemyBedPos        = nil
 			end
 		end,
-		Tooltip = 'AutoPilot: Farm 16 iron → buy blocks → kill enemy → break bed → win'
+		Tooltip = 'AutoPilot: Farm 16 iron → buy blocks → rush bed → kill anyone in the way → break bed'
 	})
 end)
