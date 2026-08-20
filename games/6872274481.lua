@@ -21185,6 +21185,34 @@ run(function()
 end)
 
 run(function()
+    local InstantJade
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+
+    local abilityUsedEvent = ReplicatedStorage["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].abilityUsed
+
+    InstantJade = vape.Categories.Kits:CreateModule({
+        Name = "InstantJade",
+        Tooltip = "Replays the Jade Hammer ability client event",
+        Function = function(callback)
+            if callback then
+                local char = Players.LocalPlayer.Character
+                if char and firesignal then
+                    firesignal(abilityUsedEvent.OnClientEvent, char, "jade_hammer_jump")
+                end
+                
+                -- Toggle off automatically after firing if intended as a one-click trigger
+                task.spawn(function()
+                    if InstantJade.Enabled then
+                        InstantJade:Toggle()
+                    end
+                end)
+            end
+        end
+    })
+end)
+
+run(function()
 	local Speed
 	local Value
 	local WallCheck
