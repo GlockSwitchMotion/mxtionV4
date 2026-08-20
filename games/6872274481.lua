@@ -22416,11 +22416,13 @@ run(function()
 	local Phase = {
 		FARM  = "FARM",
 		SHOP  = "SHOP",
+		HUNT  = "HUNT",
 		RUSH  = "RUSH",
 	}
 	local currentPhase = Phase.FARM
 	local boughtBlocks = false
 	local enemyBedPos = nil
+	local targetEnemy = nil
 
 	local function getItemAmount(itemType)
 		local amt = 0
@@ -22595,19 +22597,47 @@ run(function()
 		return not hit
 	end
 
-	local function isWallAhead(rootPart, dir)
+	local function isWallAhead(rootPart, dir, height)
+		height = height or 1
 		local hit = workspace:FindPartOnRayWithIgnoreList(
-			Ray.new(rootPart.Position + Vector3.new(0, 1, 0), dir * 5),
+			Ray.new(rootPart.Position + Vector3.new(0, height, 0), dir * 5),
 			{lplr.Character}
 		)
 		return hit and hit.CanCollide
 	end
 
+	local function getObstacleHeight(rootPart, dir)
+		-- Check at different heights to determine obstacle height
+		for height = 0.5, 4, 0.5 do
+			local hit = workspace:FindPartOnRayWithIgnoreList(
+				Ray.new(rootPart.Position + Vector3.new(0, height, 0), dir * 5),
+				{lplr.Character}
+			)
+			if not hit or not hit.CanCollide then
+				return height - 0.5
+			end
+		end
+		return 4 -- Very tall obstacle
+	end
+
 	local function strafeAround(rootPart, moveDir)
 		local left  = Vector3.new(-moveDir.Z, 0,  moveDir.X).Unit
 		local right = Vector3.new( moveDir.Z, 0, -moveDir.X).Unit
-		if not isWallAhead(rootPart, left)  then return left  end
-		if not isWallAhead(rootPart, right) then return right end
+		
+		-- Try left first
+		if not isWallAhead(rootPart, left, 1) then
+			return left
+		end
+		-- Try right
+		if not isWallAhead(rootPart, right, 1) then
+			return right
+		end
+		-- Try diagonal if both sides blocked
+		local diag = (left + moveDir).Unit
+		if not isWallAhead(rootPart, diag, 1) then
+			return diag
+		end
+		
 		return moveDir
 	end
 
@@ -22633,6 +22663,9 @@ run(function()
 		end
 	end
 
+	local lastJumpTime = 0
+	local obstacleDetected = false
+
 	local function startMovementLoop()
 		if renderConnection then return end
 		renderConnection = runService.RenderStepped:Connect(function()
@@ -22645,7 +22678,7 @@ run(function()
 
 			if checkVoid(root) then hum.Jump = true end
 
-			if currentPhase == Phase.RUSH then
+			if currentPhase == Phase.HUNT or currentPhase == Phase.RUSH then
 				tryBridge(root)
 			end
 
@@ -22654,10 +22687,37 @@ run(function()
 			local moveDir  = dir.Unit
 
 			if flatDist > 2.5 then
-				if isWallAhead(root, moveDir) then
-					moveDir = strafeAround(root, moveDir)
-					hum.Jump = true
+				-- Check for obstacles in path
+				local wallHeight = 0
+				if isWallAhead(root, moveDir, 1) then
+					wallHeight = getObstacleHeight(root, moveDir)
+					obstacleDetected = true
+				else
+					obstacleDetected = false
 				end
+
+				-- Jump if obstacle detected
+				if obstacleDetected then
+					local currentTime = tick()
+					-- Jump based on obstacle height
+					if wallHeight > 2.5 then
+						-- Very tall obstacle, try to strafe around
+						moveDir = strafeAround(root, moveDir)
+					elseif wallHeight > 1.5 then
+						-- Medium obstacle, double jump
+						if currentTime - lastJumpTime > 0.5 then
+							hum.Jump = true
+							lastJumpTime = currentTime
+						end
+					else
+						-- Small obstacle, single jump
+						if currentTime - lastJumpTime > 0.3 then
+							hum.Jump = true
+							lastJumpTime = currentTime
+						end
+					end
+				end
+
 				hum:Move(moveDir * Vector3.new(1, 0, 1), false)
 			else
 				hum:Move(Vector3.new(0, 0, 0), false)
@@ -22686,6 +22746,7 @@ run(function()
 							currentPhase       = Phase.FARM
 							boughtBlocks       = false
 							enemyBedPos        = nil
+							targetEnemy        = nil
 							task.wait(1)
 							continue
 						end
@@ -22705,12 +22766,12 @@ run(function()
 								boughtBlocks = false
 							end
 
-						-- SHOP - buy instantly then lock in bed position and rush
+						-- SHOP - buy instantly then hunt nearest enemy player
 						elseif currentPhase == Phase.SHOP then
 							if not boughtBlocks then
 								buyBlocks()
 								boughtBlocks = true
-								-- Lock in the enemy bed position RIGHT NOW before rushing
+								-- Lock in the enemy bed position
 								local bed, _, _ = getNearestEnemyBed()
 								if bed then
 									pcall(function() enemyBedPos = bed:GetPivot().Position end)
@@ -22718,12 +22779,63 @@ run(function()
 										enemyBedPos = bed.PrimaryPart.Position
 									end
 								end
-								-- Immediately start moving toward the bed
-								if enemyBedPos then
-									targetMovePosition = enemyBedPos
+								-- Find and target nearest enemy player
+								local nearestEnemy, _ = getNearestEnemy()
+								if nearestEnemy and nearestEnemy.RootPart then
+									targetEnemy = nearestEnemy
+									targetMovePosition = nearestEnemy.RootPart.Position
+									currentPhase = Phase.HUNT
+								else
+									currentPhase = Phase.RUSH
 								end
 							end
-							currentPhase = Phase.RUSH
+
+						-- HUNT - aggressively chase and kill nearest enemy
+						elseif currentPhase == Phase.HUNT then
+							-- Update target or find new enemy if current is dead/too far
+							if not targetEnemy or not targetEnemy.Character or not targetEnemy.RootPart or not targetEnemy.Targetable then
+								local nearestEnemy, nearestDist = getNearestEnemy()
+								if nearestEnemy and nearestDist < 50 then
+									targetEnemy = nearestEnemy
+								else
+									-- No enemies nearby, transition to RUSH
+									currentPhase = Phase.RUSH
+									targetEnemy = nil
+									if enemyBedPos then
+										targetMovePosition = enemyBedPos
+									end
+								end
+							end
+
+							-- Hunt the target enemy
+							if targetEnemy and targetEnemy.RootPart then
+								local enemyPos = targetEnemy.RootPart.Position
+								local dist = (enemyPos - selfPos).Magnitude
+
+								if dist > 50 then
+									-- Enemy too far, switch to rushing bed
+									currentPhase = Phase.RUSH
+									targetEnemy = nil
+									if enemyBedPos then
+										targetMovePosition = enemyBedPos
+									end
+								elseif dist > 16 then
+									-- Chase them
+									targetMovePosition = enemyPos
+									if dist % 10 < 1 then
+										pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
+									end
+								elseif dist < 8 then
+									-- Too close, back up
+									local backDir = (selfPos - enemyPos).Unit
+									targetMovePosition = selfPos + backDir * 6
+									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
+								else
+									-- Perfect range, hold and swing
+									targetMovePosition = selfPos
+									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
+								end
+							end
 
 						-- RUSH - head to bed, kill anyone in the way, break bed
 						elseif currentPhase == Phase.RUSH then
@@ -22780,6 +22892,7 @@ run(function()
 								currentPhase = Phase.FARM
 								boughtBlocks = false
 								enemyBedPos  = nil
+								targetEnemy  = nil
 							end
 						end
 					end
@@ -22794,8 +22907,9 @@ run(function()
 				currentPhase       = Phase.FARM
 				boughtBlocks       = false
 				enemyBedPos        = nil
+				targetEnemy        = nil
 			end
 		end,
-		Tooltip = 'AutoPilot: Farm 16 iron → buy blocks → rush bed → kill anyone in the way → break bed'
+		Tooltip = 'AutoPilot: Farm 16 iron → buy blocks → hunt enemies → break bed. Smart pathfinding with auto-jumping!'
 	})
 end)
