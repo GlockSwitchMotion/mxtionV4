@@ -22638,44 +22638,8 @@ run(function()
 							end
 						end
 
-						-- PRIORITY 1: Need wool and have iron to buy
-						if woolAmount < 24 and ironAmt >= 4 then
-							local shopPart = getShopRootPart()
-							if shopPart then
-								targetMovePosition = shopPart.Position
-								if (shopPart.Position - selfPos).Magnitude < 20 then
-									autoBuyItems()
-									-- Auto buy blocks
-									for i = 1, 5 do
-										buyItem("wool_white")
-									end
-								end
-							end
-
-						-- PRIORITY 2: Plenty of iron — go buy upgrades
-						elseif ironAmt >= 100 then
-							local shopPart = getShopRootPart()
-							if shopPart then
-								targetMovePosition = shopPart.Position
-								if (shopPart.Position - selfPos).Magnitude < 20 then
-									autoBuyItems()
-									-- Auto buy blocks for bridge
-									for i = 1, 8 do
-										buyItem("wool_white")
-									end
-								end
-							end
-
-						-- PRIORITY 3: Low wool and low iron — go to generator
-						elseif woolAmount < 24 and ironAmt < 4 then
-							local gen = getTeamGenerator()
-							if gen then
-								local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
-								targetMovePosition = genPos
-							end
-
-						-- PRIORITY 4: Rush enemy bed
-						else
+						-- PRIORITY 1: Have resources - RUSH ENEMY BED
+						if woolAmount >= 16 and ironAmt >= 30 then
 							local closestBed, closestBedDist = nil, math.huge
 							for _, v in pairs(collectionService:GetTagged('bed')) do
 								if v:GetAttribute("Team") ~= myTeam then
@@ -22712,6 +22676,28 @@ run(function()
 								else
 									targetMovePosition = nil
 								end
+							end
+
+						-- PRIORITY 2: Low on blocks - go to shop
+						elseif woolAmount < 16 and ironAmt >= 4 then
+							local shopPart = getShopRootPart()
+							if shopPart then
+								targetMovePosition = shopPart.Position
+								if (shopPart.Position - selfPos).Magnitude < 20 then
+									autoBuyItems()
+									-- Auto buy blocks
+									for i = 1, 10 do
+										buyItem("wool_white")
+									end
+								end
+							end
+
+						-- PRIORITY 3: Low iron and blocks - go to generator
+						else
+							local gen = getTeamGenerator()
+							if gen then
+								local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
+								targetMovePosition = genPos
 							end
 						end
 					end
