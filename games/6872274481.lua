@@ -22408,6 +22408,147 @@ run(function()
 end)
 
 run(function()
+    local AutoDodgeModule
+    local DodgeRangeSlider
+    local DodgeHeightSlider
+
+    local function isValidTarget(ent, myRoot)
+        if not ent or not ent.Targetable or not ent.RootPart or not ent.Humanoid then 
+            return false 
+        end
+        if ent.Humanoid.Health <= 0 or ent.Humanoid:GetState() == Enum.HumanoidStateType.Dead then 
+            return false 
+        end
+        if ent.Player then
+            if entitylib.isFriend and entitylib.isFriend(ent.Player) then
+                return false
+            end
+            local myPlayer = game:GetService("Players").LocalPlayer
+            if myPlayer and myPlayer.Team and ent.Player.Team and myPlayer.Team == ent.Player.Team then
+                return false
+            end
+        end
+        return true
+    end
+
+    AutoDodgeModule = vape.Categories.Blatant:CreateModule({
+        Name = 'AutoDodge',
+        Function = function(callback)
+            if callback then
+                local dodgeToggle = false
+                local lastDodgeTime = tick()
+
+                AutoDodgeModule:Clean(runService.Heartbeat:Connect(function()
+                    if not entitylib.isAlive or not entitylib.character.RootPart then return end
+                    
+                    if tick() - lastDodgeTime >= 0.01 then
+                        lastDodgeTime = tick()
+                        
+                        local myRoot = entitylib.character.RootPart
+                        local inRange = false
+
+                        for _, ent in ipairs(entitylib.List) do
+                            if isValidTarget(ent, myRoot) then
+                                local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
+                                if dist <= DodgeRangeSlider.Value then
+                                    inRange = true
+                                    break
+                                end
+                            end
+                        end
+
+                        if inRange then
+                            dodgeToggle = not dodgeToggle
+                            local offset = dodgeToggle and DodgeHeightSlider.Value or -DodgeHeightSlider.Value
+                            myRoot.CFrame = myRoot.CFrame * CFrame.new(0, offset, 0)
+                        end
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Rapidly teleports up/down every 0.01s when targets are within trigger range'
+    })
+
+    DodgeRangeSlider = AutoDodgeModule:CreateSlider({
+        Name = 'Trigger Range',
+        Min = 5,
+        Max = 50,
+        Default = 30,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+    })
+
+    DodgeHeightSlider = AutoDodgeModule:CreateSlider({
+        Name = 'Dodge Offset',
+        Min = 2,
+        Max = 30,
+        Default = 15,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+    })
+end)
+
+run(function()
+    local DesyncModule
+    local DesyncIntensitySlider
+    local ModeDropdown
+
+    DesyncModule = vape.Categories.Blatant:CreateModule({
+        Name = 'Desync',
+        Function = function(callback)
+            if callback then
+                DesyncModule:Clean(runService.Heartbeat:Connect(function()
+                    if not entitylib.isAlive or not entitylib.character.RootPart then return end
+                    
+                    local myRoot = entitylib.character.RootPart
+                    local intensity = DesyncIntensitySlider.Value * 100
+                    local mode = ModeDropdown.Value
+
+                    if mode == 'Velocity' then
+                        -- Forces the server to predict hitboxes far away from local rendering
+                        local oldVelocity = myRoot.AssemblyLinearVelocity
+                        myRoot.AssemblyLinearVelocity = Vector3.new(
+                            math.random(-intensity, intensity),
+                            math.random(-10, 10),
+                            math.random(-intensity, intensity)
+                        )
+                        
+                        -- Immediately reset locally before rendering to prevent screen jitter
+                        runService.RenderStepped:Wait()
+                        if myRoot then
+                            myRoot.AssemblyLinearVelocity = oldVelocity
+                        end
+
+                    elseif mode == 'CFrame Jitter' then
+                        -- Micro-teleports CFrame to break server line-of-sight & auto-trackers
+                        local offset = Vector3.new(
+                            math.random(-intensity, intensity) / 100,
+                            0,
+                            math.random(-intensity, intensity) / 100
+                        )
+                        myRoot.CFrame = myRoot.CFrame * CFrame.new(offset)
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Desynchronizes client position from server-side hitboxes'
+    })
+
+    ModeDropdown = DesyncModule:CreateDropdown({
+        Name = 'Mode',
+        List = {'Velocity', 'CFrame Jitter'},
+        Default = 'Velocity',
+        Tooltip = 'Velocity: Spoofs physics momentum | CFrame Jitter: Micro-offsets frame position'
+    })
+
+    DesyncIntensitySlider = DesyncModule:CreateSlider({
+        Name = 'Intensity',
+        Min = 1,
+        Max = 10,
+        Default = 5,
+        Tooltip = 'Higher intensity desyncs hitboxes further away'
+    })
+end)
+
+run(function()
     local PlayerAttachModule
     local ModeDropdown
     local RangeSlider
@@ -22419,22 +22560,18 @@ run(function()
         if not ent or not ent.Targetable or not ent.RootPart or not ent.Humanoid then 
             return false 
         end
-        
         if ent.Humanoid.Health <= 0 or ent.Humanoid:GetState() == Enum.HumanoidStateType.Dead then 
             return false 
         end
-
         if ent.Player then
             if entitylib.isFriend and entitylib.isFriend(ent.Player) then
                 return false
             end
-            
             local myPlayer = game:GetService("Players").LocalPlayer
             if myPlayer and myPlayer.Team and ent.Player.Team and myPlayer.Team == ent.Player.Team then
                 return false
             end
         end
-
         return true
     end
 
@@ -22479,17 +22616,14 @@ run(function()
                             local minDistance = RepelDistSlider.Value
 
                             if currentDist < minDistance then
-                                -- Direction pointing directly away horizontally
                                 local pushDir = (myRoot.Position - targetRoot.Position) * Vector3.new(1, 0, 1)
                                 if pushDir.Magnitude == 0 then
                                     pushDir = -targetRoot.CFrame.LookVector * Vector3.new(1, 0, 1)
                                 end
                                 
-                                -- Instantly position character at the minimum distance boundary
                                 local pushVector = pushDir.Unit * (minDistance - currentDist)
                                 myRoot.CFrame = myRoot.CFrame + pushVector
                                 
-                                -- Redirect velocity outward to fight incoming movement momentum
                                 local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
                                 myRoot.AssemblyLinearVelocity = pushDir.Unit * math.max(targetVel.Magnitude, 16)
                             end
@@ -22498,14 +22632,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Attaches overhead or repels away to maintain safe distance'
-    })
-
-    ModeDropdown = PlayerAttachModule:CreateDropdown({
-        Name = 'Mode',
-        List = {'OverHead', 'Repel'},
-        Default = 'OverHead',
-        Tooltip = 'OverHead: Floats directly above target | Repel: Maintains minimum distance'
+        Tooltip = 'Attaches overhead or repels away from enemy players'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
@@ -22513,9 +22640,7 @@ run(function()
         Min = 5,
         Max = 60,
         Default = 30,
-        Suffix = function(val)
-            return val == 1 and 'stud' or 'studs'
-        end
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 
     HeightOffsetSlider = PlayerAttachModule:CreateSlider({
@@ -22523,9 +22648,7 @@ run(function()
         Min = 1,
         Max = 12,
         Default = 4,
-        Suffix = function(val)
-            return val == 1 and 'stud' or 'studs'
-        end
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 
     RepelDistSlider = PlayerAttachModule:CreateSlider({
@@ -22533,9 +22656,7 @@ run(function()
         Min = 5,
         Max = 30,
         Default = 18,
-        Suffix = function(val)
-            return val == 1 and 'stud' or 'studs'
-        end
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 
     PredictionSlider = PlayerAttachModule:CreateSlider({
@@ -22545,6 +22666,23 @@ run(function()
         Default = 2,
         Tooltip = 'Scales target velocity lead in OverHead mode.'
     })
+
+    ModeDropdown = PlayerAttachModule:CreateDropdown({
+        Name = 'Mode',
+        List = {'OverHead', 'Repel'},
+        Default = 'OverHead',
+        Function = function(val)
+            HeightOffsetSlider.Object.Visible = (val == 'OverHead')
+            PredictionSlider.Object.Visible = (val == 'OverHead')
+            RepelDistSlider.Object.Visible = (val == 'Repel')
+        end,
+        Tooltip = 'OverHead: Floats directly above target | Repel: Maintains minimum distance'
+    })
+
+    -- Initialize UI visibility state
+    HeightOffsetSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
+    PredictionSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
+    RepelDistSlider.Object.Visible = (ModeDropdown.Value == 'Repel')
 end)
 
 run(function()
