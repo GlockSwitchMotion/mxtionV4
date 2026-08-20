@@ -22527,23 +22527,34 @@ run(function()
 		if not targetPos then return end
 		
 		local distance = (targetPos - rootPart.Position).Magnitude
-		if distance > 50 then return end
+		if distance > 80 then return end
 		
-		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 3) - Vector3.new(0, 3.5, 0)
-		local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 6)
-		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		local woolAmount = getWoolAmount()
 		
-		if not hit then
-			local wool = getWoolItem()
-			if wool and wool.amount > 1 then
-				local targetBlockPos = Vector3.new(
-					math.round(checkPos.X / 3) * 3,
-					math.round(checkPos.Y / 3) * 3,
-					math.round(checkPos.Z / 3) * 3
-				)
-				pcall(bedwars.placeBlock, targetBlockPos, wool.itemType, false)
+		-- Only place blocks if we have wool
+		if woolAmount > 0 then
+			local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 3) - Vector3.new(0, 3.5, 0)
+			local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 6)
+			local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+			
+			if not hit then
+				local wool = getWoolItem()
+				if wool and wool.amount > 0 then
+					local targetBlockPos = Vector3.new(
+						math.round(checkPos.X / 3) * 3,
+						math.round(checkPos.Y / 3) * 3,
+						math.round(checkPos.Z / 3) * 3
+					)
+					pcall(bedwars.placeBlock, targetBlockPos, wool.itemType, false)
+				end
 			end
 		end
+	end
+
+	local function checkVoid(rootPart)
+		local ray = Ray.new(rootPart.Position, Vector3.new(0, -15, 0))
+		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		return not hit
 	end
 
 	local function isWallBlocking(rootPart, direction)
@@ -22575,6 +22586,11 @@ run(function()
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
 			if not rootPart or not humanoid then return end
 
+			-- Check for void - infinite jump
+			if checkVoid(rootPart) then
+				humanoid.Jump = true
+			end
+
 			smartBridge(rootPart, targetMovePosition)
 
 			local direction = (targetMovePosition - rootPart.Position)
@@ -22589,10 +22605,10 @@ run(function()
 				
 				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
 				
-				-- Jump if blocked
+				-- Jump at obstacles or when falling (infinite jump)
 				local fwdRay = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
 				local fwdHit = workspace:FindPartOnRayWithIgnoreList(fwdRay, {character})
-				if fwdHit and fwdHit.CanCollide then
+				if (fwdHit and fwdHit.CanCollide) or checkVoid(rootPart) then
 					humanoid.Jump = true
 				end
 			else
@@ -22638,11 +22654,13 @@ run(function()
 							end
 						end
 
-						-- PRIORITY 1: Have resources - RUSH ENEMY BED
-						if woolAmount >= 16 and ironAmt >= 30 then
+						-- PRIORITY 1: Have resources - RUSH ENEMY BED (ignore own bed)
+						if woolAmount >= 12 and ironAmt >= 25 then
 							local closestBed, closestBedDist = nil, math.huge
 							for _, v in pairs(collectionService:GetTagged('bed')) do
-								if v:GetAttribute("Team") ~= myTeam then
+								local bedTeam = v:GetAttribute("Team")
+								-- IGNORE OWN BED - only target enemy beds
+								if bedTeam and bedTeam ~= myTeam then
 									local dist = (v:GetPivot().Position - selfPos).Magnitude
 									if dist < closestBedDist then
 										closestBed = v
@@ -22679,20 +22697,20 @@ run(function()
 							end
 
 						-- PRIORITY 2: Low on blocks - go to shop
-						elseif woolAmount < 16 and ironAmt >= 4 then
+						elseif woolAmount < 12 and ironAmt >= 4 then
 							local shopPart = getShopRootPart()
 							if shopPart then
 								targetMovePosition = shopPart.Position
 								if (shopPart.Position - selfPos).Magnitude < 20 then
 									autoBuyItems()
-									-- Auto buy blocks
-									for i = 1, 10 do
+									-- Keep buying blocks until we have enough
+									for i = 1, 15 do
 										buyItem("wool_white")
 									end
 								end
 							end
 
-						-- PRIORITY 3: Low iron and blocks - go to generator
+						-- PRIORITY 3: Low iron - farm at generator
 						else
 							local gen = getTeamGenerator()
 							if gen then
