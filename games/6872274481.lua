@@ -22414,10 +22414,10 @@ run(function()
 	local targetMovePosition = nil
 
 	local Phase = {
-		FARM   = "FARM",
-		SHOP   = "SHOP",
-		RUSH   = "RUSH",
-		FIGHT  = "FIGHT",
+		FARM  = "FARM",
+		SHOP  = "SHOP",
+		RUSH  = "RUSH",
+		FIGHT = "FIGHT",
 	}
 	local currentPhase = Phase.FARM
 
@@ -22461,23 +22461,45 @@ run(function()
 		return nil
 	end
 
+	-- Find shop by searching ALL tagged objects and ALL store.shop entries
 	local function getShopPart()
-		for _, v in pairs(store.shop) do
-			if v.RootPart then return v.RootPart end
+		-- Try store.shop first
+		if store and store.shop then
+			for _, v in pairs(store.shop) do
+				if v.RootPart then return v.RootPart end
+			end
 		end
-		for _, v in pairs(collectionService:GetTagged('BedwarsItemShop')) do
-			if v:IsA("Model") and v.PrimaryPart then return v.PrimaryPart end
-			if v:IsA("BasePart") then return v end
+
+		-- Try every possible shop tag
+		local shopTags = {'BedwarsItemShop', 'ItemShop', 'Shop', 'BedwarsShop'}
+		for _, tag in pairs(shopTags) do
+			for _, v in pairs(collectionService:GetTagged(tag)) do
+				if v:IsA("Model") and v.PrimaryPart then
+					return v.PrimaryPart
+				elseif v:IsA("BasePart") then
+					return v
+				end
+			end
 		end
+
+		-- Last resort: search workspace for anything named shop
+		for _, v in pairs(workspace:GetDescendants()) do
+			if v.Name:lower():find("shop") and v:IsA("BasePart") then
+				return v
+			end
+		end
+
 		return nil
 	end
 
 	local function getNearestShopId()
 		if not entitylib.isAlive then return nil end
 		local pos = entitylib.character.RootPart.Position
-		for _, v in pairs(store.shop) do
-			if v.Shop and v.RootPart and (v.RootPart.Position - pos).Magnitude <= 20 then
-				return v.Id
+		if store and store.shop then
+			for _, v in pairs(store.shop) do
+				if v.Shop and v.RootPart and (v.RootPart.Position - pos).Magnitude <= 30 then
+					return v.Id
+				end
 			end
 		end
 		return nil
@@ -22501,27 +22523,70 @@ run(function()
 		end)
 	end
 
+	-- Find enemy bed by searching every possible method
 	local function getNearestEnemyBed()
 		if not entitylib.isAlive then return nil, nil, math.huge end
 		local selfPos = entitylib.character.RootPart.Position
 		local myTeam  = lplr:GetAttribute("Team")
 		local nearest, nearestPart, nearestDist = nil, nil, math.huge
-		for _, v in pairs(collectionService:GetTagged('bed')) do
-			if v:GetAttribute("Team") ~= myTeam then
-				local pos  = v:GetPivot().Position
-				local dist = (pos - selfPos).Magnitude
-				if dist < nearestDist then
-					nearest     = v
-					nearestDist = dist
-					for _, p in pairs(v:GetDescendants()) do
-						if p:IsA("BasePart") and p.CanCollide then
-							nearestPart = p
-							break
+
+		local function checkBed(v)
+			if not v then return end
+			local bedTeam = v:GetAttribute("Team") or v:GetAttribute("team")
+			if bedTeam and bedTeam ~= myTeam then
+				local ok, pos = pcall(function() return v:GetPivot().Position end)
+				if not ok or not pos then
+					-- fallback to PrimaryPart or first BasePart
+					if v:IsA("Model") then
+						if v.PrimaryPart then
+							pos = v.PrimaryPart.Position
+						else
+							for _, p in pairs(v:GetDescendants()) do
+								if p:IsA("BasePart") then pos = p.Position break end
+							end
+						end
+					elseif v:IsA("BasePart") then
+						pos = v.Position
+					end
+				end
+				if pos then
+					local dist = (pos - selfPos).Magnitude
+					if dist < nearestDist then
+						nearest     = v
+						nearestDist = dist
+						-- grab a breakable part
+						if v:IsA("Model") then
+							for _, p in pairs(v:GetDescendants()) do
+								if p:IsA("BasePart") and p.CanCollide then
+									nearestPart = p
+									break
+								end
+							end
+						elseif v:IsA("BasePart") then
+							nearestPart = v
 						end
 					end
 				end
 			end
 		end
+
+		-- Try every bed tag variation
+		local bedTags = {'bed', 'Bed', 'BedwarsBed', 'Bedwarsbed', 'BED'}
+		for _, tag in pairs(bedTags) do
+			for _, v in pairs(collectionService:GetTagged(tag)) do
+				checkBed(v)
+			end
+		end
+
+		-- Also search workspace directly for anything named bed
+		if nearest == nil then
+			for _, v in pairs(workspace:GetDescendants()) do
+				if v.Name:lower():find("bed") and (v:IsA("Model") or v:IsA("BasePart")) then
+					checkBed(v)
+				end
+			end
+		end
+
 		return nearest, nearestPart, nearestDist
 	end
 
@@ -22652,7 +22717,7 @@ run(function()
 						local enemy, enemyDist = getNearestEnemy()
 						local bed, bedPart, bedDist = getNearestEnemyBed()
 
-						-- FIGHT - takes priority over everything if enemy is within 40 studs
+						-- FIGHT - priority over everything if enemy within 40 studs
 						if enemy and enemyDist < 40 then
 							currentPhase = Phase.FIGHT
 							local enemyPos = enemy.RootPart.Position
@@ -22674,56 +22739,62 @@ run(function()
 							continue
 						end
 
-						-- Resume previous phase after fight ends
 						if currentPhase == Phase.FIGHT then
 							currentPhase = Phase.FARM
 						end
 
-						-- FARM - wait at generator until 32 iron
+						-- FARM - sit at gen until 32 iron
 						if currentPhase == Phase.FARM then
 							local genPos = getTeamGenPosition()
 							if genPos then
 								targetMovePosition = genPos
 							end
-
 							if ironAmt >= 32 then
 								currentPhase = Phase.SHOP
 							end
 
-						-- SHOP - buy 4 sets of 16 blocks (8 iron each)
+						-- SHOP - walk to shop NPC and buy blocks
 						elseif currentPhase == Phase.SHOP then
 							local shop = getShopPart()
 							if shop then
 								targetMovePosition = shop.Position
-
-								if (shop.Position - selfPos).Magnitude < 20 then
+								local distToShop = (shop.Position - selfPos).Magnitude
+								if distToShop < 30 then
 									local canBuy = math.floor(ironAmt / 8)
 									for i = 1, canBuy do
 										buyItem("wool_white")
 									end
-
+									task.wait(0.5)
 									if woolAmt >= 16 then
 										currentPhase = Phase.RUSH
 									end
+								end
+							else
+								-- Can't find shop, just rush with whatever we have
+								if woolAmt > 0 then
+									currentPhase = Phase.RUSH
 								end
 							end
 
 						-- RUSH - bridge to enemy bed and break it
 						elseif currentPhase == Phase.RUSH then
 							if bed then
-								targetMovePosition = bed:GetPivot().Position
+								local bedPos = nil
+								pcall(function() bedPos = bed:GetPivot().Position end)
+								if not bedPos and bed:IsA("Model") and bed.PrimaryPart then
+									bedPos = bed.PrimaryPart.Position
+								end
+								if bedPos then
+									targetMovePosition = bedPos
+								end
 
 								if bedDist < 10 and bedPart then
 									pcall(bedwars.breakBlock, bedwars, bedPart, false, false, true, false, nil)
 								end
 							end
 
-							-- Only restock if completely out of wool and shop is nearby
 							if woolAmt <= 0 then
-								local shop = getShopPart()
-								if shop and (shop.Position - selfPos).Magnitude < 60 then
-									currentPhase = Phase.SHOP
-								end
+								currentPhase = Phase.FARM
 							end
 						end
 					end
