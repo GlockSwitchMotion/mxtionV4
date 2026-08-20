@@ -21201,10 +21201,12 @@ run(function()
                     firesignal(abilityUsedEvent.OnClientEvent, char, "jade_hammer_jump")
                 end
                 
-                -- Toggle off automatically after firing if intended as a one-click trigger
-                task.spawn(function()
-                    if InstantJade.Enabled then
-                        InstantJade:Toggle()
+                -- Reset toggle state cleanly on the next frame
+                task.defer(function()
+                    if InstantJade.ToggleButton then
+                        InstantJade:ToggleButton(false)
+                    elseif InstantJade.SetState then
+                        InstantJade:SetState(false)
                     end
                 end)
             end
