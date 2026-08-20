@@ -22412,15 +22412,7 @@ run(function()
 	local AutoPilotLoop
 	local targetMovePosition = nil
 	local renderConnection = nil
-	local lastBedPos = nil
-	local rushMode = false
-
-	-- Rush state tracking
-	local isCounterRushing = false
-	local counterRushTarget = nil
 	local rushCommitted = false
-	local rushStartTime = nil
-	local baseReturnCooldown = 0
 
 	local function getWoolItem()
 		for _, item in pairs(store.inventory.inventory.items) do
@@ -22480,11 +22472,10 @@ run(function()
 		if not store.shopLoaded then return end
 		local shopId = getNearestShopId()
 		if not shopId then return end
-		local item = pcall(function() return bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId}) end)
-		if not item then
-			item = bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId})
-		end
-		if not item or type(item) ~= "table" then return end
+		local ok, item = pcall(function()
+			return bedwars.Shop.getShopItem(itemType, lplr, {shopId = shopId})
+		end)
+		if not ok or not item or type(item) ~= "table" then return end
 		bedwars.Handler:Get('BedwarsPurchaseItem'):Fire('CallServerAsync', {
 			shopItem = item,
 			shopId = shopId
@@ -22493,67 +22484,6 @@ run(function()
 				pcall(function() bedwars.AudioManager:playAudio(bedwars.SoundList.BEDWARS_PURCHASE_ITEM) end)
 			end
 		end)
-	end
-
-	local function autoBuyItems()
-		local iron = getItem("iron")
-		local ironAmt = iron and iron.amount or 0
-		local woolAmount = getWoolAmount()
-
-		if woolAmount < 48 and ironAmt >= 4 then
-			buyItem("wool_white")
-		end
-
-		local armor = getBestArmor(2)
-		local currentArmor = armor and armor.itemType or 'none'
-
-		if currentArmor == 'none' and ironAmt >= 50 then
-			buyItem("leather_chestplate")
-		elseif (currentArmor == 'none' or currentArmor == 'leather_chestplate') and ironAmt >= 120 then
-			buyItem("iron_chestplate")
-		end
-
-		local diamonds = getItem("diamond")
-		if diamonds and diamonds.amount >= 8 and currentArmor ~= 'diamond_chestplate' and currentArmor ~= 'emerald_chestplate' then
-			buyItem("diamond_chestplate")
-		end
-
-		local emeralds = getItem("emerald")
-		if emeralds and emeralds.amount >= 40 and currentArmor == 'diamond_chestplate' then
-			buyItem("emerald_chestplate")
-		end
-
-		local sword = getSword()
-		local swordType = sword and sword.itemType or 'none'
-		if swordType == 'wood_sword' and ironAmt >= 20 then
-			buyItem("stone_sword")
-		elseif (swordType == 'stone_sword' or swordType == 'wood_sword') and ironAmt >= 70 then
-			buyItem("iron_sword")
-		end
-	end
-
-	local function smartBridge(rootPart, targetPos)
-		if not targetPos or not rushMode then return end
-		local distance = (targetPos - rootPart.Position).Magnitude
-		if distance > 100 then return end
-		local woolAmount = getWoolAmount()
-		if woolAmount <= 0 then return end
-
-		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 3) - Vector3.new(0, 3.5, 0)
-		local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 8)
-		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
-
-		if not hit and woolAmount > 2 then
-			local wool = getWoolItem()
-			if wool then
-				local targetBlockPos = Vector3.new(
-					math.round(checkPos.X / 3) * 3,
-					math.round(checkPos.Y / 3) * 3,
-					math.round(checkPos.Z / 3) * 3
-				)
-				pcall(bedwars.placeBlock, targetBlockPos, wool.itemType, false)
-			end
-		end
 	end
 
 	local function isWallBlocking(rootPart, direction)
@@ -22566,11 +22496,8 @@ run(function()
 	local function getStrafeDirection(rootPart, moveDir)
 		local leftDir = Vector3.new(-moveDir.Z, 0, moveDir.X).Unit
 		local rightDir = Vector3.new(moveDir.Z, 0, -moveDir.X).Unit
-		if not isWallBlocking(rootPart, leftDir) then
-			return leftDir
-		elseif not isWallBlocking(rootPart, rightDir) then
-			return rightDir
-		end
+		if not isWallBlocking(rootPart, leftDir) then return leftDir end
+		if not isWallBlocking(rootPart, rightDir) then return rightDir end
 		return moveDir
 	end
 
@@ -22580,45 +22507,20 @@ run(function()
 		return not hit
 	end
 
-	-- Detects any enemy rushing toward our base
-	local function getIncomingRusher()
-		if not entitylib.isAlive then return nil end
-		local myTeam = lplr:GetAttribute("Team")
-		local selfPos = entitylib.character.RootPart.Position
-
-		-- Get our own bed position to know what "toward our base" means
-		local ourBedPos = nil
-		for _, v in pairs(collectionService:GetTagged('bed')) do
-			if v:GetAttribute("Team") == myTeam then
-				ourBedPos = v:GetPivot().Position
-				break
-			end
+	local function smartBridge(rootPart)
+		local wool = getWoolItem()
+		if not wool or getWoolAmount() <= 2 then return end
+		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 3) - Vector3.new(0, 3.5, 0)
+		local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 8)
+		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		if not hit then
+			local snapped = Vector3.new(
+				math.round(checkPos.X / 3) * 3,
+				math.round(checkPos.Y / 3) * 3,
+				math.round(checkPos.Z / 3) * 3
+			)
+			pcall(bedwars.placeBlock, snapped, wool.itemType, false)
 		end
-
-		if not ourBedPos then return nil end
-
-		local closestRusher, closestDist = nil, math.huge
-
-		for _, ent in pairs(entitylib.List) do
-			if ent.Targetable and ent.Player ~= lplr and ent.Character and ent.RootPart then
-				local entTeam = ent.Player and ent.Player:GetAttribute("Team")
-				if entTeam ~= myTeam then
-					local entPos = ent.RootPart.Position
-					local distToBed = (entPos - ourBedPos).Magnitude
-					local distToSelf = (entPos - selfPos).Magnitude
-
-					-- Enemy is within 120 studs of our bed = incoming rusher
-					if distToBed < 120 then
-						if distToSelf < closestDist then
-							closestRusher = ent
-							closestDist = distToSelf
-						end
-					end
-				end
-			end
-		end
-
-		return closestRusher, closestDist
 	end
 
 	local function startMovementLoop()
@@ -22631,11 +22533,9 @@ run(function()
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
 			if not rootPart or not humanoid then return end
 
-			if checkVoid(rootPart) then
-				humanoid.Jump = true
-			end
+			if checkVoid(rootPart) then humanoid.Jump = true end
 
-			smartBridge(rootPart, targetMovePosition)
+			if rushCommitted then smartBridge(rootPart) end
 
 			local direction = (targetMovePosition - rootPart.Position)
 			local flatDistance = (direction * Vector3.new(1, 0, 1)).Magnitude
@@ -22644,11 +22544,9 @@ run(function()
 			if flatDistance > 2.5 then
 				if isWallBlocking(rootPart, moveDir) then
 					moveDir = getStrafeDirection(rootPart, moveDir)
-				end
-				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
-				if isWallBlocking(rootPart, moveDir) or checkVoid(rootPart) then
 					humanoid.Jump = true
 				end
+				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
 			else
 				humanoid:Move(Vector3.new(0, 0, 0), false)
 			end
@@ -22670,14 +22568,10 @@ run(function()
 				AutoPilotLoop = task.spawn(function()
 					while true do
 						task.wait(0.15)
+
 						if not entitylib.isAlive then
 							targetMovePosition = nil
-							rushMode = false
-							isCounterRushing = false
-							counterRushTarget = nil
 							rushCommitted = false
-							rushStartTime = nil
-							baseReturnCooldown = 0
 							task.wait(1)
 							continue
 						end
@@ -22688,7 +22582,7 @@ run(function()
 						local ironAmt = iron and iron.amount or 0
 						local woolAmount = getWoolAmount()
 
-						-- Always attack enemies in melee range regardless of state
+						-- Always swing at anyone nearby
 						for _, ent in pairs(entitylib.List) do
 							if ent.Targetable and ent.Player ~= lplr and ent.Character and ent.RootPart then
 								if (ent.RootPart.Position - selfPos).Magnitude < 18 then
@@ -22698,44 +22592,7 @@ run(function()
 							end
 						end
 
-						-- ============================================================
-						-- COUNTER RUSH DETECTION - highest priority after combat
-						-- ============================================================
-						local rusher, rusherDist = getIncomingRusher()
-
-						if rusher and rusher.RootPart then
-							-- Enemy is rushing us - intercept them
-							isCounterRushing = true
-							counterRushTarget = rusher
-							rushMode = false -- no bridging needed going back toward base
-							targetMovePosition = rusher.RootPart.Position
-
-							-- If we're right on them, swing
-							if rusherDist < 18 then
-								pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
-							end
-
-							-- Keep pursuing until they die, leave range, or our bed is no longer threatened
-							continue
-						else
-							-- Rusher is gone, clear counter rush state
-							if isCounterRushing then
-								isCounterRushing = false
-								counterRushTarget = nil
-								-- Give a cooldown before going back to base so we don't yo-yo
-								baseReturnCooldown = 8
-							end
-						end
-
-						-- Tick down the cooldown
-						if baseReturnCooldown > 0 then
-							baseReturnCooldown = baseReturnCooldown - 0.15
-						end
-
-						-- ============================================================
-						-- RUSH COMMIT LOGIC
-						-- Once we start rushing, stay committed until bed is dead
-						-- ============================================================
+						-- Find nearest enemy bed
 						local closestBed, closestBedDist = nil, math.huge
 						for _, v in pairs(collectionService:GetTagged('bed')) do
 							local bedTeam = v:GetAttribute("Team")
@@ -22744,113 +22601,58 @@ run(function()
 								if dist < closestBedDist then
 									closestBed = v
 									closestBedDist = dist
-									lastBedPos = v:GetPivot().Position
 								end
 							end
 						end
 
-						-- Check if the bed we were rushing is still alive
-						if rushCommitted and closestBed then
-							local bedStillAlive = false
-							for _, part in pairs(closestBed:GetDescendants()) do
-								if part:IsA("BasePart") and part.CanCollide then
-									bedStillAlive = true
-									break
-								end
+						-- PHASE 1: Farm until 16 iron
+						if ironAmt < 16 and not rushCommitted then
+							local gen = getTeamGenerator()
+							if gen then
+								local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
+								targetMovePosition = genPos
 							end
-							if not bedStillAlive then
-								-- Bed is dead, stop committing
-								rushCommitted = false
-								rushStartTime = nil
-								rushMode = false
-							end
-						end
 
-						-- ============================================================
-						-- COMMITTED RUSH - don't go back to base, stay aggressive
-						-- ============================================================
-						if rushCommitted and closestBed then
-							rushMode = true
-							targetMovePosition = lastBedPos
-
-							-- Break bed if close
-							if closestBedDist < 12 then
-								local bedPart = closestBed:FindFirstChildWhichIsA("BasePart")
-								if bedPart then
-									pcall(bedwars.breakBlock, bedwars, bedPart, false, false, true, false, nil)
+						-- PHASE 2: Have 16 iron, go buy blocks
+						elseif ironAmt >= 16 and woolAmount < 16 and not rushCommitted then
+							local shopPart = getShopRootPart()
+							if shopPart then
+								targetMovePosition = shopPart.Position
+								if (shopPart.Position - selfPos).Magnitude < 20 then
+									-- Spend all iron on wool
+									local buys = math.floor(ironAmt / 4)
+									for i = 1, buys do
+										buyItem("wool_white")
+									end
 								end
 							end
 
-							-- Only abort the rush if we're completely out of wool AND far from bed
-							-- Don't go back to shop unless truly stuck
-							if woolAmount <= 0 and closestBedDist > 60 then
-								rushCommitted = false
-								rushMode = false
-							end
+						-- PHASE 3: Have blocks, commit to the rush - never look back
+						elseif woolAmount >= 16 then
+							rushCommitted = true
 
-							continue
-						end
+							if closestBed then
+								targetMovePosition = closestBed:GetPivot().Position
 
-						-- ============================================================
-						-- NORMAL LOGIC (farming / shopping / deciding to rush)
-						-- ============================================================
-						if closestBed and closestBedDist < 60 then
-							-- Enemy bed is close enough - go for the rush
-							if woolAmount >= 16 and ironAmt >= 30 then
-								rushMode = true
-								rushCommitted = true
-								rushStartTime = tick()
-								targetMovePosition = lastBedPos
-
+								-- Break the bed when close
 								if closestBedDist < 12 then
 									local bedPart = closestBed:FindFirstChildWhichIsA("BasePart")
 									if bedPart then
 										pcall(bedwars.breakBlock, bedwars, bedPart, false, false, true, false, nil)
 									end
 								end
-
-							-- Low blocks - buy more but only if not mid-rush
-							elseif woolAmount >= 8 and woolAmount < 16 and ironAmt >= 10 and not rushCommitted then
-								local shopPart = getShopRootPart()
-								if shopPart then
-									targetMovePosition = shopPart.Position
-									if (shopPart.Position - selfPos).Magnitude < 20 then
-										autoBuyItems()
-										for i = 1, 12 do buyItem("wool_white") end
-									end
-								end
-							else
-								local gen = getTeamGenerator()
-								if gen then
-									local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
-									targetMovePosition = genPos
-								end
 							end
 
-						else
-							-- Far from enemy bed - but only go back to base if not on cooldown
-							if baseReturnCooldown <= 0 then
-								if ironAmt >= 80 and woolAmount >= 16 then
-									local shopPart = getShopRootPart()
-									if shopPart then
-										targetMovePosition = shopPart.Position
-										if (shopPart.Position - selfPos).Magnitude < 20 then
-											autoBuyItems()
-											for i = 1, 8 do buyItem("wool_white") end
-										end
+							-- If we run out of wool mid rush, buy more on the way (don't go back to base)
+							-- Find closest shop to current position instead of going all the way home
+							if woolAmount < 4 and ironAmt >= 4 then
+								local shopPart = getShopRootPart()
+								if shopPart and (shopPart.Position - selfPos).Magnitude < 40 then
+									targetMovePosition = shopPart.Position
+									if (shopPart.Position - selfPos).Magnitude < 20 then
+										local buys = math.floor(ironAmt / 4)
+										for i = 1, buys do buyItem("wool_white") end
 									end
-								else
-									local gen = getTeamGenerator()
-									if gen then
-										local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
-										targetMovePosition = genPos
-									end
-								end
-							else
-								-- On cooldown after a counter rush - stay aggressive near mid
-								-- Just orbit toward the last known bed position instead of going home
-								if lastBedPos then
-									targetMovePosition = lastBedPos
 								end
 							end
 						end
@@ -22863,14 +22665,9 @@ run(function()
 					AutoPilotLoop = nil
 				end
 				targetMovePosition = nil
-				rushMode = false
-				isCounterRushing = false
-				counterRushTarget = nil
 				rushCommitted = false
-				rushStartTime = nil
-				baseReturnCooldown = 0
 			end
 		end,
-		Tooltip = 'Smart AFK Autopilot: Counter-rushes enemies, commits to rushes without retreating, farms intelligently'
+		Tooltip = 'AutoPilot: Farm 16 iron → buy blocks → rush bed, never retreat'
 	})
 end)
