@@ -22407,3 +22407,106 @@ run(function()
 		Default = true
 	})
 end)
+
+run(function()
+	local AutoPilot
+	local AutoPilotLoop
+	local pathfindingService = game:GetService("PathfindingService")
+
+	local function getClosestTarget()
+		if not entitylib.isAlive then return nil end
+		local selfPos = entitylib.character.RootPart.Position
+		local closestEnt, closestDist = nil, 999999
+		
+		for _, ent in entitylib.List do
+			if ent.Targetable and ent.Player ~= lplr and ent.Character then
+				local dist = (ent.RootPart.Position - selfPos).Magnitude
+				if dist < closestDist then
+					closestEnt = ent
+					closestDist = dist
+				end
+			end
+		end
+
+		local closestBed, closestBedDist = nil, 999999
+		for _, v in workspace:GetDescendants() do
+			if v.Name == "bed" and v:IsA("Model") then
+				local team = v:GetAttribute("Team")
+				if team ~= lplr:GetAttribute("Team") then
+					local bedPos = v:GetPivot().Position
+					local dist = (bedPos - selfPos).Magnitude
+					if dist < closestBedDist then
+						closestBed = v
+						closestBedDist = dist
+					end
+				end
+			end
+		end
+		
+		if closestEnt and closestDist < 100 then
+			return {Type = "Player", Instance = closestEnt.Character, Position = closestEnt.RootPart.Position}
+		elseif closestBed then
+			return {Type = "Bed", Instance = closestBed, Position = closestBed:GetPivot().Position}
+		elseif closestEnt then
+			return {Type = "Player", Instance = closestEnt.Character, Position = closestEnt.RootPart.Position}
+		end
+		
+		return nil
+	end
+
+	local function moveTowards(targetPos)
+		if not entitylib.isAlive then return end
+		local character = lplr.Character
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if not rootPart or not humanoid then return end
+		
+		local direction = (targetPos - rootPart.Position) * Vector3.new(1, 0, 1)
+		if direction.Magnitude > 3 then
+			humanoid:Move(direction.Unit, false)
+			local camera = workspace.CurrentCamera
+			if camera then
+				camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetPos), 0.1)
+			end
+			local ray = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
+			local hit = workspace:FindPartOnRayWithIgnoreList(ray, {character})
+			if hit and hit.CanCollide then
+				humanoid.Jump = true
+			end
+		else
+			humanoid:Move(Vector3.new(0, 0, 0), false)
+		end
+	end
+
+	AutoPilot = vape.Categories.Minigames:CreateModule({
+		Name = 'AutoPilot',
+		Function = function(callback)
+			if callback then
+				AutoPilotLoop = task.spawn(function()
+					while true do
+						task.wait(0.1)
+						local target = getClosestTarget()
+						if target then
+							moveTowards(target.Position)
+							if target.Type == "Player" then
+								local dist = (target.Position - entitylib.character.RootPart.Position).Magnitude
+								if dist < 18 then
+									local sword = getSword()
+									if sword then
+										-- Optional sword usage triggers
+									end
+								end
+							end
+						end
+					end
+				end)
+			else
+				if AutoPilotLoop then
+					task.cancel(AutoPilotLoop)
+					AutoPilotLoop = nil
+				end
+			end
+		end,
+		Tooltip = 'Automatically plays the game with simple combat & navigation'
+	})
+end)
