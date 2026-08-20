@@ -3674,7 +3674,7 @@ run(function()
 		end
 	end
 	
-	HitBoxes = vape.Categories.Blatant:CreateModule({
+	HitBoxes = vape.Categories.Combat:CreateModule({
 		Name = 'HitBoxes',
 		Function = function(callback)
 			if callback then
