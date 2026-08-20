@@ -22417,7 +22417,6 @@ run(function()
 		FARM  = "FARM",
 		SHOP  = "SHOP",
 		RUSH  = "RUSH",
-		FIGHT = "FIGHT",
 	}
 	local currentPhase = Phase.FARM
 
@@ -22461,34 +22460,22 @@ run(function()
 		return nil
 	end
 
-	-- Find shop by searching ALL tagged objects and ALL store.shop entries
 	local function getShopPart()
-		-- Try store.shop first
 		if store and store.shop then
 			for _, v in pairs(store.shop) do
 				if v.RootPart then return v.RootPart end
 			end
 		end
-
-		-- Try every possible shop tag
 		local shopTags = {'BedwarsItemShop', 'ItemShop', 'Shop', 'BedwarsShop'}
 		for _, tag in pairs(shopTags) do
 			for _, v in pairs(collectionService:GetTagged(tag)) do
-				if v:IsA("Model") and v.PrimaryPart then
-					return v.PrimaryPart
-				elseif v:IsA("BasePart") then
-					return v
-				end
+				if v:IsA("Model") and v.PrimaryPart then return v.PrimaryPart end
+				if v:IsA("BasePart") then return v end
 			end
 		end
-
-		-- Last resort: search workspace for anything named shop
 		for _, v in pairs(workspace:GetDescendants()) do
-			if v.Name:lower():find("shop") and v:IsA("BasePart") then
-				return v
-			end
+			if v.Name:lower():find("shop") and v:IsA("BasePart") then return v end
 		end
-
 		return nil
 	end
 
@@ -22523,7 +22510,6 @@ run(function()
 		end)
 	end
 
-	-- Find enemy bed by searching every possible method
 	local function getNearestEnemyBed()
 		if not entitylib.isAlive then return nil, nil, math.huge end
 		local selfPos = entitylib.character.RootPart.Position
@@ -22533,53 +22519,41 @@ run(function()
 		local function checkBed(v)
 			if not v then return end
 			local bedTeam = v:GetAttribute("Team") or v:GetAttribute("team")
-			if bedTeam and bedTeam ~= myTeam then
-				local ok, pos = pcall(function() return v:GetPivot().Position end)
-				if not ok or not pos then
-					-- fallback to PrimaryPart or first BasePart
-					if v:IsA("Model") then
-						if v.PrimaryPart then
-							pos = v.PrimaryPart.Position
-						else
-							for _, p in pairs(v:GetDescendants()) do
-								if p:IsA("BasePart") then pos = p.Position break end
-							end
-						end
-					elseif v:IsA("BasePart") then
-						pos = v.Position
-					end
+			if not bedTeam or bedTeam == myTeam then return end
+			local pos
+			pcall(function() pos = v:GetPivot().Position end)
+			if not pos then
+				if v:IsA("Model") and v.PrimaryPart then
+					pos = v.PrimaryPart.Position
+				elseif v:IsA("BasePart") then
+					pos = v.Position
 				end
-				if pos then
-					local dist = (pos - selfPos).Magnitude
-					if dist < nearestDist then
-						nearest     = v
-						nearestDist = dist
-						-- grab a breakable part
-						if v:IsA("Model") then
-							for _, p in pairs(v:GetDescendants()) do
-								if p:IsA("BasePart") and p.CanCollide then
-									nearestPart = p
-									break
-								end
-							end
-						elseif v:IsA("BasePart") then
-							nearestPart = v
+			end
+			if not pos then return end
+			local dist = (pos - selfPos).Magnitude
+			if dist < nearestDist then
+				nearest     = v
+				nearestDist = dist
+				if v:IsA("Model") then
+					for _, p in pairs(v:GetDescendants()) do
+						if p:IsA("BasePart") and p.CanCollide then
+							nearestPart = p
+							break
 						end
 					end
+				elseif v:IsA("BasePart") then
+					nearestPart = v
 				end
 			end
 		end
 
-		-- Try every bed tag variation
-		local bedTags = {'bed', 'Bed', 'BedwarsBed', 'Bedwarsbed', 'BED'}
-		for _, tag in pairs(bedTags) do
+		for _, tag in pairs({'bed', 'Bed', 'BedwarsBed', 'BED'}) do
 			for _, v in pairs(collectionService:GetTagged(tag)) do
 				checkBed(v)
 			end
 		end
 
-		-- Also search workspace directly for anything named bed
-		if nearest == nil then
+		if not nearest then
 			for _, v in pairs(workspace:GetDescendants()) do
 				if v.Name:lower():find("bed") and (v:IsA("Model") or v:IsA("BasePart")) then
 					checkBed(v)
@@ -22711,75 +22685,77 @@ run(function()
 							continue
 						end
 
-						local selfPos  = entitylib.character.RootPart.Position
-						local ironAmt  = getItemAmount("iron")
-						local woolAmt  = getWoolAmount()
-						local enemy, enemyDist = getNearestEnemy()
+						local selfPos = entitylib.character.RootPart.Position
+						local ironAmt = getItemAmount("iron")
+						local woolAmt = getWoolAmount()
 						local bed, bedPart, bedDist = getNearestEnemyBed()
+						local enemy, enemyDist = getNearestEnemy()
 
-						-- FIGHT - priority over everything if enemy within 40 studs
-						if enemy and enemyDist < 40 then
-							currentPhase = Phase.FIGHT
-							local enemyPos = enemy.RootPart.Position
-
-							if enemyDist > 16 then
-								targetMovePosition = enemyPos
-							elseif enemyDist < 12 then
-								local backDir = (selfPos - enemyPos).Unit
-								targetMovePosition = selfPos + backDir * 4
-							else
-								targetMovePosition = selfPos
-								pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
-							end
-
-							if enemyDist <= 16 then
-								pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
-							end
-
-							continue
-						end
-
-						if currentPhase == Phase.FIGHT then
-							currentPhase = Phase.FARM
-						end
-
-						-- FARM - sit at gen until 32 iron
+						-- ------------------------------------------------
+						-- PHASE: FARM - stand at gen until 16 iron
+						-- ------------------------------------------------
 						if currentPhase == Phase.FARM then
 							local genPos = getTeamGenPosition()
 							if genPos then
 								targetMovePosition = genPos
 							end
-							if ironAmt >= 32 then
+
+							if ironAmt >= 16 then
 								currentPhase = Phase.SHOP
 							end
 
-						-- SHOP - walk to shop NPC and buy blocks
+						-- ------------------------------------------------
+						-- PHASE: SHOP - buy blocks with 16 iron then rush
+						-- ------------------------------------------------
 						elseif currentPhase == Phase.SHOP then
 							local shop = getShopPart()
 							if shop then
 								targetMovePosition = shop.Position
-								local distToShop = (shop.Position - selfPos).Magnitude
-								if distToShop < 30 then
-									local canBuy = math.floor(ironAmt / 8)
-									for i = 1, canBuy do
-										buyItem("wool_white")
-									end
-									task.wait(0.5)
-									if woolAmt >= 16 then
-										currentPhase = Phase.RUSH
-									end
-								end
-							else
-								-- Can't find shop, just rush with whatever we have
-								if woolAmt > 0 then
+								if (shop.Position - selfPos).Magnitude < 30 then
+									-- Buy 2 sets of 16 blocks (16 iron total = 2 x 8)
+									buyItem("wool_white")
+									task.wait(0.1)
+									buyItem("wool_white")
+									task.wait(0.3)
+									-- Go rush immediately after buying
 									currentPhase = Phase.RUSH
 								end
+							else
+								-- No shop found, rush with whatever we have
+								currentPhase = Phase.RUSH
 							end
 
-						-- RUSH - bridge to enemy bed and break it
+						-- ------------------------------------------------
+						-- PHASE: RUSH - kill enemy first, then break bed
+						-- ------------------------------------------------
 						elseif currentPhase == Phase.RUSH then
-							if bed then
-								local bedPos = nil
+
+							-- Enemy nearby - chase and kill them first
+							if enemy and enemyDist < 50 then
+								local enemyPos = enemy.RootPart.Position
+
+								if enemyDist > 16 then
+									-- Chase them down
+									targetMovePosition = enemyPos
+								elseif enemyDist < 10 then
+									-- Too close, back up to 16 studs
+									local backDir = (selfPos - enemyPos).Unit
+									targetMovePosition = selfPos + backDir * 6
+									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
+								else
+									-- Perfect range, hold and swing
+									targetMovePosition = selfPos
+									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
+								end
+
+								-- Always swing when close enough
+								if enemyDist <= 16 then
+									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
+								end
+
+							-- No enemy nearby - go straight for the bed
+							elseif bed then
+								local bedPos
 								pcall(function() bedPos = bed:GetPivot().Position end)
 								if not bedPos and bed:IsA("Model") and bed.PrimaryPart then
 									bedPos = bed.PrimaryPart.Position
@@ -22788,12 +22764,14 @@ run(function()
 									targetMovePosition = bedPos
 								end
 
+								-- Break bed when close
 								if bedDist < 10 and bedPart then
 									pcall(bedwars.breakBlock, bedwars, bedPart, false, false, true, false, nil)
 								end
 							end
 
-							if woolAmt <= 0 then
+							-- Ran out of wool mid rush - go farm and shop again
+							if woolAmt <= 0 and ironAmt < 8 then
 								currentPhase = Phase.FARM
 							end
 						end
@@ -22809,6 +22787,6 @@ run(function()
 				currentPhase       = Phase.FARM
 			end
 		end,
-		Tooltip = 'AutoPilot: Farm 32 iron → buy 64 blocks → rush bed → fight at 16 studs'
+		Tooltip = 'AutoPilot: Farm 16 iron → buy blocks → kill enemy → break bed → win'
 	})
 end)
