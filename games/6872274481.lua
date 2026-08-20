@@ -22411,9 +22411,7 @@ run(function()
 	local AutoPilot
 	local AutoPilotLoop
 	local targetMovePosition = nil
-	local renderConnection = nil
-	local lastWallCheckTime = 0
-	local currentPathpoint = nil
+	local heartbeatConnection = nil
 
 	local function getWoolItem()
 		for _, item in pairs(store.inventory.inventory.items) do
@@ -22525,71 +22523,13 @@ run(function()
 		end
 	end
 
-	local function castRay(origin, direction, distance)
-		local ray = Ray.new(origin, direction.Unit * distance)
-		local hit, pos = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
-		return hit, pos
-	end
-
-	local function isPathBlocked(rootPart, direction, distance)
-		local hit = castRay(rootPart.Position + Vector3.new(0, 1, 0), direction, distance)
-		return hit and hit.CanCollide
-	end
-
-	local function getStrafeDirection(rootPart, targetDir)
-		-- Get perpendicular directions (left and right)
-		local leftDir = Vector3.new(-targetDir.Z, 0, targetDir.X).Unit
-		local rightDir = Vector3.new(targetDir.Z, 0, -targetDir.X).Unit
-		
-		-- Check left
-		if not isPathBlocked(rootPart, leftDir, 8) then
-			return leftDir
-		end
-		
-		-- Check right
-		if not isPathBlocked(rootPart, rightDir, 8) then
-			return rightDir
-		end
-		
-		-- If both blocked, go up and forward
-		return (targetDir + Vector3.new(0, 1, 0)).Unit
-	end
-
-	local function getSmartTarget(rootPart, targetPos)
-		local toTarget = (targetPos - rootPart.Position)
-		local direction = toTarget.Unit
-		local distance = toTarget.Magnitude
-		
-		-- Check if direct path is blocked
-		if distance > 5 and isPathBlocked(rootPart, direction, math.min(distance, 20)) then
-			-- Get around the wall
-			local strafeDir = getStrafeDirection(rootPart, direction)
-			return rootPart.Position + strafeDir * 15
-		end
-		
-		return targetPos
-	end
-
-	local function checkVoid(rootPart)
-		local ray = Ray.new(rootPart.Position, Vector3.new(0, -20, 0))
-		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
-		return not hit
-	end
-		-- Only bridge if moving to enemy bed and within reasonable distance
-		if not targetPos then return end
-		
-		local distance = (targetPos - rootPart.Position).Magnitude
-		if distance > 50 then return end -- Don't bridge if too far
-		
-		-- Check if there's ground below
-		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 3) - Vector3.new(0, 3.5, 0)
+	local function autoBridge(rootPart)
+		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 2) - Vector3.new(0, 3, 0)
 		local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 6)
 		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
-		
-		-- Only place block if there's no ground
 		if not hit then
 			local wool = getWoolItem()
-			if wool and wool.amount > 1 then
+			if wool then
 				local targetBlockPos = Vector3.new(
 					math.round(checkPos.X / 3) * 3,
 					math.round(checkPos.Y / 3) * 3,
@@ -22601,8 +22541,8 @@ run(function()
 	end
 
 	local function startMovementLoop()
-		if renderConnection then return end
-		renderConnection = runService.RenderStepped:Connect(function()
+		if heartbeatConnection then return end
+		heartbeatConnection = runService.Heartbeat:Connect(function()
 			if not entitylib.isAlive or not targetMovePosition then return end
 			local character = lplr.Character
 			if not character then return end
@@ -22610,25 +22550,18 @@ run(function()
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
 			if not rootPart or not humanoid then return end
 
-			-- Void check - infinite jump
-			if checkVoid(rootPart) then
-				humanoid.Jump = true
-			end
+			autoBridge(rootPart)
 
-			-- Smart bridge
-			smartBridge(rootPart, targetMovePosition)
-
-			-- Get smart pathfinding around obstacles
-			local smartTarget = getSmartTarget(rootPart, targetMovePosition)
-			local direction = (smartTarget - rootPart.Position)
-			local flatDistance = (direction * Vector3.new(1, 0, 1)).Magnitude
-			
-			if flatDistance > 1.5 then
-				local moveDir = direction.Unit
-				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
-				
-				-- Jump at obstacles
-				if isPathBlocked(rootPart, moveDir, 4) then
+			local direction = (targetMovePosition - rootPart.Position) * Vector3.new(1, 0, 1)
+			if direction.Magnitude > 3 then
+				humanoid:Move(direction.Unit, false)
+				local camera = workspace.CurrentCamera
+				if camera then
+					camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetMovePosition), 0.1)
+				end
+				local fwdRay = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
+				local fwdHit = workspace:FindPartOnRayWithIgnoreList(fwdRay, {character})
+				if fwdHit and fwdHit.CanCollide then
 					humanoid.Jump = true
 				end
 			else
@@ -22638,9 +22571,9 @@ run(function()
 	end
 
 	local function stopMovementLoop()
-		if renderConnection then
-			renderConnection:Disconnect()
-			renderConnection = nil
+		if heartbeatConnection then
+			heartbeatConnection:Disconnect()
+			heartbeatConnection = nil
 		end
 	end
 
@@ -22659,7 +22592,6 @@ run(function()
 						end
 
 						local selfPos = entitylib.character.RootPart.Position
-						local myTeam = lplr:GetAttribute("Team")
 						local iron = getItem("iron")
 						local ironAmt = iron and iron.amount or 0
 						local woolAmount = getWoolAmount()
@@ -22674,44 +22606,37 @@ run(function()
 							end
 						end
 
-						-- PRIORITY 1: Go to iron generator if low on resources
-						if ironAmt < 20 and woolAmount < 24 then
-							local gen = getTeamGenerator()
-							if gen then
-								local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
-								targetMovePosition = genPos
-							end
-
-						-- PRIORITY 2: Need wool and have iron to buy
-						elseif woolAmount < 32 and ironAmt >= 4 then
+						-- PRIORITY 1: Need wool and have iron to buy
+						if woolAmount < 24 and ironAmt >= 4 then
 							local shopPart = getShopRootPart()
 							if shopPart then
 								targetMovePosition = shopPart.Position
 								if (shopPart.Position - selfPos).Magnitude < 20 then
 									autoBuyItems()
-									-- Keep buying blocks until we have enough
-									for i = 1, 5 do
-										buyItem("wool_white")
-									end
 								end
 							end
 
-						-- PRIORITY 3: Plenty of iron — go buy upgrades and blocks
+						-- PRIORITY 2: Plenty of iron — go buy upgrades
 						elseif ironAmt >= 100 then
 							local shopPart = getShopRootPart()
 							if shopPart then
 								targetMovePosition = shopPart.Position
 								if (shopPart.Position - selfPos).Magnitude < 20 then
 									autoBuyItems()
-									-- Buy blocks for bridging
-									for i = 1, 8 do
-										buyItem("wool_white")
-									end
 								end
+							end
+
+						-- PRIORITY 3: Low wool and low iron — go to generator
+						elseif woolAmount < 24 and ironAmt < 4 then
+							local gen = getTeamGenerator()
+							if gen then
+								local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
+								targetMovePosition = genPos
 							end
 
 						-- PRIORITY 4: Rush enemy bed
 						else
+							local myTeam = lplr:GetAttribute("Team")
 							local closestBed, closestBedDist = nil, math.huge
 							for _, v in pairs(collectionService:GetTagged('bed')) do
 								if v:GetAttribute("Team") ~= myTeam then
