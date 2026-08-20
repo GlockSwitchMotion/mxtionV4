@@ -22411,6 +22411,7 @@ run(function()
     local AutoDodgeModule
     local DodgeRangeSlider
     local DodgeHeightSlider
+    local DodgeSpeedSlider
 
     local function isValidTarget(ent, myRoot)
         if not ent or not ent.Targetable or not ent.RootPart or not ent.Humanoid then 
@@ -22441,7 +22442,9 @@ run(function()
                 AutoDodgeModule:Clean(runService.Heartbeat:Connect(function()
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
-                    if tick() - lastDodgeTime >= 0.01 then
+                    local cycleInterval = DodgeSpeedSlider.Value / 100 -- Converts slider value to seconds (e.g. 20 -> 0.2s)
+                    
+                    if tick() - lastDodgeTime >= cycleInterval then
                         lastDodgeTime = tick()
                         
                         local myRoot = entitylib.character.RootPart
@@ -22466,7 +22469,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Rapidly teleports up/down every 0.01s when targets are within trigger range'
+        Tooltip = 'Teleports up/down at custom intervals when enemies are in range'
     })
 
     DodgeRangeSlider = AutoDodgeModule:CreateSlider({
@@ -22484,67 +22487,16 @@ run(function()
         Default = 15,
         Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
-end)
 
-run(function()
-    local DesyncModule
-    local DesyncIntensitySlider
-    local ModeDropdown
-
-    DesyncModule = vape.Categories.Blatant:CreateModule({
-        Name = 'Desync',
-        Function = function(callback)
-            if callback then
-                DesyncModule:Clean(runService.Heartbeat:Connect(function()
-                    if not entitylib.isAlive or not entitylib.character.RootPart then return end
-                    
-                    local myRoot = entitylib.character.RootPart
-                    local intensity = DesyncIntensitySlider.Value * 100
-                    local mode = ModeDropdown.Value
-
-                    if mode == 'Velocity' then
-                        -- Forces the server to predict hitboxes far away from local rendering
-                        local oldVelocity = myRoot.AssemblyLinearVelocity
-                        myRoot.AssemblyLinearVelocity = Vector3.new(
-                            math.random(-intensity, intensity),
-                            math.random(-10, 10),
-                            math.random(-intensity, intensity)
-                        )
-                        
-                        -- Immediately reset locally before rendering to prevent screen jitter
-                        runService.RenderStepped:Wait()
-                        if myRoot then
-                            myRoot.AssemblyLinearVelocity = oldVelocity
-                        end
-
-                    elseif mode == 'CFrame Jitter' then
-                        -- Micro-teleports CFrame to break server line-of-sight & auto-trackers
-                        local offset = Vector3.new(
-                            math.random(-intensity, intensity) / 100,
-                            0,
-                            math.random(-intensity, intensity) / 100
-                        )
-                        myRoot.CFrame = myRoot.CFrame * CFrame.new(offset)
-                    end
-                end))
-            end
-        end,
-        Tooltip = 'Desynchronizes client position from server-side hitboxes'
-    })
-
-    ModeDropdown = DesyncModule:CreateDropdown({
-        Name = 'Mode',
-        List = {'Velocity', 'CFrame Jitter'},
-        Default = 'Velocity',
-        Tooltip = 'Velocity: Spoofs physics momentum | CFrame Jitter: Micro-offsets frame position'
-    })
-
-    DesyncIntensitySlider = DesyncModule:CreateSlider({
-        Name = 'Intensity',
+    DodgeSpeedSlider = AutoDodgeModule:CreateSlider({
+        Name = 'Cycle Interval',
         Min = 1,
-        Max = 10,
-        Default = 5,
-        Tooltip = 'Higher intensity desyncs hitboxes further away'
+        Max = 100,
+        Default = 20,
+        Suffix = function(val) 
+            return string.format("%.2fs", val / 100) 
+        end,
+        Tooltip = 'Delay between vertical dodges (20 = 0.20s)'
     })
 end)
 
