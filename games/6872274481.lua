@@ -22718,6 +22718,10 @@ run(function()
 										enemyBedPos = bed.PrimaryPart.Position
 									end
 								end
+								-- Immediately start moving toward the bed
+								if enemyBedPos then
+									targetMovePosition = enemyBedPos
+								end
 							end
 							currentPhase = Phase.RUSH
 
