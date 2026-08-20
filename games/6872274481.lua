@@ -22413,6 +22413,8 @@ run(function()
 	local AutoPilotLoop
 	local blockPlaceController
 	local KnitInit, Knit
+	local targetMovePosition = nil
+	local heartbeatConnection = nil
 	
 	task.spawn(function()
 		repeat
@@ -22428,6 +22430,52 @@ run(function()
 		for _, item in store.inventory.inventory.items do
 			if item.itemType:find("wool") then
 				return item
+			end
+		end
+		return nil
+	end
+
+	local function getWoolAmount()
+		local amount = 0
+		for _, item in store.inventory.inventory.items do
+			if item.itemType:find("wool") then
+				amount = amount + (item.amount or 0)
+			end
+		end
+		return amount
+	end
+
+	local function getTeamGenerator()
+		local team = lplr:GetAttribute('Team')
+		if team then
+			local gens = collectionService:GetTagged(team .. '_TeamOreGenerator')
+			if gens and gens[1] then
+				return gens[1]
+			end
+		end
+		for _, gen in collectionService:GetTagged('Generator') do
+			local app = gen:FindFirstChild("RoactTree") and gen.RoactTree:FindFirstChild("TeamOreGeneratorApp")
+			if app and (app:FindFirstChild("TeamGenMain") or app:FindFirstChild("GlobalOreGenerator")) then
+				local selfPos = entitylib.character.RootPart and entitylib.character.RootPart.Position or Vector3.new(0,0,0)
+				if (gen.Position - selfPos).Magnitude < 100 then
+					return gen
+				end
+			end
+		end
+		return nil
+	end
+
+	local function getShopkeeper()
+		for _, v in store.shop do
+			if v.RootPart then
+				return v.RootPart
+			end
+		end
+		for _, v in collectionService:GetTagged('BedwarsItemShop') do
+			if v:IsA("Model") and v.PrimaryPart then
+				return v.PrimaryPart
+			elseif v:IsA("BasePart") then
+				return v
 			end
 		end
 		return nil
@@ -22449,16 +22497,14 @@ run(function()
 		end
 
 		local closestBed, closestBedDist = nil, 999999
-		for _, v in workspace:GetDescendants() do
-			if v.Name == "bed" and v:IsA("Model") then
-				local team = v:GetAttribute("Team")
-				if team ~= lplr:GetAttribute("Team") then
-					local bedPos = v:GetPivot().Position
-					local dist = (bedPos - selfPos).Magnitude
-					if dist < closestBedDist then
-						closestBed = v
-						closestBedDist = dist
-					end
+		for _, v in collectionService:GetTagged('bed') do
+			local team = v:GetAttribute("Team")
+			if team ~= lplr:GetAttribute("Team") then
+				local bedPos = v:GetPivot().Position
+				local dist = (bedPos - selfPos).Magnitude
+				if dist < closestBedDist then
+					closestBed = v
+					closestBedDist = dist
 				end
 			end
 		end
@@ -22474,13 +22520,38 @@ run(function()
 	local function autoBuyItems()
 		if not store.shopLoaded then return end
 		local iron = getItem("iron")
-		if iron and iron.amount >= 40 then
-			-- Auto buy iron armor
+		if not iron then return end
+		
+		local woolAmount = getWoolAmount()
+		if woolAmount < 64 and iron.amount >= 16 then
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "wool_white"})
+		end
+		
+		local currentArmor = store.inventory.inventory.armor[2] ~= 'empty' and store.inventory.inventory.armor[2] or getBestArmor(1)
+		currentArmor = currentArmor and currentArmor.itemType or 'none'
+		
+		if currentArmor == 'none' and iron.amount >= 50 then
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "leather_armor"})
+		elseif (currentArmor == 'none' or currentArmor == 'leather_armor') and iron.amount >= 120 then
 			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "iron_armor"})
 		end
-		if iron and iron.amount >= 16 then
-			-- Auto buy wool
-			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "wool_white"})
+		
+		local diamonds = getItem("diamond")
+		if diamonds and diamonds.amount >= 8 and (currentArmor == 'none' or currentArmor == 'leather_armor' or currentArmor == 'iron_armor') then
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "diamond_armor"})
+		end
+		
+		local emeralds = getItem("emerald")
+		if emeralds and emeralds.amount >= 40 and currentArmor == 'diamond_armor' then
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "emerald_armor"})
+		end
+
+		local currentSword = getSword()
+		currentSword = currentSword and currentSword.itemType or 'none'
+		if currentSword == 'wood_sword' and iron.amount >= 20 then
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "stone_sword"})
+		elseif (currentSword == 'stone_sword' or currentSword == 'wood_sword') and iron.amount >= 70 then
+			bedwars.Handler:Get("BedwarsPurchaseItem"):Fire("CallServer", {shopItemId = "iron_sword"})
 		end
 	end
 
@@ -22499,74 +22570,130 @@ run(function()
 		end
 	end
 
-	local function moveTowards(targetPos)
-		if not entitylib.isAlive then return end
-		local character = lplr.Character
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if not rootPart or not humanoid then return end
-		
-		autoBridge(rootPart)
-		
-		local direction = (targetPos - rootPart.Position) * Vector3.new(1, 0, 1)
-		if direction.Magnitude > 3 then
-			humanoid:Move(direction.Unit, false)
-			local camera = workspace.CurrentCamera
-			if camera then
-				camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetPos), 0.15)
+	local function startMovementLoop()
+		if heartbeatConnection then return end
+		heartbeatConnection = runService.Heartbeat:Connect(function()
+			if not entitylib.isAlive or not targetMovePosition then return end
+			local character = lplr.Character
+			local rootPart = character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if not rootPart or not humanoid then return end
+			
+			autoBridge(rootPart)
+			
+			local direction = (targetMovePosition - rootPart.Position) * Vector3.new(1, 0, 1)
+			if direction.Magnitude > 3 then
+				humanoid:Move(direction.Unit, false)
+				local camera = workspace.CurrentCamera
+				if camera then
+					camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetMovePosition), 0.15)
+				end
+				local ray = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
+				local hit = workspace:FindPartOnRayWithIgnoreList(ray, {character})
+				if hit and hit.CanCollide then
+					humanoid.Jump = true
+				end
+			else
+				humanoid:Move(Vector3.new(0, 0, 0), false)
 			end
-			local ray = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
-			local hit = workspace:FindPartOnRayWithIgnoreList(ray, {character})
-			if hit and hit.CanCollide then
-				humanoid.Jump = true
-			end
-		else
-			humanoid:Move(Vector3.new(0, 0, 0), false)
+		end)
+	end
+
+	local function stopMovementLoop()
+		if heartbeatConnection then
+			heartbeatConnection:Disconnect()
+			heartbeatConnection = nil
 		end
 	end
 
-	AutoPilot = vape.Categories.Utility:CreateModule({
+	AutoPilot = vape.Categories.Minigames:CreateModule({
 		Name = 'AutoPilot',
 		Function = function(callback)
 			if callback then
+				startMovementLoop()
 				AutoPilotLoop = task.spawn(function()
 					while true do
-						task.wait(0.1)
-						autoBuyItems()
-						local target = getClosestTarget()
-						if target then
-							moveTowards(target.Position)
-							if target.Type == "Player" then
-								local dist = (target.Position - entitylib.character.RootPart.Position).Magnitude
-								if dist < 18 then
-									local sword = getSword()
-									if sword then
-										-- Automatically swing sword at nearby players
-										local swordMeta = bedwars.ItemMeta[sword.itemType]
-										pcall(function()
-											bedwars.SwordController:swingSword(sword)
-										end)
+						task.wait(0.2)
+						if entitylib.isAlive then
+							local iron = getItem("iron")
+							local woolAmount = getWoolAmount()
+							
+							-- Auto defend/attack nearby enemies
+							local selfPos = entitylib.character.RootPart.Position
+							local closestEnemy = nil
+							local enemyDist = 18
+							for _, ent in entitylib.List do
+								if ent.Targetable and ent.Player ~= lplr and ent.Character then
+									local dist = (ent.RootPart.Position - selfPos).Magnitude
+									if dist < enemyDist then
+										closestEnemy = ent
+										enemyDist = dist
 									end
 								end
-							elseif target.Type == "Bed" then
-								local dist = (target.Position - entitylib.character.RootPart.Position).Magnitude
-								if dist < 8 then
-									-- Break the bed
+							end
+							if closestEnemy then
+								local sword = getSword()
+								if sword then
 									pcall(function()
-										bedwars.BlockBreakController:startBreaking(target.Position)
+										bedwars.SwordController:swingSword(sword)
 									end)
 								end
 							end
+							
+							-- Strategic loop
+							if (iron and iron.amount >= 120 and (not getBestArmor(1) or getBestArmor(1).itemType ~= "iron_armor")) or (woolAmount < 32 and iron and iron.amount >= 16) then
+								local npc = getShopkeeper()
+								if npc then
+									targetMovePosition = npc.Position
+									if (npc.Position - entitylib.character.RootPart.Position).Magnitude < 15 then
+										autoBuyItems()
+									end
+								end
+							elseif woolAmount < 32 and (not iron or iron.amount < 16) then
+								local gen = getTeamGenerator()
+								if gen then
+									targetMovePosition = gen.Position
+								end
+							else
+								local target = getClosestTarget()
+								if target then
+									targetMovePosition = target.Position
+									if target.Type == "Player" then
+										local dist = (target.Position - entitylib.character.RootPart.Position).Magnitude
+										if dist < 18 then
+											local sword = getSword()
+											if sword then
+												pcall(function()
+													bedwars.SwordController:swingSword(sword)
+												end)
+											end
+										end
+									elseif target.Type == "Bed" then
+										local dist = (target.Position - entitylib.character.RootPart.Position).Magnitude
+										if dist < 8 then
+											pcall(function()
+												bedwars.BlockBreakController:startBreaking(target.Position)
+											end)
+										end
+									end
+								else
+									targetMovePosition = nil
+								end
+							end
+						else
+							targetMovePosition = nil
 						end
 					end
 				end)
 			else
+				stopMovementLoop()
 				if AutoPilotLoop then
 					task.cancel(AutoPilotLoop)
 					AutoPilotLoop = nil
 				end
+				targetMovePosition = nil
 			end
 		end,
-		Tooltip = 'Full AFK Autopilot: Auto-Fights, Auto-Bridges, Auto-Buys & Breaks Beds.'
+		Tooltip = 'Full AFK Autopilot: Strategic loop playing to win (Gather, Buy, Rush).'
 	})
 end)
