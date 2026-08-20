@@ -22410,58 +22410,73 @@ end)
 run(function()
 	local AutoPilot
 	local AutoPilotLoop
-	local targetMovePosition = nil
 	local renderConnection = nil
-	local rushCommitted = false
+	local targetMovePosition = nil
 
-	local function getWoolItem()
+	local Phase = {
+		FARM   = "FARM",
+		SHOP   = "SHOP",
+		RUSH   = "RUSH",
+		FIGHT  = "FIGHT",
+	}
+	local currentPhase = Phase.FARM
+
+	local function getItemAmount(itemType)
+		local amt = 0
 		for _, item in pairs(store.inventory.inventory.items) do
-			if item.itemType:find("wool") then
-				return item
+			if item.itemType == itemType then
+				amt = amt + (item.amount or 0)
 			end
 		end
-		return nil
+		return amt
 	end
 
 	local function getWoolAmount()
-		local amount = 0
+		local amt = 0
 		for _, item in pairs(store.inventory.inventory.items) do
 			if item.itemType:find("wool") then
-				amount = amount + (item.amount or 0)
+				amt = amt + (item.amount or 0)
 			end
 		end
-		return amount
+		return amt
 	end
 
-	local function getTeamGenerator()
+	local function getWoolItem()
+		for _, item in pairs(store.inventory.inventory.items) do
+			if item.itemType:find("wool") then return item end
+		end
+		return nil
+	end
+
+	local function getTeamGenPosition()
 		local team = lplr:GetAttribute('Team')
-		if team then
-			for _, gen in pairs(collectionService:GetTagged(team .. '_TeamOreGenerator')) do
-				return gen
+		if not team then return nil end
+		for _, gen in pairs(collectionService:GetTagged(team .. '_TeamOreGenerator')) do
+			if gen:IsA("Model") and gen.PrimaryPart then
+				return gen.PrimaryPart.Position
+			elseif gen:IsA("BasePart") then
+				return gen.Position
 			end
 		end
 		return nil
 	end
 
-	local function getShopRootPart()
+	local function getShopPart()
 		for _, v in pairs(store.shop) do
 			if v.RootPart then return v.RootPart end
 		end
 		for _, v in pairs(collectionService:GetTagged('BedwarsItemShop')) do
-			if v:IsA("Model") and v.PrimaryPart then
-				return v.PrimaryPart
-			elseif v:IsA("BasePart") then
-				return v
-			end
+			if v:IsA("Model") and v.PrimaryPart then return v.PrimaryPart end
+			if v:IsA("BasePart") then return v end
 		end
 		return nil
 	end
 
 	local function getNearestShopId()
 		if not entitylib.isAlive then return nil end
-		local localPosition = entitylib.character.RootPart.Position
+		local pos = entitylib.character.RootPart.Position
 		for _, v in pairs(store.shop) do
-			if v.Shop and v.RootPart and (v.RootPart.Position - localPosition).Magnitude <= 20 then
+			if v.Shop and v.RootPart and (v.RootPart.Position - pos).Magnitude <= 20 then
 				return v.Id
 			end
 		end
@@ -22478,7 +22493,7 @@ run(function()
 		if not ok or not item or type(item) ~= "table" then return end
 		bedwars.Handler:Get('BedwarsPurchaseItem'):Fire('CallServerAsync', {
 			shopItem = item,
-			shopId = shopId
+			shopId   = shopId,
 		}):andThen(function(suc)
 			if suc then
 				pcall(function() bedwars.AudioManager:playAudio(bedwars.SoundList.BEDWARS_PURCHASE_ITEM) end)
@@ -22486,40 +22501,93 @@ run(function()
 		end)
 	end
 
-	local function isWallBlocking(rootPart, direction)
-		local rayOrigin = rootPart.Position + Vector3.new(0, 1, 0)
-		local ray = Ray.new(rayOrigin, direction * 6)
-		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
-		return hit and hit.CanCollide
+	local function getNearestEnemyBed()
+		if not entitylib.isAlive then return nil, nil, math.huge end
+		local selfPos = entitylib.character.RootPart.Position
+		local myTeam  = lplr:GetAttribute("Team")
+		local nearest, nearestPart, nearestDist = nil, nil, math.huge
+		for _, v in pairs(collectionService:GetTagged('bed')) do
+			if v:GetAttribute("Team") ~= myTeam then
+				local pos  = v:GetPivot().Position
+				local dist = (pos - selfPos).Magnitude
+				if dist < nearestDist then
+					nearest     = v
+					nearestDist = dist
+					for _, p in pairs(v:GetDescendants()) do
+						if p:IsA("BasePart") and p.CanCollide then
+							nearestPart = p
+							break
+						end
+					end
+				end
+			end
+		end
+		return nearest, nearestPart, nearestDist
 	end
 
-	local function getStrafeDirection(rootPart, moveDir)
-		local leftDir = Vector3.new(-moveDir.Z, 0, moveDir.X).Unit
-		local rightDir = Vector3.new(moveDir.Z, 0, -moveDir.X).Unit
-		if not isWallBlocking(rootPart, leftDir) then return leftDir end
-		if not isWallBlocking(rootPart, rightDir) then return rightDir end
-		return moveDir
+	local function getNearestEnemy()
+		if not entitylib.isAlive then return nil, math.huge end
+		local selfPos = entitylib.character.RootPart.Position
+		local myTeam  = lplr:GetAttribute("Team")
+		local nearest, nearestDist = nil, math.huge
+		for _, ent in pairs(entitylib.List) do
+			if ent.Targetable and ent.Player ~= lplr and ent.Character and ent.RootPart then
+				local entTeam = ent.Player and ent.Player:GetAttribute("Team")
+				if entTeam ~= myTeam then
+					local d = (ent.RootPart.Position - selfPos).Magnitude
+					if d < nearestDist then
+						nearest     = ent
+						nearestDist = d
+					end
+				end
+			end
+		end
+		return nearest, nearestDist
 	end
 
 	local function checkVoid(rootPart)
-		local ray = Ray.new(rootPart.Position, Vector3.new(0, -15, 0))
-		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		local hit = workspace:FindPartOnRayWithIgnoreList(
+			Ray.new(rootPart.Position, Vector3.new(0, -15, 0)),
+			{lplr.Character}
+		)
 		return not hit
 	end
 
-	local function smartBridge(rootPart)
+	local function isWallAhead(rootPart, dir)
+		local hit = workspace:FindPartOnRayWithIgnoreList(
+			Ray.new(rootPart.Position + Vector3.new(0, 1, 0), dir * 5),
+			{lplr.Character}
+		)
+		return hit and hit.CanCollide
+	end
+
+	local function strafeAround(rootPart, moveDir)
+		local left  = Vector3.new(-moveDir.Z, 0,  moveDir.X).Unit
+		local right = Vector3.new( moveDir.Z, 0, -moveDir.X).Unit
+		if not isWallAhead(rootPart, left)  then return left  end
+		if not isWallAhead(rootPart, right) then return right end
+		return moveDir
+	end
+
+	local function tryBridge(rootPart)
 		local wool = getWoolItem()
 		if not wool or getWoolAmount() <= 2 then return end
-		local checkPos = rootPart.Position + (rootPart.CFrame.LookVector * 3) - Vector3.new(0, 3.5, 0)
-		local ray = Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 8)
-		local hit = workspace:FindPartOnRayWithIgnoreList(ray, {lplr.Character})
+		local checkPos = rootPart.Position
+			+ rootPart.CFrame.LookVector * 3
+			- Vector3.new(0, 3.5, 0)
+		local hit = workspace:FindPartOnRayWithIgnoreList(
+			Ray.new(rootPart.Position, (checkPos - rootPart.Position).Unit * 8),
+			{lplr.Character}
+		)
 		if not hit then
-			local snapped = Vector3.new(
-				math.round(checkPos.X / 3) * 3,
-				math.round(checkPos.Y / 3) * 3,
-				math.round(checkPos.Z / 3) * 3
+			pcall(bedwars.placeBlock,
+				Vector3.new(
+					math.round(checkPos.X / 3) * 3,
+					math.round(checkPos.Y / 3) * 3,
+					math.round(checkPos.Z / 3) * 3
+				),
+				wool.itemType, false
 			)
-			pcall(bedwars.placeBlock, snapped, wool.itemType, false)
 		end
 	end
 
@@ -22527,28 +22595,30 @@ run(function()
 		if renderConnection then return end
 		renderConnection = runService.RenderStepped:Connect(function()
 			if not entitylib.isAlive or not targetMovePosition then return end
-			local character = lplr.Character
-			if not character then return end
-			local rootPart = character:FindFirstChild("HumanoidRootPart")
-			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			if not rootPart or not humanoid then return end
+			local char = lplr.Character
+			if not char then return end
+			local root = char:FindFirstChild("HumanoidRootPart")
+			local hum  = char:FindFirstChildOfClass("Humanoid")
+			if not root or not hum then return end
 
-			if checkVoid(rootPart) then humanoid.Jump = true end
+			if checkVoid(root) then hum.Jump = true end
 
-			if rushCommitted then smartBridge(rootPart) end
+			if currentPhase == Phase.RUSH then
+				tryBridge(root)
+			end
 
-			local direction = (targetMovePosition - rootPart.Position)
-			local flatDistance = (direction * Vector3.new(1, 0, 1)).Magnitude
-			local moveDir = direction.Unit
+			local dir      = targetMovePosition - root.Position
+			local flatDist = (dir * Vector3.new(1, 0, 1)).Magnitude
+			local moveDir  = dir.Unit
 
-			if flatDistance > 2.5 then
-				if isWallBlocking(rootPart, moveDir) then
-					moveDir = getStrafeDirection(rootPart, moveDir)
-					humanoid.Jump = true
+			if flatDist > 2.5 then
+				if isWallAhead(root, moveDir) then
+					moveDir = strafeAround(root, moveDir)
+					hum.Jump = true
 				end
-				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
+				hum:Move(moveDir * Vector3.new(1, 0, 1), false)
 			else
-				humanoid:Move(Vector3.new(0, 0, 0), false)
+				hum:Move(Vector3.new(0, 0, 0), false)
 			end
 		end)
 	end
@@ -22561,7 +22631,7 @@ run(function()
 	end
 
 	AutoPilot = vape.Categories.Minigames:CreateModule({
-		Name = 'AutoPilot',
+		Name    = 'AutoPilot',
 		Function = function(callback)
 			if callback then
 				startMovementLoop()
@@ -22571,88 +22641,88 @@ run(function()
 
 						if not entitylib.isAlive then
 							targetMovePosition = nil
-							rushCommitted = false
+							currentPhase       = Phase.FARM
 							task.wait(1)
 							continue
 						end
 
-						local selfPos = entitylib.character.RootPart.Position
-						local myTeam = lplr:GetAttribute("Team")
-						local iron = getItem("iron")
-						local ironAmt = iron and iron.amount or 0
-						local woolAmount = getWoolAmount()
+						local selfPos  = entitylib.character.RootPart.Position
+						local ironAmt  = getItemAmount("iron")
+						local woolAmt  = getWoolAmount()
+						local enemy, enemyDist = getNearestEnemy()
+						local bed, bedPart, bedDist = getNearestEnemyBed()
 
-						-- Always swing at anyone nearby
-						for _, ent in pairs(entitylib.List) do
-							if ent.Targetable and ent.Player ~= lplr and ent.Character and ent.RootPart then
-								if (ent.RootPart.Position - selfPos).Magnitude < 18 then
-									pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
-									break
-								end
+						-- FIGHT - takes priority over everything if enemy is within 40 studs
+						if enemy and enemyDist < 40 then
+							currentPhase = Phase.FIGHT
+							local enemyPos = enemy.RootPart.Position
+
+							if enemyDist > 16 then
+								targetMovePosition = enemyPos
+							elseif enemyDist < 12 then
+								local backDir = (selfPos - enemyPos).Unit
+								targetMovePosition = selfPos + backDir * 4
+							else
+								targetMovePosition = selfPos
+								pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
 							end
+
+							if enemyDist <= 16 then
+								pcall(bedwars.SwordController.swingSwordAtMouse, bedwars.SwordController)
+							end
+
+							continue
 						end
 
-						-- Find nearest enemy bed
-						local closestBed, closestBedDist = nil, math.huge
-						for _, v in pairs(collectionService:GetTagged('bed')) do
-							local bedTeam = v:GetAttribute("Team")
-							if bedTeam and bedTeam ~= myTeam then
-								local dist = (v:GetPivot().Position - selfPos).Magnitude
-								if dist < closestBedDist then
-									closestBed = v
-									closestBedDist = dist
-								end
-							end
+						-- Resume previous phase after fight ends
+						if currentPhase == Phase.FIGHT then
+							currentPhase = Phase.FARM
 						end
 
-						-- PHASE 1: Farm until 16 iron
-						if ironAmt < 16 and not rushCommitted then
-							local gen = getTeamGenerator()
-							if gen then
-								local genPos = (gen:IsA("Model") and gen.PrimaryPart) and gen.PrimaryPart.Position or gen.Position
+						-- FARM - wait at generator until 32 iron
+						if currentPhase == Phase.FARM then
+							local genPos = getTeamGenPosition()
+							if genPos then
 								targetMovePosition = genPos
 							end
 
-						-- PHASE 2: Have 16 iron, go buy blocks
-						elseif ironAmt >= 16 and woolAmount < 16 and not rushCommitted then
-							local shopPart = getShopRootPart()
-							if shopPart then
-								targetMovePosition = shopPart.Position
-								if (shopPart.Position - selfPos).Magnitude < 20 then
-									-- Spend all iron on wool
-									local buys = math.floor(ironAmt / 4)
-									for i = 1, buys do
+							if ironAmt >= 32 then
+								currentPhase = Phase.SHOP
+							end
+
+						-- SHOP - buy 4 sets of 16 blocks (8 iron each)
+						elseif currentPhase == Phase.SHOP then
+							local shop = getShopPart()
+							if shop then
+								targetMovePosition = shop.Position
+
+								if (shop.Position - selfPos).Magnitude < 20 then
+									local canBuy = math.floor(ironAmt / 8)
+									for i = 1, canBuy do
 										buyItem("wool_white")
 									end
-								end
-							end
 
-						-- PHASE 3: Have blocks, commit to the rush - never look back
-						elseif woolAmount >= 16 then
-							rushCommitted = true
-
-							if closestBed then
-								targetMovePosition = closestBed:GetPivot().Position
-
-								-- Break the bed when close
-								if closestBedDist < 12 then
-									local bedPart = closestBed:FindFirstChildWhichIsA("BasePart")
-									if bedPart then
-										pcall(bedwars.breakBlock, bedwars, bedPart, false, false, true, false, nil)
+									if woolAmt >= 16 then
+										currentPhase = Phase.RUSH
 									end
 								end
 							end
 
-							-- If we run out of wool mid rush, buy more on the way (don't go back to base)
-							-- Find closest shop to current position instead of going all the way home
-							if woolAmount < 4 and ironAmt >= 4 then
-								local shopPart = getShopRootPart()
-								if shopPart and (shopPart.Position - selfPos).Magnitude < 40 then
-									targetMovePosition = shopPart.Position
-									if (shopPart.Position - selfPos).Magnitude < 20 then
-										local buys = math.floor(ironAmt / 4)
-										for i = 1, buys do buyItem("wool_white") end
-									end
+						-- RUSH - bridge to enemy bed and break it
+						elseif currentPhase == Phase.RUSH then
+							if bed then
+								targetMovePosition = bed:GetPivot().Position
+
+								if bedDist < 10 and bedPart then
+									pcall(bedwars.breakBlock, bedwars, bedPart, false, false, true, false, nil)
+								end
+							end
+
+							-- Only restock if completely out of wool and shop is nearby
+							if woolAmt <= 0 then
+								local shop = getShopPart()
+								if shop and (shop.Position - selfPos).Magnitude < 60 then
+									currentPhase = Phase.SHOP
 								end
 							end
 						end
@@ -22665,9 +22735,9 @@ run(function()
 					AutoPilotLoop = nil
 				end
 				targetMovePosition = nil
-				rushCommitted = false
+				currentPhase       = Phase.FARM
 			end
 		end,
-		Tooltip = 'AutoPilot: Farm 16 iron → buy blocks → rush bed, never retreat'
+		Tooltip = 'AutoPilot: Farm 32 iron → buy 64 blocks → rush bed → fight at 16 studs'
 	})
 end)
