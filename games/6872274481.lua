@@ -22872,6 +22872,12 @@ run(function()
 							continue
 						end
 
+						if not targetMovePosition then
+							-- Fallback: always have somewhere to go
+							local genPos = getTeamGenPosition()
+							if genPos then targetMovePosition = genPos end
+						end
+
 						local selfPos = entitylib.character.RootPart.Position
 						local ironAmt = getItemAmount("iron")
 						local woolAmt = getWoolAmount()
@@ -22892,6 +22898,7 @@ run(function()
 							if not boughtBlocks then
 								buyBlocks()
 								boughtBlocks = true
+								task.wait(0.5) -- Wait for shop to process
 								
 								-- Get enemy bed position
 								local bed, _, _ = getNearestEnemyBed()
@@ -22899,6 +22906,8 @@ run(function()
 									pcall(function() enemyBedPos = bed:GetPivot().Position end)
 									if not enemyBedPos and bed:IsA("Model") and bed.PrimaryPart then
 										enemyBedPos = bed.PrimaryPart.Position
+									elseif not enemyBedPos and bed:IsA("BasePart") then
+										enemyBedPos = bed.Position
 									end
 								end
 								
@@ -22906,8 +22915,12 @@ run(function()
 								local nearestEnemy, nearestDist = getNearestEnemy()
 								if nearestEnemy and nearestDist < 50 then
 									targetEnemy = nearestEnemy
+									targetMovePosition = nearestEnemy.RootPart.Position
 									currentPhase = Phase.HUNT
 								else
+									if enemyBedPos then
+										targetMovePosition = enemyBedPos
+									end
 									currentPhase = Phase.RUSH
 								end
 							end
