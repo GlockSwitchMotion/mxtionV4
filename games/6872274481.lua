@@ -22552,20 +22552,26 @@ run(function()
 
 			autoBridge(rootPart)
 
-			local direction = (targetMovePosition - rootPart.Position) * Vector3.new(1, 0, 1)
-			if direction.Magnitude > 3 then
-				humanoid:Move(direction.Unit, false)
+			local direction = (targetMovePosition - rootPart.Position)
+			local flatDistance = (direction * Vector3.new(1, 0, 1)).Magnitude
+			
+			if flatDistance > 1 then
+				-- Always move towards target
+				local moveDir = direction.Unit
+				humanoid:Move(moveDir * Vector3.new(1, 0, 1), false)
+				
+				-- Rotate character to face target
 				local camera = workspace.CurrentCamera
 				if camera then
-					camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetMovePosition), 0.1)
+					camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, targetMovePosition), 0.15)
 				end
+				
+				-- Auto jump if blocked
 				local fwdRay = Ray.new(rootPart.Position, rootPart.CFrame.LookVector * 3)
 				local fwdHit = workspace:FindPartOnRayWithIgnoreList(fwdRay, {character})
 				if fwdHit and fwdHit.CanCollide then
 					humanoid.Jump = true
 				end
-			else
-				humanoid:Move(Vector3.new(0, 0, 0), false)
 			end
 		end)
 	end
