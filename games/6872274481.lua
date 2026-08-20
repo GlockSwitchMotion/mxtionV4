@@ -16823,6 +16823,400 @@ run(function()
 end)
 
 run(function()
+	local BeeKeeperSpy
+	local Viewer
+	local Notifications
+
+	-- Settings (updated by sliders)
+	local Range      = 24  -- studs
+	local WindowSecs = 3   -- notification debounce
+
+	-- State
+	local beeTotals  = {}  -- { [userId] = { name, count } }
+	local notifDebounce = {}  -- { [userId] = lastNotifTime }
+	local connections   = {}
+	local collapsed     = false
+
+	-- GUI constants
+	local HEADER_H = 46
+	local ROW_H    = 28
+
+	-- GUI handles
+	local panel     = nil
+	local rowList   = nil
+	local totalLabel = nil
+
+	-- ──────────────────────────────────────────
+	-- Helpers
+	-- ──────────────────────────────────────────
+	local function addBlur(frame)
+		local blur = Instance.new('ImageLabel')
+		blur.Name = 'Blur'
+		blur.Size = UDim2.new(1, 0, 1, 0)
+		blur.BackgroundTransparency = 1
+		blur.Image = 'rbxassetid://7912134082'
+		blur.ImageTransparency = 0.3
+		blur.ScaleType = Enum.ScaleType.Slice
+		blur.SliceCenter = Rect.new(12, 12, 12, 12)
+		blur.ZIndex = 0
+		blur.Parent = frame
+	end
+
+	local function dockPanel()
+		if not panel then return end
+		local luciaWin = vape.gui.ScaledGui:FindFirstChild('LuciaSpyWindow')
+		local invWin   = vape.gui.ScaledGui:FindFirstChild('ViewInventory')
+		if luciaWin and luciaWin.Visible then
+			panel.Position = UDim2.fromOffset(
+				luciaWin.Position.X.Offset,
+				luciaWin.Position.Y.Offset + luciaWin.Size.Y.Offset + 10
+			)
+		elseif invWin and invWin.Visible then
+			panel.Position = UDim2.fromOffset(
+				invWin.Position.X.Offset,
+				invWin.Position.Y.Offset + invWin.Size.Y.Offset + 10
+			)
+		else
+			panel.Position = UDim2.fromOffset(12, 360)
+		end
+	end
+
+	-- ──────────────────────────────────────────
+	-- Build the viewer panel
+	-- ──────────────────────────────────────────
+	local function buildPanel()
+		if panel then panel:Destroy() end
+
+		panel = Instance.new('Frame')
+		panel.Name = 'BeeKeeperSpyPanel'
+		panel.Size = UDim2.fromOffset(240, HEADER_H)
+		panel.BackgroundColor3 = uipallet.Main
+		panel.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
+		panel.Visible = false
+		panel.Parent = vape.gui.ScaledGui
+		addBlur(panel)
+
+		local corner = Instance.new('UICorner')
+		corner.CornerRadius = UDim.new(0, 5)
+		corner.Parent = panel
+
+		-- Bee icon
+		local beeIcon = Instance.new('ImageLabel')
+		beeIcon.Size = UDim2.fromOffset(20, 20)
+		beeIcon.Position = UDim2.fromOffset(12, 13)
+		beeIcon.BackgroundTransparency = 1
+		local bImg = bedwars.getIcon({ itemType = 'bee' }, true)
+		beeIcon.Image = (bImg and bImg ~= '') and bImg or 'rbxassetid://6035047409'
+		beeIcon.Parent = panel
+
+		-- Title
+		local titleLabel = Instance.new('TextLabel')
+		titleLabel.Name = 'Title'
+		titleLabel.Size = UDim2.new(1, -80, 0, 22)
+		titleLabel.Position = UDim2.fromOffset(38, 12)
+		titleLabel.BackgroundTransparency = 1
+		titleLabel.Text = 'BeeKeeper Spy'
+		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+		titleLabel.TextSize = 13
+		titleLabel.TextColor3 = uipallet.Text
+		titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		titleLabel.FontFace = uipallet.Font
+		titleLabel.Parent = panel
+
+		-- Total counter (top-right, gold)
+		totalLabel = Instance.new('TextLabel')
+		totalLabel.Name = 'Total'
+		totalLabel.Size = UDim2.fromOffset(60, 22)
+		totalLabel.Position = UDim2.new(1, -68, 0, 12)
+		totalLabel.BackgroundTransparency = 1
+		totalLabel.Text = '🐝 0'
+		totalLabel.TextXAlignment = Enum.TextXAlignment.Right
+		totalLabel.TextSize = 12
+		totalLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+		totalLabel.FontFace = uipallet.Font
+		totalLabel.Parent = panel
+
+		-- Divider
+		local divider = Instance.new('Frame')
+		divider.Size = UDim2.new(1, 0, 0, 1)
+		divider.Position = UDim2.fromOffset(0, HEADER_H - 1)
+		divider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+		divider.BackgroundTransparency = 0
+		divider.Parent = panel
+
+		-- Row container
+		rowList = Instance.new('Frame')
+		rowList.Name = 'Rows'
+		rowList.Size = UDim2.new(1, 0, 0, 0)
+		rowList.Position = UDim2.fromOffset(0, HEADER_H)
+		rowList.BackgroundTransparency = 1
+		rowList.Visible = not collapsed
+		rowList.Parent = panel
+
+		local layout = Instance.new('UIListLayout')
+		layout.SortOrder = Enum.SortOrder.Name
+		layout.Padding = UDim.new(0, 0)
+		layout.Parent = rowList
+
+		-- Click header to collapse / expand
+		local headerBtn = Instance.new('TextButton')
+		headerBtn.Size = UDim2.new(1, 0, 0, HEADER_H)
+		headerBtn.Position = UDim2.fromOffset(0, 0)
+		headerBtn.BackgroundTransparency = 1
+		headerBtn.Text = ''
+		headerBtn.ZIndex = 10
+		headerBtn.Parent = panel
+		headerBtn.MouseButton1Click:Connect(function()
+			collapsed = not collapsed
+			rowList.Visible = not collapsed
+			local rowCount = 0
+			for _ in pairs(beeTotals) do rowCount += 1 end
+			panel.Size = UDim2.fromOffset(240,
+				collapsed and HEADER_H or HEADER_H + rowCount * ROW_H + 6
+			)
+		end)
+
+		dockPanel()
+	end
+
+	-- ──────────────────────────────────────────
+	-- Refresh viewer rows
+	-- ──────────────────────────────────────────
+	local function refreshPanel()
+		if not panel or not rowList then return end
+
+		-- Clear rows
+		for _, c in ipairs(rowList:GetChildren()) do
+			if c:IsA('Frame') then c:Destroy() end
+		end
+
+		-- Sort by bee count descending
+		local sorted = {}
+		local grandTotal = 0
+		for userId, data in pairs(beeTotals) do
+			table.insert(sorted, { userId = userId, name = data.name, count = data.count })
+			grandTotal += data.count
+		end
+		table.sort(sorted, function(a, b) return a.count > b.count end)
+
+		for i, entry in ipairs(sorted) do
+			local row = Instance.new('Frame')
+			row.Name = string.format('%02d', i)
+			row.Size = UDim2.new(1, 0, 0, ROW_H)
+			row.BackgroundTransparency = 1
+			row.Parent = rowList
+
+			-- Bee icon
+			local icon = Instance.new('ImageLabel')
+			icon.Size = UDim2.fromOffset(18, 18)
+			icon.Position = UDim2.fromOffset(12, 5)
+			icon.BackgroundTransparency = 1
+			local bImg = bedwars.getIcon({ itemType = 'bee' }, true)
+			icon.Image = (bImg and bImg ~= '') and bImg or 'rbxassetid://6035047409'
+			icon.Parent = row
+
+			-- Player name
+			local nameLabel = Instance.new('TextLabel')
+			nameLabel.Size = UDim2.new(1, -100, 1, 0)
+			nameLabel.Position = UDim2.fromOffset(36, 0)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = entry.name
+			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.TextSize = 12
+			nameLabel.TextColor3 = uipallet.Text
+			nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			nameLabel.FontFace = uipallet.Font
+			nameLabel.Parent = row
+
+			-- Bee count (gold)
+			local countLabel = Instance.new('TextLabel')
+			countLabel.Size = UDim2.fromOffset(70, ROW_H)
+			countLabel.Position = UDim2.new(1, -78, 0, 0)
+			countLabel.BackgroundTransparency = 1
+			countLabel.Text = '🐝 ' .. tostring(entry.count)
+			countLabel.TextXAlignment = Enum.TextXAlignment.Right
+			countLabel.TextSize = 12
+			countLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+			countLabel.FontFace = uipallet.Font
+			countLabel.Parent = row
+		end
+
+		-- Update header total
+		if totalLabel then totalLabel.Text = '🐝 ' .. tostring(grandTotal) end
+
+		-- Resize
+		local rowCount = #sorted
+		rowList.Size = UDim2.fromOffset(240, rowCount * ROW_H)
+		panel.Size = UDim2.fromOffset(240,
+			collapsed and HEADER_H or HEADER_H + rowCount * ROW_H + 6
+		)
+
+		dockPanel()
+	end
+
+	-- ──────────────────────────────────────────
+	-- Attribute a bee pickup by world position
+	-- ──────────────────────────────────────────
+	local function attributeBee(beePos)
+		local closestEnt  = nil
+		local closestDist = Range
+
+		for _, ent in entitylib.List do
+			if ent and ent.RootPart and ent.Player then
+				local dist = (ent.RootPart.Position - beePos).Magnitude
+				if dist < closestDist then
+					closestDist = dist
+					closestEnt  = ent
+				end
+			end
+		end
+
+		if not closestEnt then return end
+
+		local player = closestEnt.Player
+		local userId = player.UserId
+		local name   = player.DisplayName or player.Name
+
+		-- Only track BeeKeeper kit players — ignore everyone else
+		local kit = player:GetAttribute('Kit')
+			or player:GetAttribute('SelectedKit')
+			or player:GetAttribute('PlayerKit')
+		if not kit or not tostring(kit):lower():find('bee') then return end
+
+		-- Update bee total (always count)
+		if not beeTotals[userId] then
+			beeTotals[userId] = { name = name, count = 0 }
+		end
+		beeTotals[userId].count += 1
+		beeTotals[userId].name = name  -- keep display name fresh
+
+		-- Notification debounce (Window secs between notifs per player)
+		local now = tick()
+		local shouldNotif = (not notifDebounce[userId]) or (now - notifDebounce[userId] >= WindowSecs)
+
+		if shouldNotif and Notifications and Notifications.Enabled then
+			notifDebounce[userId] = now
+			notif('BeeKeeperSpy',
+				('%s picked up a Bee! (Total: %d)'):format(name, beeTotals[userId].count),
+				4, 'info'
+			)
+		end
+
+		-- Refresh viewer if active
+		if Viewer and Viewer.Enabled and panel then
+			panel.Visible = true
+			refreshPanel()
+		end
+	end
+
+	-- ──────────────────────────────────────────
+	-- Register main module
+	-- ──────────────────────────────────────────
+	BeeKeeperSpy = vape.Categories.Inventory:CreateModule({
+		Name = 'BeeKeeperSpy',
+		Function = function(callback)
+			if callback then
+				-- Watch workspace for "Bee" instances being removed (picked up)
+				local conn = workspace.DescendantRemoving:Connect(function(inst)
+					if not BeeKeeperSpy.Enabled then return end
+					if inst.Name ~= 'Bee' then return end
+
+					local pos
+					pcall(function()
+						if inst:IsA('BasePart') then
+							pos = inst.Position
+						elseif inst:IsA('Model') and inst.PrimaryPart then
+							pos = inst.PrimaryPart.Position
+						end
+					end)
+					if not pos then return end
+
+					attributeBee(pos)
+				end)
+
+				table.insert(connections, conn)
+
+				repeat task.wait(0.5) until not BeeKeeperSpy.Enabled
+
+				for _, c in ipairs(connections) do c:Disconnect() end
+				connections = {}
+				if panel then panel.Visible = false end
+
+			elseif panel then
+				panel.Visible = false
+			end
+		end,
+		Tooltip = 'Tracks how many bees each BeeKeeper player has collected'
+	})
+
+	-- ──────────────────────────────────────────
+	-- Sub-options
+	-- ──────────────────────────────────────────
+	Viewer = BeeKeeperSpy:CreateToggle({
+		Name    = 'Viewer',
+		Default = true,
+		Function = function(enabled)
+			if enabled then
+				if not panel then buildPanel() end
+				if BeeKeeperSpy.Enabled then
+					panel.Visible = true
+					refreshPanel()
+				end
+			elseif panel then
+				panel.Visible = false
+			end
+		end,
+		Tooltip = 'Shows a panel with everyone\'s total bees collected, click it to expand'
+	})
+
+	Notifications = BeeKeeperSpy:CreateToggle({
+		Name    = 'Notifications',
+		Default = true,
+		Tooltip = 'Sends a notification every time someone picks up a bee'
+	})
+
+	BeeKeeperSpy:CreateSlider({
+		Name    = 'Range',
+		Min     = 5,
+		Max     = 60,
+		Default = 24,
+		Suffix  = ' studs',
+		Function = function(val) Range = val end,
+		Tooltip = 'How close a player must be to the bee to be blamed for taking it'
+	})
+
+	BeeKeeperSpy:CreateSlider({
+		Name    = 'Window',
+		Min     = 1,
+		Max     = 10,
+		Default = 3,
+		Suffix  = ' secs',
+		Function = function(val) WindowSecs = val end,
+		Tooltip = 'Minimum seconds between notifications for the same player'
+	})
+
+	BeeKeeperSpy:CreateButton({
+		Name = 'Reset Totals',
+		Function = function()
+			beeTotals    = {}
+			notifDebounce = {}
+			if panel then
+				if rowList then
+					for _, c in ipairs(rowList:GetChildren()) do
+						if c:IsA('Frame') then c:Destroy() end
+					end
+					rowList.Size = UDim2.fromOffset(240, 0)
+				end
+				panel.Size = UDim2.fromOffset(240, HEADER_H)
+				if totalLabel then totalLabel.Text = '🐝 0' end
+			end
+			notif('BeeKeeperSpy', 'Bee totals reset!', 3, 'info')
+		end,
+		Tooltip = 'Resets all bee totals back to zero'
+	})
+end)
+
+run(function()
 	local AutoStar
 	local Streamer
 	local Range
