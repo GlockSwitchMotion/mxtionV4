@@ -21193,35 +21193,22 @@ run(function()
     local abilityUsedEvent = ReplicatedStorage["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].abilityUsed
     local clickConnection
 
-    -- Helper function to check if the held item is the Jade Hammer
-    local function isHoldingJadeHammer()
-        local char = Players.LocalPlayer.Character
-        if not char then return false end
-
-        local tool = char:FindFirstChildOfClass("Tool")
-        return tool and tool.Name:lower():find("jade_hammer") ~= nil
-    end
-
     InstantJade = vape.Categories.Kits:CreateModule({
         Name = "InstantJade",
-        Tooltip = "Replays Jade Hammer client event on left click when holding Jade Hammer",
+        Tooltip = "Replays Jade Hammer ability on every left click continuously",
         Function = function(callback)
             if callback then
-                -- Listen for mouse clicks while module is active
-                clickConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-                    if gameProcessed then return end
-
+                -- Fires on every left mouse click while the module is enabled
+                clickConnection = UserInputService.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isHoldingJadeHammer() then
-                            local char = Players.LocalPlayer.Character
-                            if char and firesignal then
-                                firesignal(abilityUsedEvent.OnClientEvent, char, "jade_hammer_jump")
-                            end
+                        local char = Players.LocalPlayer.Character
+                        if char and firesignal then
+                            firesignal(abilityUsedEvent.OnClientEvent, char, "jade_hammer_jump")
                         end
                     end
                 end)
             else
-                -- Clean up connection when toggled off
+                -- Clean up event connection when module is toggled off
                 if clickConnection then
                     clickConnection:Disconnect()
                     clickConnection = nil
