@@ -5185,10 +5185,10 @@ run(function()
         corner.CornerRadius = UDim.new(0, 5)
         corner.Parent = window
         
-        -- Priority outline (red stroke for target/closest)
+        -- Priority outline (light grey stroke for target/closest)
         local priorityStroke = Instance.new('UIStroke')
         priorityStroke.Name = 'PriorityStroke'
-        priorityStroke.Color = Color3.fromRGB(255, 0, 0)
+        priorityStroke.Color = Color3.fromRGB(200, 200, 200)
         priorityStroke.Thickness = 3
         priorityStroke.Transparency = 1 -- Hidden by default
         priorityStroke.Parent = window
