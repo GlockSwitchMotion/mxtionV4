@@ -5100,9 +5100,11 @@ run(function()
     local Armor
     local Empty
     local Color = {}
-    local window, headshot, nametag
-    local invLabel, invGrid, personalLabel, personalGrid
-    local armordivider, armorholder
+    local windows = {} -- Track all player windows
+    local playerWindows = {} -- Map player to their window
+    local headshots, nametags = {}, {}
+    local invLabels, invGrids, personalLabels, personalGrids = {}, {}, {}, {}
+    local armordividers, armorholders = {}, {}
     local slots, personalslots, armorslots = {}, {}, {}
     
     local SlotCount = 24
@@ -5111,6 +5113,8 @@ run(function()
     local SlotPadding = 4
     local Columns = 6
     local HeaderHeight = 46
+    local WindowWidth = 240
+    local WindowSpacing = 10
 
     local function createSlot(parent)
         local slot = Instance.new('Frame')
@@ -5167,11 +5171,10 @@ run(function()
         return label
     end
 
-    local function buildWindow()
-        window = Instance.new('Frame')
-        window.Name = 'ViewInventory'
-        window.Size = UDim2.fromOffset(240, HeaderHeight)
-        window.Position = UDim2.fromOffset(12, 260)
+    local function buildWindow(player)
+        local window = Instance.new('Frame')
+        window.Name = 'ViewInventory_' .. player.Name
+        window.Size = UDim2.fromOffset(WindowWidth, HeaderHeight)
         window.BackgroundColor3 = uipallet.Main
         window.BackgroundTransparency = 1 - (Color.Opacity or 0.5)
         window.Visible = false
@@ -5181,8 +5184,16 @@ run(function()
         local corner = Instance.new('UICorner')
         corner.CornerRadius = UDim.new(0, 5)
         corner.Parent = window
+        
+        -- Priority outline (red stroke for target/closest)
+        local priorityStroke = Instance.new('UIStroke')
+        priorityStroke.Name = 'PriorityStroke'
+        priorityStroke.Color = Color3.fromRGB(255, 0, 0)
+        priorityStroke.Thickness = 3
+        priorityStroke.Transparency = 1 -- Hidden by default
+        priorityStroke.Parent = window
 
-        headshot = Instance.new('ImageLabel')
+        local headshot = Instance.new('ImageLabel')
         headshot.Name = 'Headshot'
         headshot.Size = UDim2.fromOffset(26, 26)
         headshot.Position = UDim2.fromOffset(14, 11)
@@ -5193,7 +5204,7 @@ run(function()
         headcorner.CornerRadius = UDim.new(0, 4)
         headcorner.Parent = headshot
 
-        nametag = Instance.new('TextLabel')
+        local nametag = Instance.new('TextLabel')
         nametag.Name = 'Name'
         nametag.Size = UDim2.new(1, -60, 0, 26)
         nametag.Position = UDim2.fromOffset(48, 11)
@@ -5214,10 +5225,8 @@ run(function()
         divider.BorderSizePixel = 0
         divider.Parent = window
 
-        -- 1. Main Inventory Section Header & Grid
-        invLabel = createSectionHeader('Inventory', window)
-
-        invGrid = Instance.new('Frame')
+        local invLabel = createSectionHeader('Inventory', window)
+        local invGrid = Instance.new('Frame')
         invGrid.Name = 'InventoryItems'
         invGrid.Size = UDim2.new(1, -28, 0, 0)
         invGrid.BackgroundTransparency = 1
@@ -5228,16 +5237,15 @@ run(function()
         layout1.SortOrder = Enum.SortOrder.LayoutOrder
         layout1.Parent = invGrid
 
+        local playerSlots = {}
         for i = 1, SlotCount do
             local slot = createSlot(invGrid)
             slot.LayoutOrder = i
-            slots[i] = slot
+            playerSlots[i] = slot
         end
 
-        -- 2. Personal Chest Section Header & Grid
-        personalLabel = createSectionHeader('Personal Chest', window)
-
-        personalGrid = Instance.new('Frame')
+        local personalLabel = createSectionHeader('Personal Chest', window)
+        local personalGrid = Instance.new('Frame')
         personalGrid.Name = 'PersonalItems'
         personalGrid.Size = UDim2.new(1, -28, 0, 0)
         personalGrid.BackgroundTransparency = 1
@@ -5248,23 +5256,23 @@ run(function()
         layout2.SortOrder = Enum.SortOrder.LayoutOrder
         layout2.Parent = personalGrid
 
+        local playerPersonalSlots = {}
         for i = 1, PersonalSlotCount do
             local slot = createSlot(personalGrid)
             slot.LayoutOrder = i
-            personalslots[i] = slot
+            playerPersonalSlots[i] = slot
         end
 
-        -- 3. Armor Section
-        armordivider = Instance.new('Frame')
+        local armordivider = Instance.new('Frame')
         armordivider.Name = 'ArmorDivider'
         armordivider.Size = UDim2.new(1, 0, 0, 1)
         armordivider.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
         armordivider.BorderSizePixel = 0
         armordivider.Parent = window
 
-        armorholder = Instance.new('Frame')
+        local armorholder = Instance.new('Frame')
         armorholder.Name = 'Armor'
-        armorholder.Size = UDim2.fromOffset(240, SlotSize)
+        armorholder.Size = UDim2.fromOffset(WindowWidth, SlotSize)
         armorholder.BackgroundTransparency = 1
         armorholder.Parent = window
         local armorlayout = Instance.new('UIListLayout')
@@ -5272,11 +5280,28 @@ run(function()
         armorlayout.Padding = UDim.new(0, SlotPadding)
         armorlayout.Parent = armorholder
 
+        local playerArmorSlots = {}
         for i = 1, 4 do
             local slot = createSlot(armorholder)
             slot.LayoutOrder = i
-            armorslots[i] = slot
+            playerArmorSlots[i] = slot
         end
+
+        return {
+            window = window,
+            headshot = headshot,
+            nametag = nametag,
+            invLabel = invLabel,
+            invGrid = invGrid,
+            personalLabel = personalLabel,
+            personalGrid = personalGrid,
+            armordivider = armordivider,
+            armorholder = armorholder,
+            slots = playerSlots,
+            personalslots = playerPersonalSlots,
+            armorslots = playerArmorSlots,
+            priorityStroke = priorityStroke
+        }
     end
 
     local function setSlot(slot, item, highlight)
@@ -5305,36 +5330,33 @@ run(function()
         return best
     end
 
-    local lastTargetPlayer
-
-    local function refresh()
-        local ent = getTarget()
-        if ent and ent.Player and ent.Player ~= lplr and ent.Player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
-            lastTargetPlayer = ent.Player
+    local function getPlayerDistance(player)
+        if not player or not player.Character or not player.Character:FindFirstChild('HumanoidRootPart') then
+            return math.huge
         end
-
-        local player = lastTargetPlayer
-        local inventory = player and store.inventories[player] or nil
-
-        if not player or (not inventory and not Empty.Enabled) then
-            window.Visible = false
-            return
+        local lplrChar = lplr.Character
+        if not lplrChar or not lplrChar:FindFirstChild('HumanoidRootPart') then
+            return math.huge
         end
+        return (player.Character.HumanoidRootPart.Position - lplrChar.HumanoidRootPart.Position).Magnitude
+    end
 
-        window.Visible = true
-        nametag.Text = player and player.DisplayName or (ent and ent.Character and ent.Character.Name) or ''
-        headshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(player and player.UserId or 1)..'&w=420&h=420'
-
-        inventory = inventory or {items = {}, armor = {}}
+    local function refreshWindow(playerData, isTarget)
+        local player = playerData.player
+        local windowData = playerData.windowData
+        local inventory = store.inventories[player] or {items = {}, armor = {}}
         local hand = inventory.hand
 
         local currentY = HeaderHeight + 8
 
+        windowData.nametag.Text = player.DisplayName
+        windowData.headshot.Image = 'rbxthumb://type=AvatarHeadShot&id=' .. player.UserId .. '&w=420&h=420'
+
         ---------------------------------------------------------
-        -- TOP BAR: INVENTORY
+        -- INVENTORY
         ---------------------------------------------------------
         local shownInventory = 0
-        for i, slot in slots do
+        for i, slot in windowData.slots do
             local item = inventory.items and inventory.items[i]
             setSlot(slot, item, item and hand and item.tool == hand.tool)
             if slot.Visible then
@@ -5342,18 +5364,18 @@ run(function()
             end
         end
 
-        invLabel.Visible = true
-        invLabel.Position = UDim2.fromOffset(14, currentY)
+        windowData.invLabel.Visible = true
+        windowData.invLabel.Position = UDim2.fromOffset(14, currentY)
         currentY += 16
 
         local invRows = math.max(math.ceil(shownInventory / Columns), 1)
         local invGridHeight = (invRows * SlotSize) + ((invRows - 1) * SlotPadding)
-        invGrid.Position = UDim2.fromOffset(14, currentY)
-        invGrid.Size = UDim2.new(1, -28, 0, invGridHeight)
+        windowData.invGrid.Position = UDim2.fromOffset(14, currentY)
+        windowData.invGrid.Size = UDim2.new(1, -28, 0, invGridHeight)
         currentY += invGridHeight + 10
 
         ---------------------------------------------------------
-        -- BOTTOM BAR: PERSONAL CHEST
+        -- PERSONAL CHEST
         ---------------------------------------------------------
         local personalFolder = replicatedStorage:FindFirstChild('Inventories')
         personalFolder = personalFolder and personalFolder:FindFirstChild(player.Name .. '_personal') or nil
@@ -5369,7 +5391,7 @@ run(function()
         end
 
         local shownPersonal = 0
-        for i, slot in personalslots do
+        for i, slot in windowData.personalslots do
             local item = personalItems[i]
             setSlot(slot, item, false)
             if slot.Visible then
@@ -5378,54 +5400,104 @@ run(function()
         end
 
         if #personalItems > 0 or Empty.Enabled then
-            personalLabel.Visible = true
-            personalGrid.Visible = true
-            
-            personalLabel.Position = UDim2.fromOffset(14, currentY)
+            windowData.personalLabel.Visible = true
+            windowData.personalGrid.Visible = true
+            windowData.personalLabel.Position = UDim2.fromOffset(14, currentY)
             currentY += 16
 
             local personalRows = math.max(math.ceil(shownPersonal / Columns), 1)
             local personalGridHeight = (personalRows * SlotSize) + ((personalRows - 1) * SlotPadding)
-            personalGrid.Position = UDim2.fromOffset(14, currentY)
-            personalGrid.Size = UDim2.new(1, -28, 0, personalGridHeight)
+            windowData.personalGrid.Position = UDim2.fromOffset(14, currentY)
+            windowData.personalGrid.Size = UDim2.new(1, -28, 0, personalGridHeight)
             currentY += personalGridHeight + 10
         else
-            personalLabel.Visible = false
-            personalGrid.Visible = false
+            windowData.personalLabel.Visible = false
+            windowData.personalGrid.Visible = false
         end
 
         ---------------------------------------------------------
-        -- ARMOR BAR
+        -- ARMOR
         ---------------------------------------------------------
         if Armor.Enabled then
-            armordivider.Visible = true
-            armorholder.Visible = true
-            armordivider.Position = UDim2.fromOffset(0, currentY - 1)
+            windowData.armordivider.Visible = true
+            windowData.armorholder.Visible = true
+            windowData.armordivider.Position = UDim2.fromOffset(0, currentY - 1)
 
             for i = 1, 3 do
                 local item = inventory.armor[i + 3]
-                setSlot(armorslots[i], item)
+                setSlot(windowData.armorslots[i], item)
             end
-            setSlot(armorslots[4], hand, true)
+            setSlot(windowData.armorslots[4], hand, true)
 
-            armorholder.Position = UDim2.fromOffset(14, currentY + 9)
+            windowData.armorholder.Position = UDim2.fromOffset(14, currentY + 9)
             currentY += SlotSize + 19
         else
-            armordivider.Visible = false
-            armorholder.Visible = false
+            windowData.armordivider.Visible = false
+            windowData.armorholder.Visible = false
         end
 
-        window.Size = UDim2.fromOffset(240, currentY)
+        windowData.window.Size = UDim2.fromOffset(WindowWidth, currentY)
+        windowData.window.Visible = true
+    end
+
+    local function refresh()
+        local targetEnt = getTarget()
+        local targetPlayer = targetEnt and targetEnt.Player or nil
+
+        -- Collect all valid players
+        local validPlayers = {}
+        for _, player in game:GetService('Players'):GetPlayers() do
+            if player ~= lplr and player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
+                table.insert(validPlayers, player)
+            end
+        end
+
+        -- Sort by distance (target first, then by distance)
+        table.sort(validPlayers, function(a, b)
+            local aIsTarget = a == targetPlayer and 1 or 0
+            local bIsTarget = b == targetPlayer and 1 or 0
+            if aIsTarget ~= bIsTarget then
+                return aIsTarget > bIsTarget
+            end
+            return getPlayerDistance(a) < getPlayerDistance(b)
+        end)
+
+        -- Update or create windows
+        local currentY = 260
+        for i, player in validPlayers do
+            if not playerWindows[player] then
+                playerWindows[player] = buildWindow(player)
+                table.insert(windows, playerWindows[player])
+            end
+
+            local windowData = playerWindows[player]
+            local isPriority = player == targetPlayer or i == 1 -- First in sorted list is highest priority
+            refreshWindow({player = player, windowData = windowData}, isPriority)
+            
+            -- Show red outline for priority target
+            if isPriority then
+                windowData.priorityStroke.Transparency = 0
+            else
+                windowData.priorityStroke.Transparency = 1
+            end
+            
+            windowData.window.Position = UDim2.fromOffset(12, currentY)
+            windowData.window.Visible = true
+            currentY += windowData.window.Size.Y.Offset + WindowSpacing
+        end
+
+        -- Hide windows for players no longer in game
+        for player, windowData in pairs(playerWindows) do
+            if not table.find(validPlayers, player) then
+                windowData.window.Visible = false
+            end
+        end
     end
     
     InventoryESP = vape.Categories.Inventory:CreateModule({
         Name = 'InventoryESP',
         Function = function(callback)
             if callback then
-                if not window then
-                    buildWindow()
-                end
-    
                 repeat
                     if vape.ThreadFix then
                         setthreadidentity(8)
@@ -5434,12 +5506,16 @@ run(function()
                     task.wait(0.1)
                 until not InventoryESP.Enabled
     
-                window.Visible = false
-            elseif window then
-                window.Visible = false
+                for _, windowData in windows do
+                    windowData.window.Visible = false
+                end
+            else
+                for _, windowData in windows do
+                    windowData.window.Visible = false
+                end
             end
         end,
-        Tooltip = 'Shows the inventory and personal chest of whoever you are currently targeting'
+        Tooltip = 'Shows the inventory and personal chest of all enemy players. Targeted player displayed first.'
     })
     Armor = InventoryESP:CreateToggle({
         Name = 'Show armor',
@@ -5459,9 +5535,11 @@ run(function()
         DefaultValue = 0,
         DefaultOpacity = 0.5,
         Function = function(hue, sat, val, opacity)
-            if window then
-                window.BackgroundColor3 = uipallet.Main
-                window.BackgroundTransparency = 1 - opacity
+            for _, windowData in windows do
+                if windowData.window then
+                    windowData.window.BackgroundColor3 = uipallet.Main
+                    windowData.window.BackgroundTransparency = 1 - opacity
+                end
             end
         end
     })
