@@ -5109,12 +5109,12 @@ run(function()
     
     local SlotCount = 24
     local PersonalSlotCount = 24
-    local SlotSize = 32
-    local SlotPadding = 4
+    local SlotSize = 28
+    local SlotPadding = 3
     local Columns = 6
-    local HeaderHeight = 46
-    local WindowWidth = 240
-    local WindowSpacing = 10
+    local HeaderHeight = 40
+    local WindowWidth = 200
+    local WindowSpacing = 8
 
     local function createSlot(parent)
         local slot = Instance.new('Frame')
@@ -5142,12 +5142,12 @@ run(function()
         
         local amount = Instance.new('TextLabel')
         amount.Name = 'Amount'
-        amount.Size = UDim2.fromOffset(SlotSize - 4, 11)
-        amount.Position = UDim2.fromOffset(0, SlotSize - 13)
+        amount.Size = UDim2.fromOffset(SlotSize - 4, 9)
+        amount.Position = UDim2.fromOffset(0, SlotSize - 11)
         amount.BackgroundTransparency = 1
         amount.Text = ''
         amount.TextXAlignment = Enum.TextXAlignment.Right
-        amount.TextSize = 11
+        amount.TextSize = 9
         amount.TextColor3 = uipallet.Text
         amount.TextStrokeColor3 = Color3.new()
         amount.TextStrokeTransparency = 0.4
@@ -5159,11 +5159,11 @@ run(function()
     local function createSectionHeader(text, parent)
         local label = Instance.new('TextLabel')
         label.Name = text .. 'Header'
-        label.Size = UDim2.new(1, -28, 0, 14)
+        label.Size = UDim2.new(1, -20, 0, 12)
         label.BackgroundTransparency = 1
         label.Text = text
         label.TextXAlignment = Enum.TextXAlignment.Left
-        label.TextSize = 11
+        label.TextSize = 9
         label.TextColor3 = uipallet.Text
         label.FontFace = uipallet.Font
         label.Visible = false
@@ -5195,8 +5195,8 @@ run(function()
 
         local headshot = Instance.new('ImageLabel')
         headshot.Name = 'Headshot'
-        headshot.Size = UDim2.fromOffset(26, 26)
-        headshot.Position = UDim2.fromOffset(14, 11)
+        headshot.Size = UDim2.fromOffset(22, 22)
+        headshot.Position = UDim2.fromOffset(10, 9)
         headshot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
         headshot.Image = ''
         headshot.Parent = window
@@ -5206,12 +5206,12 @@ run(function()
 
         local nametag = Instance.new('TextLabel')
         nametag.Name = 'Name'
-        nametag.Size = UDim2.new(1, -60, 0, 26)
-        nametag.Position = UDim2.fromOffset(48, 11)
+        nametag.Size = UDim2.new(1, -54, 0, 20)
+        nametag.Position = UDim2.fromOffset(42, 10)
         nametag.BackgroundTransparency = 1
         nametag.Text = ''
         nametag.TextXAlignment = Enum.TextXAlignment.Left
-        nametag.TextSize = 13
+        nametag.TextSize = 11
         nametag.TextColor3 = uipallet.Text
         nametag.TextTruncate = Enum.TextTruncate.AtEnd
         nametag.FontFace = uipallet.Font
@@ -5272,7 +5272,7 @@ run(function()
 
         local armorholder = Instance.new('Frame')
         armorholder.Name = 'Armor'
-        armorholder.Size = UDim2.fromOffset(WindowWidth, SlotSize)
+        armorholder.Size = UDim2.new(1, -8, 0, SlotSize)
         armorholder.BackgroundTransparency = 1
         armorholder.Parent = window
         local armorlayout = Instance.new('UIListLayout')
@@ -5365,14 +5365,14 @@ run(function()
         end
 
         windowData.invLabel.Visible = true
-        windowData.invLabel.Position = UDim2.fromOffset(14, currentY)
-        currentY += 16
+        windowData.invLabel.Position = UDim2.fromOffset(10, currentY)
+        currentY += 14
 
         local invRows = math.max(math.ceil(shownInventory / Columns), 1)
         local invGridHeight = (invRows * SlotSize) + ((invRows - 1) * SlotPadding)
-        windowData.invGrid.Position = UDim2.fromOffset(14, currentY)
-        windowData.invGrid.Size = UDim2.new(1, -28, 0, invGridHeight)
-        currentY += invGridHeight + 10
+        windowData.invGrid.Position = UDim2.fromOffset(10, currentY)
+        windowData.invGrid.Size = UDim2.new(1, -20, 0, invGridHeight)
+        currentY += invGridHeight + 8
 
         ---------------------------------------------------------
         -- PERSONAL CHEST
@@ -5402,14 +5402,14 @@ run(function()
         if #personalItems > 0 or Empty.Enabled then
             windowData.personalLabel.Visible = true
             windowData.personalGrid.Visible = true
-            windowData.personalLabel.Position = UDim2.fromOffset(14, currentY)
-            currentY += 16
+            windowData.personalLabel.Position = UDim2.fromOffset(10, currentY)
+            currentY += 14
 
             local personalRows = math.max(math.ceil(shownPersonal / Columns), 1)
             local personalGridHeight = (personalRows * SlotSize) + ((personalRows - 1) * SlotPadding)
-            windowData.personalGrid.Position = UDim2.fromOffset(14, currentY)
-            windowData.personalGrid.Size = UDim2.new(1, -28, 0, personalGridHeight)
-            currentY += personalGridHeight + 10
+            windowData.personalGrid.Position = UDim2.fromOffset(10, currentY)
+            windowData.personalGrid.Size = UDim2.new(1, -20, 0, personalGridHeight)
+            currentY += personalGridHeight + 8
         else
             windowData.personalLabel.Visible = false
             windowData.personalGrid.Visible = false
@@ -5429,8 +5429,8 @@ run(function()
             end
             setSlot(windowData.armorslots[4], hand, true)
 
-            windowData.armorholder.Position = UDim2.fromOffset(14, currentY + 9)
-            currentY += SlotSize + 19
+            windowData.armorholder.Position = UDim2.fromOffset(10, currentY + 7)
+            currentY += SlotSize + 15
         else
             windowData.armordivider.Visible = false
             windowData.armorholder.Visible = false
@@ -5463,7 +5463,7 @@ run(function()
         end)
 
         -- Update or create windows
-        local currentY = 260
+        local currentY = 100
         for i, player in validPlayers do
             if not playerWindows[player] then
                 playerWindows[player] = buildWindow(player)
@@ -5481,7 +5481,7 @@ run(function()
                 windowData.priorityStroke.Transparency = 1
             end
             
-            windowData.window.Position = UDim2.fromOffset(12, currentY)
+            windowData.window.Position = UDim2.fromOffset(14, currentY)
             windowData.window.Visible = true
             currentY += windowData.window.Size.Y.Offset + WindowSpacing
         end
