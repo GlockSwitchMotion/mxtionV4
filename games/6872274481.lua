@@ -5097,7 +5097,6 @@ end)
 
 run(function()
     local InventoryESP
-    local Armor
     local Empty
     local Color = {}
     local windows = {} -- Track all player windows
@@ -5110,11 +5109,11 @@ run(function()
     local SlotCount = 24
     local PersonalSlotCount = 24
     local SlotSize = 28
-    local SlotPadding = 3
+    local SlotPadding = 2
     local Columns = 6
     local HeaderHeight = 40
     local WindowWidth = 200
-    local WindowSpacing = 8
+    local WindowSpacing = 5
 
     local function createSlot(parent)
         local slot = Instance.new('Frame')
@@ -5374,13 +5373,13 @@ run(function()
 
         windowData.invLabel.Visible = true
         windowData.invLabel.Position = UDim2.fromOffset(10, currentY)
-        currentY += 14
+        currentY += 12
 
         local invRows = math.max(math.ceil(shownInventory / Columns), 1)
         local invGridHeight = (invRows * SlotSize) + ((invRows - 1) * SlotPadding)
         windowData.invGrid.Position = UDim2.fromOffset(10, currentY)
         windowData.invGrid.Size = UDim2.new(1, -20, 0, invGridHeight)
-        currentY += invGridHeight + 8
+        currentY += invGridHeight + 6
 
         ---------------------------------------------------------
         -- PERSONAL CHEST
@@ -5411,13 +5410,13 @@ run(function()
             windowData.personalLabel.Visible = true
             windowData.personalGrid.Visible = true
             windowData.personalLabel.Position = UDim2.fromOffset(10, currentY)
-            currentY += 14
+            currentY += 12
 
             local personalRows = math.max(math.ceil(shownPersonal / Columns), 1)
             local personalGridHeight = (personalRows * SlotSize) + ((personalRows - 1) * SlotPadding)
             windowData.personalGrid.Position = UDim2.fromOffset(10, currentY)
             windowData.personalGrid.Size = UDim2.new(1, -20, 0, personalGridHeight)
-            currentY += personalGridHeight + 8
+            currentY += personalGridHeight + 6
         else
             windowData.personalLabel.Visible = false
             windowData.personalGrid.Visible = false
@@ -5426,7 +5425,7 @@ run(function()
         ---------------------------------------------------------
         -- ARMOR
         ---------------------------------------------------------
-        if Armor.Enabled then
+        if false then -- Armor disabled
             windowData.armordivider.Visible = true
             windowData.armorholder.Visible = true
             windowData.armordivider.Position = UDim2.fromOffset(0, currentY - 1)
@@ -5524,15 +5523,6 @@ run(function()
             end
         end,
         Tooltip = 'Shows the inventory and personal chest of all enemy players. Targeted player displayed first.'
-    })
-    Armor = InventoryESP:CreateToggle({
-        Name = 'Show armor',
-        Function = function()
-            if InventoryESP.Enabled then
-                refresh()
-            end
-        end,
-        Default = true
     })
     Empty = InventoryESP:CreateToggle({
         Name = 'Show without data',
