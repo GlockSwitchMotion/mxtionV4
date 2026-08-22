@@ -5471,7 +5471,7 @@ run(function()
         end)
 
         -- Update or create windows
-        local currentY = 60
+        local currentY = 75
         for i, player in validPlayers do
             if not playerWindows[player] then
                 playerWindows[player] = buildWindow(player)
