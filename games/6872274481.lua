@@ -5204,18 +5204,10 @@ run(function()
         headcorner.CornerRadius = UDim.new(0, 4)
         headcorner.Parent = headshot
 
-        local kitLogo = Instance.new('ImageLabel')
-        kitLogo.Name = 'KitLogo'
-        kitLogo.Size = UDim2.fromOffset(16, 16)
-        kitLogo.Position = UDim2.fromOffset(42, 12)
-        kitLogo.BackgroundTransparency = 1
-        kitLogo.Image = ''
-        kitLogo.Parent = window
-
         local nametag = Instance.new('TextLabel')
         nametag.Name = 'Name'
-        nametag.Size = UDim2.new(1, -70, 0, 20)
-        nametag.Position = UDim2.fromOffset(62, 10)
+        nametag.Size = UDim2.new(1, -54, 0, 20)
+        nametag.Position = UDim2.fromOffset(42, 10)
         nametag.BackgroundTransparency = 1
         nametag.Text = ''
         nametag.TextXAlignment = Enum.TextXAlignment.Left
@@ -5471,63 +5463,27 @@ run(function()
         end)
 
         -- Update or create windows
-        if LayoutMode.Value == 'Stacked' then
-            -- Vertical stacking layout
-            local currentY = 100
-            for i, player in validPlayers do
-                if not playerWindows[player] then
-                    playerWindows[player] = buildWindow(player)
-                    table.insert(windows, playerWindows[player])
-                end
-
-                local windowData = playerWindows[player]
-                local isPriority = player == targetPlayer or i == 1
-                refreshWindow({player = player, windowData = windowData}, isPriority)
-                
-                if isPriority then
-                    windowData.priorityStroke.Transparency = 0
-                else
-                    windowData.priorityStroke.Transparency = 1
-                end
-                
-                windowData.window.Position = UDim2.fromOffset(14, currentY)
-                windowData.window.Visible = true
-                currentY += windowData.window.Size.Y.Offset + WindowSpacing
+        local currentY = 100
+        for i, player in validPlayers do
+            if not playerWindows[player] then
+                playerWindows[player] = buildWindow(player)
+                table.insert(windows, playerWindows[player])
             end
-        else
-            -- Horizontal layout (side by side, groups of 2)
-            local currentY = 100
-            local currentX = 14
-            local columnCount = 0
+
+            local windowData = playerWindows[player]
+            local isPriority = player == targetPlayer or i == 1 -- First in sorted list is highest priority
+            refreshWindow({player = player, windowData = windowData}, isPriority)
             
-            for i, player in validPlayers do
-                if not playerWindows[player] then
-                    playerWindows[player] = buildWindow(player)
-                    table.insert(windows, playerWindows[player])
-                end
-
-                local windowData = playerWindows[player]
-                local isPriority = player == targetPlayer or i == 1
-                refreshWindow({player = player, windowData = windowData}, isPriority)
-                
-                if isPriority then
-                    windowData.priorityStroke.Transparency = 0
-                else
-                    windowData.priorityStroke.Transparency = 1
-                end
-                
-                windowData.window.Position = UDim2.fromOffset(currentX, currentY)
-                windowData.window.Visible = true
-                
-                columnCount += 1
-                if columnCount >= 2 then
-                    columnCount = 0
-                    currentY += windowData.window.Size.Y.Offset + WindowSpacing
-                    currentX = 14
-                else
-                    currentX += WindowWidth + WindowSpacing
-                end
+            -- Show red outline for priority target
+            if isPriority then
+                windowData.priorityStroke.Transparency = 0
+            else
+                windowData.priorityStroke.Transparency = 1
             end
+            
+            windowData.window.Position = UDim2.fromOffset(14, currentY)
+            windowData.window.Visible = true
+            currentY += windowData.window.Size.Y.Offset + WindowSpacing
         end
 
         -- Hide windows for players no longer in game
@@ -5561,18 +5517,6 @@ run(function()
         end,
         Tooltip = 'Shows the inventory and personal chest of all enemy players. Targeted player displayed first.'
     })
-    
-    local LayoutMode = InventoryESP:CreateOptionSlider({
-        Name = 'Layout Mode',
-        Options = {'Stacked', 'Horizontal'},
-        Function = function()
-            if InventoryESP.Enabled then
-                refresh()
-            end
-        end,
-        Default = 'Stacked'
-    })
-    
     Armor = InventoryESP:CreateToggle({
         Name = 'Show armor',
         Function = function()
