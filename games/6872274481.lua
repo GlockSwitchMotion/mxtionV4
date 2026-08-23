@@ -18441,6 +18441,7 @@ run(function()
 	local LimitItem
 	local Wallcheck
 	local AutoTool
+	local ViewCone
 	local customlist, parts = {}, {}
 	
 	local function customHealthbar(self, blockRef, health, maxHealth, changeHealth, block)
@@ -18553,38 +18554,35 @@ run(function()
 		end)
 	end
 	
-	local function isInViewCone(blockPos, playerPos, camera, coneAngle)
-		local directionToBlock = (blockPos - playerPos).Unit
-		local cameraDirection = camera.CFrame.LookVector
-		local dotProduct = directionToBlock:Dot(cameraDirection)
-		return dotProduct > math.cos(math.rad(coneAngle))
-	end
-	
 	local function findBlockInView(blocks, localPosition, camera)
 		if not blocks or #blocks == 0 then return nil end
-		
-		local closest = nil
-		local closestDistance = math.huge
-		local viewConeAngle = 60
-		
+
+		local bestBlock = nil
+		local bestDot = -math.huge
+		local cameraDirection = camera.CFrame.LookVector
+		local coneAngle = ViewCone and ViewCone.Value or 25
+
 		for _, v in blocks do
 			if not bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then continue end
 			if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
 			if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
 			if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
-			
+
 			local distance = (v.Position - localPosition).Magnitude
 			if distance > Range.Value then continue end
-			
-			if not isInViewCone(v.Position, localPosition, camera, viewConeAngle) then continue end
-			
-			if distance < closestDistance then
-				closestDistance = distance
-				closest = v
+
+			local directionToBlock = (v.Position - localPosition).Unit
+			local dot = directionToBlock:Dot(cameraDirection)
+
+			if dot < math.cos(math.rad(coneAngle)) then continue end
+
+			if dot > bestDot then
+				bestDot = dot
+				bestBlock = v
 			end
 		end
-		
-		return closest
+
+		return bestBlock
 	end
 	
 	local function attemptBreak(tab, localPosition, route, camera)
@@ -18714,6 +18712,14 @@ run(function()
 		Max = 120,
 		Default = 60,
 		Suffix = 'hz'
+	})
+	ViewCone = Breaker:CreateSlider({
+		Name = 'View cone',
+		Min = 5,
+		Max = 60,
+		Default = 25,
+		Suffix = '°',
+		Tooltip = 'Angle of the cone in front of you that blocks can be targeted in'
 	})
 	Custom = Breaker:CreateTextList({
 		Name = 'Custom',
