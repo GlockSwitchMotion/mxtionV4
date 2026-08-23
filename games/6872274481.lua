@@ -1,3 +1,4 @@
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local run = function(func)
 	xpcall(func, warn)
 end
@@ -18437,7 +18438,6 @@ run(function()
 	local CustomHealth = {}
 	local Animation
 	local SelfBreak
-	local InstantBreak
 	local LimitItem
 	local Wallcheck
 	local AutoTool
@@ -18452,7 +18452,8 @@ run(function()
 				end
 				self.maid:DoCleaning()
 				self.healthbarBlockRef = blockRef
-				local create = bedwars.Roact.createElement
+				local roact = bedwars.Roact
+				local create = roact.createElement
 				local percent = math.clamp(health / maxHealth, 0, 1)
 				local cleanCheck = true
 				local part = Instance.new('Part')
@@ -18465,7 +18466,7 @@ run(function()
 				bedwars.QueryUtil:setQueryIgnored(part, true)
 				self.healthbarPart = part
 	
-				local mounted = bedwars.Roact.mount(create('BillboardGui', {
+				local mounted = roact.mount(create('BillboardGui', {
 					Size = UDim2.fromOffset(249, 102),
 					StudsOffset = Vector3.new(0, 2.5, 0),
 					Adornee = part,
@@ -18516,7 +18517,7 @@ run(function()
 						}, {
 							create('UICorner', {CornerRadius = UDim.new(1, 0)}),
 							create('Frame', {
-								[bedwars.Roact.Ref] = self.blockHealthbar.healthbarProgressRef,
+								[roact.Ref] = self.blockHealthbar.healthbarProgressRef,
 								Size = UDim2.fromScale(percent, 1),
 								BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
 							}, {create('UICorner', {CornerRadius = UDim.new(1, 0)})})
@@ -18527,7 +18528,7 @@ run(function()
 				self.maid:GiveTask(function()
 					cleanCheck = false
 					self.healthbarBlockRef = nil
-					bedwars.Roact.unmount(mounted)
+					roact.unmount(mounted)
 					if self.healthbarPart then
 						self.healthbarPart:Destroy()
 					end
@@ -18554,7 +18555,7 @@ run(function()
 	
 	local hit = 0
 	
-	local function attemptBreak(tab, localPosition)
+	local function attemptBreak(tab, localPosition, route)
 		if not tab then return end
 		for _, v in tab do
 			if (v.Position - localPosition).Magnitude < Range.Value and bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
@@ -18563,19 +18564,17 @@ run(function()
 				if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
 	
 				hit += 1
-				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value])
-				if path then
-					local currentnode = target
-					for _, part in parts do
-						part.Position = currentnode or Vector3.zero
-						if currentnode then
-							part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
-						end
-						currentnode = path[currentnode]
+				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value], not route)
+				local currentnode = target
+				for _, part in parts do
+					part.Position = currentnode or Vector3.zero
+					if currentnode then
+						part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
 					end
+					currentnode = path and path[currentnode]
 				end
 	
-				task.wait(InstantBreak.Enabled and (store.damageBlockFail > tick() and 4.5 or 0) or BreakSpeed.Value)
+				task.wait(BreakSpeed.Value)
 	
 				return true
 			end
@@ -18585,7 +18584,7 @@ run(function()
 	end
 	
 	Breaker = vape.Categories.Minigames:CreateModule({
-		Name = 'Nuker',
+		Name = 'Breaker',
 		Function = function(callback)
 			if callback then
 				for _ = 1, 30 do
@@ -18638,7 +18637,7 @@ run(function()
 					if entitylib.isAlive then
 						local localPosition = entitylib.character.RootPart.Position
 	
-						if attemptBreak(Bed.Enabled and beds, localPosition) then continue end
+						if attemptBreak(Bed.Enabled and beds, localPosition, true) then continue end
 						if attemptBreak(Hive.Enabled and hives, localPosition) then continue end
 						if attemptBreak(Tesla.Enabled and teslas, localPosition) then continue end
 						if attemptBreak(customlist, localPosition) then continue end
@@ -18737,7 +18736,6 @@ run(function()
 	})
 	Animation = Breaker:CreateToggle({Name = 'Animation'})
 	SelfBreak = Breaker:CreateToggle({Name = 'Self Break'})
-	InstantBreak = Breaker:CreateToggle({Name = 'Instant Break'})
 	Wallcheck = Breaker:CreateToggle({
 		Name = 'Legit mode',
 		Default = true,
