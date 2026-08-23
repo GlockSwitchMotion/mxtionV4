@@ -17952,30 +17952,45 @@ end)
 
 run(function()
 	local InstantHit
-	local lastHitTime = {}
+	local HitRange
+	local HitSpeed
+	local lastHitTime = 0
 	
 	InstantHit = vape.Categories.Minigames:CreateModule({
 		Name = 'Instant Hit',
 		Function = function(callback)
 			if callback then
 				local player = game.Players.LocalPlayer
-				local mouse = player:GetMouse()
 				local character = player.Character
 				
+				if not character then return end
+				
+				local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+				if not humanoidRootPart then return end
+				
+				-- Get the SwordHit remote
+				local SwordHitRemote = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"].net.out.__NetManaged.SwordHit
+				local camera = workspace.CurrentCamera
+				
 				local connection
-				connection = mouse.Button1Down:Connect(function()
+				connection = game:GetService("RunService").Heartbeat:Connect(function()
 					if not InstantHit.Enabled or not character.Parent then
+						connection:Disconnect()
 						return
 					end
 					
-					local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+					local now = tick()
+					-- Only fire if enough time has passed
+					if (now - lastHitTime) < HitSpeed.Value then
+						return
+					end
+					lastHitTime = now
+					
+					humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 					if not humanoidRootPart then return end
 					
-					local SwordHitRemote = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"].net.out.__NetManaged.SwordHit
+					-- Get all players and spam hit them
 					local allPlayers = game.Players:GetPlayers()
-					local camera = workspace.CurrentCamera
-					
-					-- Fire hit for every player in range
 					for _, targetPlayer in ipairs(allPlayers) do
 						if targetPlayer == player then continue end
 						
@@ -17985,19 +18000,30 @@ run(function()
 						local targetHRP = targetCharacter:FindFirstChild("HumanoidRootPart")
 						if not targetHRP then continue end
 						
+						-- Check range
 						local distance = (targetHRP.Position - humanoidRootPart.Position).Magnitude
-						if distance > 50 then continue end
+						if distance > HitRange.Value then continue end
 						
 						-- Fire the remote
 						SwordHitRemote:FireServer({
-							chargedAttack = { chargeRatio = 0 },
+							chargedAttack = {
+								chargeRatio = 0
+							},
 							entityInstance = targetCharacter,
 							validate = {
-								targetPosition = { value = targetHRP.Position },
+								targetPosition = {
+									value = targetHRP.Position
+								},
 								raycast = {
-									cameraPosition = { value = camera.CFrame.Position },
-									cursorDirection = { value = (targetHRP.Position - camera.CFrame.Position).Unit },
-									selfPosition = { value = humanoidRootPart.Position }
+									cameraPosition = {
+										value = camera.CFrame.Position
+									},
+									cursorDirection = {
+										value = (targetHRP.Position - camera.CFrame.Position).Unit
+									},
+									selfPosition = {
+										value = humanoidRootPart.Position
+									}
 								},
 								weapon = game:GetService("ReplicatedStorage").Inventories[player.Name].wood_sword
 							}
@@ -18013,15 +18039,24 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Hits all nearby players when you click'
+		Tooltip = 'Spams sword hits on all nearby players every 0.11 seconds'
 	})
 	
-	InstantHit:CreateSlider({
-		Name = 'Range',
+	HitRange = InstantHit:CreateSlider({
+		Name = 'Hit Range',
 		Min = 5,
 		Max = 100,
 		Default = 50,
 		Suffix = 'studs'
+	})
+	
+	HitSpeed = InstantHit:CreateSlider({
+		Name = 'Hit Speed',
+		Min = 0.01,
+		Max = 0.5,
+		Default = 0.11,
+		Decimal = 100,
+		Suffix = 'seconds'
 	})
 end)
 
