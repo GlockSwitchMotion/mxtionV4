@@ -21610,6 +21610,178 @@ run(function()
 end)
 
 run(function()
+	local BedNotifier
+	local DetectionRange
+	local detectedPlayers = {} -- Track who we've already notified
+	
+	local function getPlayerTeamId()
+		local playerTeam = lplr:GetAttribute('Team')
+		return tonumber(playerTeam) or playerTeam
+	end
+	
+	local function getBedPosition()
+		-- Try to find the bed for your team
+		local playerTeam = getPlayerTeamId()
+		if not playerTeam then return nil end
+		
+		-- Search for bed in the map
+		local workspace = game:GetService('Workspace')
+		local teamFolders = workspace:FindFirstChild('Teams')
+		
+		if teamFolders then
+			local teamFolder = teamFolders:FindFirstChild(tostring(playerTeam))
+			if teamFolder then
+				local bed = teamFolder:FindFirstChild('Bed')
+				if bed and bed:FindFirstChild('Head') then
+					return bed.Head.Position
+				end
+			end
+		end
+		
+		-- Fallback to player position
+		if lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart') then
+			return lplr.Character.HumanoidRootPart.Position
+		end
+		
+		return nil
+	end
+	
+	local function getPlayerDistance(player)
+		if not player or not player.Character or not player.Character:FindFirstChild('HumanoidRootPart') then
+			return math.huge
+		end
+		
+		local bedPos = getBedPosition()
+		if not bedPos then return math.huge end
+		
+		return (player.Character.HumanoidRootPart.Position - bedPos).Magnitude
+	end
+	
+	local function checkBedProximity()
+		local playerTeam = getPlayerTeamId()
+		local range = DetectionRange.Value
+		
+		for _, player in pairs(game:GetService('Players'):GetPlayers()) do
+			-- Skip self and teammates
+			if player ~= lplr and player:GetAttribute('Team') ~= playerTeam then
+				local distance = getPlayerDistance(player)
+				
+				-- Check if enemy is within range
+				if distance <= range then
+					-- Only notify once per player
+					if not detectedPlayers[player.UserId] then
+						local playerName = player.DisplayName or player.Name
+						notif('BedNotifier', 'ENEMY NEAR BED ' .. playerName, 5, 'warning')
+						detectedPlayers[player.UserId] = true
+					end
+				else
+					-- Reset detection if they left the range
+					if detectedPlayers[player.UserId] then
+						detectedPlayers[player.UserId] = nil
+					end
+				end
+			end
+		end
+	end
+	
+	BedNotifier = vape.Categories.World:CreateModule({
+		Name = 'BedNotifier',
+		Function = function(callback)
+			if callback then
+				detectedPlayers = {}
+				
+				repeat
+					if vape.ThreadFix then
+						setthreadidentity(8)
+					end
+					checkBedProximity()
+					task.wait(0.25)
+				until not BedNotifier.Enabled
+			else
+				detectedPlayers = {}
+			end
+		end,
+		Tooltip = 'Alerts you when enemy players get close to your bed.'
+	})
+	
+	DetectionRange = BedNotifier:CreateSlider({
+		Name = 'Detection Range',
+		Min = 0,
+		Max = 300,
+		Default = 120,
+		Unit = ' studs'
+	})
+end)
+
+run(function()
+	local AutoAlert
+	local gameStartTime = nil
+	local lastNotificationTime = nil
+	
+	local function getGameTime()
+		-- Try to find the game timer from UI or use server time
+		local playerGui = game:GetService('Players').LocalPlayer:WaitForChild('PlayerGui', 5)
+		local timerLabel = playerGui:FindFirstChild('Timer') or playerGui:FindFirstChildOfClass('TextLabel')
+		
+		if not gameStartTime then
+			gameStartTime = tick()
+		end
+		
+		return tick() - gameStartTime
+	end
+	
+	local function checkTimings()
+		local elapsedTime = getGameTime()
+		
+		-- Game start (0 seconds)
+		if elapsedTime < 5 and (not lastNotificationTime or lastNotificationTime < elapsedTime - 10) then
+			notif('AutoAlert', 'Cycle all diamonds as quickly as you can!', 5, 'info')
+			lastNotificationTime = elapsedTime
+		end
+		
+		-- 2:00 mark (120 seconds)
+		if elapsedTime >= 115 and elapsedTime <= 125 and (not lastNotificationTime or lastNotificationTime < 100) then
+			notif('AutoAlert', 'Recall back to base for split!', 5, 'info')
+			lastNotificationTime = elapsedTime
+		end
+		
+		-- 2:35 mark (155 seconds)
+		if elapsedTime >= 150 and elapsedTime <= 160 and (not lastNotificationTime or lastNotificationTime < 140) then
+			notif('AutoAlert', 'Diamond guardians spawning soon!', 5, 'info')
+			lastNotificationTime = elapsedTime
+		end
+		
+		-- 5:00 mark (300 seconds)
+		if elapsedTime >= 295 and elapsedTime <= 305 and (not lastNotificationTime or lastNotificationTime < 290) then
+			notif('AutoAlert', 'Bed plating gone in 60 seconds!', 5, 'info')
+			lastNotificationTime = elapsedTime
+		end
+	end
+	
+	AutoAlert = vape.Categories.Utility:CreateModule({
+		Name = 'AutoAlert',
+		Function = function(callback)
+			if callback then
+				gameStartTime = nil
+				lastNotificationTime = nil
+				
+				repeat
+					if vape.ThreadFix then
+						setthreadidentity(8)
+					end
+					checkTimings()
+					task.wait(0.5)
+				until not AutoAlert.Enabled
+			else
+				gameStartTime = nil
+				lastNotificationTime = nil
+			end
+		end,
+		Tooltip = 'Sends notifications at key game phases for better gamesense. Notifies at game start, 2:00, 2:35, and 5:00 minute marks.'
+	})
+end)
+
+run(function()
 	local MetalDetectorSpy
 	
 	MetalDetectorSpy = vape.Categories.Utility:CreateModule({
