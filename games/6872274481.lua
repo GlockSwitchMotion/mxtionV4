@@ -21466,6 +21466,71 @@ run(function()
 end)
 
 run(function()
+	local UpgradeNotifier
+	
+	local generatorNames = {
+		["Team Generator Tier 1"] = "Team Generator 1",
+		["Team Generator Tier 2"] = "Team Generator 2",
+		["Team Generator Tier 3"] = "Team Generator 3",
+		["Team Generator 1"] = "Team Generator 1",
+		["Team Generator 2"] = "Team Generator 2",
+		["Team Generator 3"] = "Team Generator 3",
+	}
+
+	local function isGenerator(upgradeName)
+		for generatorName, displayName in pairs(generatorNames) do
+			if upgradeName:find(generatorName) or upgradeName:lower():find("generator") then
+				return true, displayName
+			end
+		end
+		return false
+	end
+
+	UpgradeNotifier = vape.Categories.World:CreateModule({
+		Name = 'UpgradeNotifier',
+		Function = function(callback)
+			if callback then
+				-- Find the TeamUpgradePurchased remote event
+				local remote = nil
+				pcall(function()
+					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.TeamUpgradePurchased
+				end)
+				
+				if remote then
+					UpgradeNotifier:Clean(remote.OnClientEvent:Connect(function(teamId, upgradeName)
+						local playerTeam = lplr:GetAttribute('Team')
+						
+						-- Ignore upgrades purchased by player's own team
+						if teamId == playerTeam then
+							return
+						end
+						
+						-- Check if it's a generator
+						local isGen, displayName = isGenerator(upgradeName)
+						if isGen then
+							local teamColors = {
+								[1] = "Red",
+								[2] = "Blue",
+								[3] = "Green",
+								[4] = "Yellow"
+							}
+							local teamName = teamColors[teamId] or "Team " .. (teamId or "?")
+							
+							notif('UpgradeNotifier', teamName .. ' bought ' .. displayName .. '!', 5, 'info')
+						end
+					end))
+				else
+					if UpgradeNotifier.Enabled then
+						notif('UpgradeNotifier', 'Could not find the TeamUpgradePurchased remote.', 5, 'warning')
+					end
+				end
+			end
+		end,
+		Tooltip = 'Notifies when enemy teams purchase generators. Ignores your own team purchases.'
+	})
+end)
+
+run(function()
 	local MinerSpy
 	
 	MinerSpy = vape.Categories.Utility:CreateModule({
