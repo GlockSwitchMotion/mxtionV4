@@ -21782,6 +21782,56 @@ run(function()
 end)
 
 run(function()
+	local MinerSpy
+	
+	MinerSpy = vape.Categories.Utility:CreateModule({
+		Name = 'MinerSpy',
+		Function = function(callback)
+			if callback then
+				-- Find the specific remote event from your screenshot
+				local remote = nil
+				pcall(function()
+					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.PetrifiedPlayerDestroyed
+				end)
+				
+				if remote then
+					MinerSpy:Clean(remote.OnClientEvent:Connect(function(data)
+						if type(data) == 'table' and data.destroyer and data.rewards then
+							-- Ignore if YOU are the one who broke the statue
+							if data.destroyer == lplr then
+								return
+							end
+							
+							local playerName = data.destroyer.DisplayName or data.destroyer.Name
+							
+							-- Loop through the rewards and format them (e.g., "1 Iron", "1 Diamond")
+							local rewardStrings = {}
+							for _, reward in data.rewards do
+								if reward.itemType and reward.amount then
+									local formattedItem = reward.itemType:gsub("^%l", string.upper)
+									table.insert(rewardStrings, tostring(reward.amount) .. " " .. formattedItem)
+								end
+							end
+							
+							-- If they actually got rewards, send the notification
+							if #rewardStrings > 0 then
+								local rewardText = table.concat(rewardStrings, ", ")
+								notif('MinerSpy', `{playerName} got {rewardText}!`, 5, 'info')
+							end
+						end
+					end))
+				else
+					if MinerSpy.Enabled then
+						notif('MinerSpy', 'Could not find the PetrifiedPlayerDestroyed remote.', 5, 'warning')
+					end
+				end
+			end
+		end,
+		Tooltip = 'Notifies you when other players get loot from breaking petrified players'
+	})
+end)
+
+run(function()
 	local MetalDetectorSpy
 	
 	MetalDetectorSpy = vape.Categories.Utility:CreateModule({
