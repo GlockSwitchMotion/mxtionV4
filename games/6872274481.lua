@@ -21671,7 +21671,7 @@ run(function()
 					-- Only notify once per player
 					if not detectedPlayers[player.UserId] then
 						local playerName = player.DisplayName or player.Name
-						notif('BedNotifier', 'ENEMY NEAR BED ' .. playerName, 5, 'warning')
+						notif('BedNotifier', 'ENEMY NEAR BED ' .. playerName, 10, 'warning')
 						detectedPlayers[player.UserId] = true
 					end
 				else
