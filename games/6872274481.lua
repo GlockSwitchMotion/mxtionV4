@@ -21838,28 +21838,27 @@ run(function()
 		Name = 'InstantKaliyah',
 		Function = function(callback)
 			if callback then
-				local Event = game:GetService("ReplicatedStorage")["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].abilityCooldownUpdate
-				
-				local connection
-				connection = Event:Connect(function(ability, cooldown)
-					if ability == "dragon_slayer_punch" then
-						-- Set cooldown to 0 immediately
-						local player = game.Players.LocalPlayer
-						local character = player.Character
-						if character then
-							-- Fire the event back with 0 cooldown
-							game:GetService("ReplicatedStorage")["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].abilityCooldownUpdate:FireServer(ability, 0)
+				repeat
+					task.wait(0.1)
+					if not InstantKaliyah.Enabled then break end
+					
+					local player = game.Players.LocalPlayer
+					local character = player.Character
+					if character then
+						-- Look for ability cooldown value in character
+						local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+						if humanoidRootPart then
+							-- Try to find and set dragon_slayer_punch cooldown to 0
+							local abilities = character:FindFirstChild("Abilities")
+							if abilities then
+								local punch = abilities:FindFirstChild("dragon_slayer_punch")
+								if punch then
+									punch.Value = 0
+								end
+							end
 						end
 					end
-				end)
-				
-				-- Store connection for cleanup
-				InstantKaliyah._connection = connection
-			else
-				if InstantKaliyah._connection then
-					InstantKaliyah._connection:Disconnect()
-					InstantKaliyah._connection = nil
-				end
+				until not InstantKaliyah.Enabled
 			end
 		end,
 		Tooltip = 'Removes cooldown from dragon slayer punch'
