@@ -17953,14 +17953,13 @@ end)
 run(function()
 	local InstantHit
 	local HitRange
-	local HitSpeed
-	local lastHitTime = 0
 	
 	InstantHit = vape.Categories.Minigames:CreateModule({
 		Name = 'Instant Hit',
 		Function = function(callback)
 			if callback then
 				local player = game.Players.LocalPlayer
+				local mouse = player:GetMouse()
 				local character = player.Character
 				
 				if not character then return end
@@ -17971,6 +17970,18 @@ run(function()
 				-- Get the SwordHit remote
 				local SwordHitRemote = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"].net.out.__NetManaged.SwordHit
 				local camera = workspace.CurrentCamera
+				local isHolding = false
+				local lastHitTime = 0
+				
+				-- Detect mouse hold
+				mouse.Button1Down:Connect(function()
+					if not InstantHit.Enabled then return end
+					isHolding = true
+				end)
+				
+				mouse.Button1Up:Connect(function()
+					isHolding = false
+				end)
 				
 				local connection
 				connection = game:GetService("RunService").Heartbeat:Connect(function()
@@ -17979,9 +17990,12 @@ run(function()
 						return
 					end
 					
+					-- Only spam if holding
+					if not isHolding then return end
+					
 					local now = tick()
-					-- Only fire if enough time has passed
-					if (now - lastHitTime) < HitSpeed.Value then
+					-- Fire every 0.011 seconds
+					if (now - lastHitTime) < 0.011 then
 						return
 					end
 					lastHitTime = now
@@ -17989,7 +18003,7 @@ run(function()
 					humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 					if not humanoidRootPart then return end
 					
-					-- Get all players and spam hit them
+					-- Get all players in range and hit them
 					local allPlayers = game.Players:GetPlayers()
 					for _, targetPlayer in ipairs(allPlayers) do
 						if targetPlayer == player then continue end
@@ -18004,7 +18018,7 @@ run(function()
 						local distance = (targetHRP.Position - humanoidRootPart.Position).Magnitude
 						if distance > HitRange.Value then continue end
 						
-						-- Fire the remote
+						-- Fire the SwordHit remote
 						SwordHitRemote:FireServer({
 							chargedAttack = {
 								chargeRatio = 0
@@ -18039,7 +18053,7 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Spams sword hits on all nearby players every 0.11 seconds'
+		Tooltip = 'Hold to spam sword hits on all nearby players at 0.011 speed'
 	})
 	
 	HitRange = InstantHit:CreateSlider({
@@ -18048,15 +18062,6 @@ run(function()
 		Max = 100,
 		Default = 50,
 		Suffix = 'studs'
-	})
-	
-	HitSpeed = InstantHit:CreateSlider({
-		Name = 'Hit Speed',
-		Min = 0.01,
-		Max = 0.5,
-		Default = 0.11,
-		Decimal = 100,
-		Suffix = 'seconds'
 	})
 end)
 
