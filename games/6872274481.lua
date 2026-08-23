@@ -18553,17 +18553,71 @@ run(function()
 		end)
 	end
 	
-	local hit = 0
+	local function hasLineOfSight(blockPos, playerPos, playerCamera)
+		local direction = (blockPos - playerPos).Unit
+		local distance = (blockPos - playerPos).Magnitude
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+		raycastParams.FilterDescendantsInstances = {entitylib.character}
+		
+		local rayResult = workspace:Raycast(playerPos, direction * distance, raycastParams)
+		return not rayResult or rayResult.Instance:IsDescendantOf(workspace.Terrain) or rayResult.Distance >= distance * 0.95
+	end
 	
-	local function attemptBreak(tab, localPosition, route)
+	local function findClosestBlock(blocks, localPosition, camera)
+		if not blocks or #blocks == 0 then return nil end
+		
+		local closest = nil
+		local closestDistance = math.huge
+		local cameraDirection = camera.CFrame.LookVector
+		
+		for _, v in blocks do
+			if not bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then continue end
+			if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
+			if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
+			if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
+			
+			local distance = (v.Position - localPosition).Magnitude
+			if distance > Range.Value then continue end
+			
+			if Wallcheck.Enabled and not hasLineOfSight(v.Position, localPosition, camera) then continue end
+			
+			if distance < closestDistance then
+				closestDistance = distance
+				closest = v
+			end
+		end
+		
+		return closest
+	end
+	
+	local function attemptBreak(tab, localPosition, route, camera)
 		if not tab then return end
+		
+		if Mode.Value == 'Closest' then
+			local block = findClosestBlock(tab, localPosition, camera)
+			if block then
+				local target, path, endpos = bedwars.breakBlock(block, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value] or breakmethods['Health'], not route)
+				local currentnode = target
+				for _, part in parts do
+					part.Position = currentnode or Vector3.zero
+					if currentnode then
+						part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
+					end
+					currentnode = path and path[currentnode]
+				end
+				return true
+			end
+			return false
+		end
+		
 		for _, v in tab do
 			if (v.Position - localPosition).Magnitude < Range.Value and bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
 				if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
 				if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
 				if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
+				if Wallcheck.Enabled and not hasLineOfSight(v.Position, localPosition, camera) then continue end
 	
-				hit += 1
 				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value], not route)
 				local currentnode = target
 				for _, part in parts do
@@ -18584,7 +18638,7 @@ run(function()
 	end
 	
 	Breaker = vape.Categories.Minigames:CreateModule({
-		Name = 'Breaker',
+		Name = 'Nuker',
 		Function = function(callback)
 			if callback then
 				for _ = 1, 30 do
@@ -18636,13 +18690,14 @@ run(function()
 					if not Breaker.Enabled then break end
 					if entitylib.isAlive then
 						local localPosition = entitylib.character.RootPart.Position
+						local camera = workspace.CurrentCamera
 	
-						if attemptBreak(Bed.Enabled and beds, localPosition, true) then continue end
-						if attemptBreak(Hive.Enabled and hives, localPosition) then continue end
-						if attemptBreak(Tesla.Enabled and teslas, localPosition) then continue end
-						if attemptBreak(customlist, localPosition) then continue end
-						if attemptBreak(LuckyBlock.Enabled and luckyblock, localPosition) then continue end
-						if attemptBreak(IronOre.Enabled and ironores, localPosition) then continue end
+						if attemptBreak(Bed.Enabled and beds, localPosition, true, camera) then continue end
+						if attemptBreak(Hive.Enabled and hives, localPosition, false, camera) then continue end
+						if attemptBreak(Tesla.Enabled and teslas, localPosition, false, camera) then continue end
+						if attemptBreak(customlist, localPosition, false, camera) then continue end
+						if attemptBreak(LuckyBlock.Enabled and luckyblock, localPosition, false, camera) then continue end
+						if attemptBreak(IronOre.Enabled and ironores, localPosition, false, camera) then continue end
 	
 						for _, v in parts do
 							v.Position = Vector3.zero
@@ -18661,7 +18716,7 @@ run(function()
 	})
 	Mode = Breaker:CreateDropdown({
 		Name = 'Break mode',
-		List = {'Health', 'Distance'},
+		List = {'Health', 'Distance', 'Closest'},
 		Default = 'Health'
 	})
 	Range = Breaker:CreateSlider({
@@ -18737,9 +18792,9 @@ run(function()
 	Animation = Breaker:CreateToggle({Name = 'Animation'})
 	SelfBreak = Breaker:CreateToggle({Name = 'Self Break'})
 	Wallcheck = Breaker:CreateToggle({
-		Name = 'Legit mode',
+		Name = 'Smart Wallcheck',
 		Default = true,
-		Tooltip = 'Checks for blocks inside the bed instead of directly targetting bed'
+		Tooltip = 'Uses raycasting to ensure line of sight to blocks'
 	})
 	AutoTool = Breaker:CreateToggle({
 		Name = 'Auto Tool',
