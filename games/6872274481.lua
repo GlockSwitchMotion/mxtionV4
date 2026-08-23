@@ -21467,20 +21467,13 @@ end)
 
 run(function()
 	local UpgradeNotifier
-	
-	local generatorNames = {
-		["Team Generator Tier 1"] = "Team Generator 1",
-		["Team Generator Tier 2"] = "Team Generator 2",
-		["Team Generator Tier 3"] = "Team Generator 3",
-		["Team Generator 1"] = "Team Generator 1",
-		["Team Generator 2"] = "Team Generator 2",
-		["Team Generator 3"] = "Team Generator 3",
-	}
 
-	local function isGenerator(upgradeName)
-		for generatorName, displayName in pairs(generatorNames) do
-			if upgradeName:find(generatorName) or upgradeName:lower():find("generator") then
-				return true, displayName
+	local function isGenerator(upgradeTable)
+		if type(upgradeTable) == 'table' then
+			for key, value in pairs(upgradeTable) do
+				if key:find("GENERATOR") or key:find("Generator") then
+					return true, key
+				end
 			end
 		end
 		return false
@@ -21490,23 +21483,58 @@ run(function()
 		Name = 'UpgradeNotifier',
 		Function = function(callback)
 			if callback then
-				-- Find the TeamUpgradePurchased remote event
 				local remote = nil
-				pcall(function()
-					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.TeamUpgradePurchased
-				end)
+				
+				-- Try multiple possible paths
+				local paths = {
+					function() return replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.TeamUpgradePurchased end,
+					function() return replicatedStorage:FindFirstChild('TeamUpgradePurchased') end,
+					function() 
+						local rs = replicatedStorage:FindFirstChild('rbxts_include')
+						if rs then
+							local nm = rs:FindFirstChild('node_modules')
+							if nm then
+								local rbxts = nm:FindFirstChild('@rbxts')
+								if rbxts then
+									local net = rbxts:FindFirstChild('net')
+									if net then
+										local out = net:FindFirstChild('out')
+										if out then
+											local managed = out:FindFirstChild('_NetManaged')
+											if managed then
+												return managed:FindFirstChild('TeamUpgradePurchased')
+											end
+										end
+									end
+								end
+							end
+						end
+						return nil
+					end
+				}
+				
+				for _, pathFunc in ipairs(paths) do
+					pcall(function()
+						remote = pathFunc()
+					end)
+					if remote then break end
+				end
 				
 				if remote then
-					UpgradeNotifier:Clean(remote.OnClientEvent:Connect(function(teamId, upgradeName)
+					notif('UpgradeNotifier', 'Found remote! Listening...', 3, 'info')
+					UpgradeNotifier:Clean(remote.OnClientEvent:Connect(function(teamId, upgradeData)
 						local playerTeam = lplr:GetAttribute('Team')
 						
+						-- Convert teamId to number if it's a string
+						local teamNum = tonumber(teamId) or teamId
+						
 						-- Ignore upgrades purchased by player's own team
-						if teamId == playerTeam then
+						if teamNum == playerTeam then
 							return
 						end
 						
 						-- Check if it's a generator
-						local isGen, displayName = isGenerator(upgradeName)
+						local isGen, upgradeName = isGenerator(upgradeData)
 						if isGen then
 							local teamColors = {
 								[1] = "Red",
@@ -21514,69 +21542,29 @@ run(function()
 								[3] = "Green",
 								[4] = "Yellow"
 							}
-							local teamName = teamColors[teamId] or "Team " .. (teamId or "?")
+							local teamName = teamColors[teamNum] or "Team " .. (teamNum or "?")
 							
-							notif('UpgradeNotifier', teamName .. ' bought ' .. displayName .. '!', 5, 'info')
+							-- Extract generator tier if available
+							local genName = "Team Generator"
+							if upgradeName:find("TEAM_GENERATOR") then
+								genName = "Team Generator"
+							end
+							
+							notif('UpgradeNotifier', teamName .. ' bought ' .. genName .. '!', 5, 'info')
 						end
 					end))
 				else
-					if UpgradeNotifier.Enabled then
-						notif('UpgradeNotifier', 'Could not find the TeamUpgradePurchased remote.', 5, 'warning')
+					notif('UpgradeNotifier', 'Could not find TeamUpgradePurchased remote. Check console for paths.', 5, 'warning')
+					print("UpgradeNotifier: Searching for remotes...")
+					for _, child in pairs(replicatedStorage:GetDescendants()) do
+						if child:IsA('RemoteEvent') and child.Name:find('Upgrade') or child.Name:find('Generator') then
+							print("Found: " .. child:GetFullName())
+						end
 					end
 				end
 			end
 		end,
 		Tooltip = 'Notifies when enemy teams purchase generators. Ignores your own team purchases.'
-	})
-end)
-
-run(function()
-	local MinerSpy
-	
-	MinerSpy = vape.Categories.Utility:CreateModule({
-		Name = 'MinerSpy',
-		Function = function(callback)
-			if callback then
-				-- Find the specific remote event from your screenshot
-				local remote = nil
-				pcall(function()
-					remote = replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.PetrifiedPlayerDestroyed
-				end)
-				
-				if remote then
-					MinerSpy:Clean(remote.OnClientEvent:Connect(function(data)
-						if type(data) == 'table' and data.destroyer and data.rewards then
-							-- Ignore if YOU are the one who broke the statue
-							if data.destroyer == lplr then
-								return
-							end
-							
-							local playerName = data.destroyer.DisplayName or data.destroyer.Name
-							
-							-- Loop through the rewards and format them (e.g., "1 Iron", "1 Diamond")
-							local rewardStrings = {}
-							for _, reward in data.rewards do
-								if reward.itemType and reward.amount then
-									local formattedItem = reward.itemType:gsub("^%l", string.upper)
-									table.insert(rewardStrings, tostring(reward.amount) .. " " .. formattedItem)
-								end
-							end
-							
-							-- If they actually got rewards, send the notification
-							if #rewardStrings > 0 then
-								local rewardText = table.concat(rewardStrings, ", ")
-								notif('MinerSpy', `{playerName} got {rewardText}!`, 5, 'info')
-							end
-						end
-					end))
-				else
-					if MinerSpy.Enabled then
-						notif('MinerSpy', 'Could not find the PetrifiedPlayerDestroyed remote.', 5, 'warning')
-					end
-				end
-			end
-		end,
-		Tooltip = 'Notifies you when other players get loot from breaking petrified players'
 	})
 end)
 
