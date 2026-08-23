@@ -21832,40 +21832,6 @@ run(function()
 end)
 
 run(function()
-	local InstantKaliyah
-	
-	InstantKaliyah = vape.Categories.Minigames:CreateModule({
-		Name = 'InstantKaliyah',
-		Function = function(callback)
-			if callback then
-				repeat
-					task.wait(0.1)
-					if not InstantKaliyah.Enabled then break end
-					
-					local player = game.Players.LocalPlayer
-					local character = player.Character
-					if character then
-						-- Look for ability cooldown value in character
-						local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-						if humanoidRootPart then
-							-- Try to find and set dragon_slayer_punch cooldown to 0
-							local abilities = character:FindFirstChild("Abilities")
-							if abilities then
-								local punch = abilities:FindFirstChild("dragon_slayer_punch")
-								if punch then
-									punch.Value = 0
-								end
-							end
-						end
-					end
-				until not InstantKaliyah.Enabled
-			end
-		end,
-		Tooltip = 'Removes cooldown from dragon slayer punch'
-	})
-end)
-
-run(function()
 	local MetalDetectorSpy
 	
 	MetalDetectorSpy = vape.Categories.Utility:CreateModule({
