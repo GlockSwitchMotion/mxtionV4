@@ -17964,9 +17964,6 @@ run(function()
 				
 				if not character then return end
 				
-				local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-				if not humanoidRootPart then return end
-				
 				-- Get the SwordHit remote
 				local SwordHitRemote = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"].net.out.__NetManaged.SwordHit
 				local camera = workspace.CurrentCamera
@@ -17974,19 +17971,21 @@ run(function()
 				local lastHitTime = 0
 				
 				-- Detect mouse hold
-				mouse.Button1Down:Connect(function()
+				local downConnection = mouse.Button1Down:Connect(function()
 					if not InstantHit.Enabled then return end
 					isHolding = true
 				end)
 				
-				mouse.Button1Up:Connect(function()
+				local upConnection = mouse.Button1Up:Connect(function()
 					isHolding = false
 				end)
 				
 				local connection
-				connection = game:GetService("RunService").Heartbeat:Connect(function()
-					if not InstantHit.Enabled or not character.Parent then
+				connection = game:GetService("RunService").RenderStepped:Connect(function()
+					if not InstantHit.Enabled or not character or not character.Parent then
 						connection:Disconnect()
+						downConnection:Disconnect()
+						upConnection:Disconnect()
 						return
 					end
 					
@@ -18000,7 +17999,7 @@ run(function()
 					end
 					lastHitTime = now
 					
-					humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+					local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 					if not humanoidRootPart then return end
 					
 					-- Get all players in range and hit them
@@ -18019,29 +18018,31 @@ run(function()
 						if distance > HitRange.Value then continue end
 						
 						-- Fire the SwordHit remote
-						SwordHitRemote:FireServer({
-							chargedAttack = {
-								chargeRatio = 0
-							},
-							entityInstance = targetCharacter,
-							validate = {
-								targetPosition = {
-									value = targetHRP.Position
+						pcall(function()
+							SwordHitRemote:FireServer({
+								chargedAttack = {
+									chargeRatio = 0
 								},
-								raycast = {
-									cameraPosition = {
-										value = camera.CFrame.Position
+								entityInstance = targetCharacter,
+								validate = {
+									targetPosition = {
+										value = targetHRP.Position
 									},
-									cursorDirection = {
-										value = (targetHRP.Position - camera.CFrame.Position).Unit
+									raycast = {
+										cameraPosition = {
+											value = camera.CFrame.Position
+										},
+										cursorDirection = {
+											value = (targetHRP.Position - camera.CFrame.Position).Unit
+										},
+										selfPosition = {
+											value = humanoidRootPart.Position
+										}
 									},
-									selfPosition = {
-										value = humanoidRootPart.Position
-									}
-								},
-								weapon = game:GetService("ReplicatedStorage").Inventories[player.Name].wood_sword
-							}
-						})
+									weapon = game:GetService("ReplicatedStorage").Inventories[player.Name].wood_sword
+								}
+							})
+						end)
 					end
 				end)
 				
@@ -18053,7 +18054,7 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Hold to spam sword hits on all nearby players at 0.011 speed'
+		Tooltip = 'Hold to spam sword hits on all nearby players'
 	})
 	
 	HitRange = InstantHit:CreateSlider({
