@@ -18553,23 +18553,19 @@ run(function()
 		end)
 	end
 	
-	local function hasLineOfSight(blockPos, playerPos, playerCamera)
-		local direction = (blockPos - playerPos).Unit
-		local distance = (blockPos - playerPos).Magnitude
-		local raycastParams = RaycastParams.new()
-		raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-		raycastParams.FilterDescendantsInstances = {entitylib.character}
-		
-		local rayResult = workspace:Raycast(playerPos, direction * distance, raycastParams)
-		return not rayResult or rayResult.Instance:IsDescendantOf(workspace.Terrain) or rayResult.Distance >= distance * 0.95
+	local function isInViewCone(blockPos, playerPos, camera, coneAngle)
+		local directionToBlock = (blockPos - playerPos).Unit
+		local cameraDirection = camera.CFrame.LookVector
+		local dotProduct = directionToBlock:Dot(cameraDirection)
+		return dotProduct > math.cos(math.rad(coneAngle))
 	end
 	
-	local function findClosestBlock(blocks, localPosition, camera)
+	local function findBlockInView(blocks, localPosition, camera)
 		if not blocks or #blocks == 0 then return nil end
 		
 		local closest = nil
 		local closestDistance = math.huge
-		local cameraDirection = camera.CFrame.LookVector
+		local viewConeAngle = 60
 		
 		for _, v in blocks do
 			if not bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then continue end
@@ -18580,7 +18576,7 @@ run(function()
 			local distance = (v.Position - localPosition).Magnitude
 			if distance > Range.Value then continue end
 			
-			if Wallcheck.Enabled and not hasLineOfSight(v.Position, localPosition, camera) then continue end
+			if not isInViewCone(v.Position, localPosition, camera, viewConeAngle) then continue end
 			
 			if distance < closestDistance then
 				closestDistance = distance
@@ -18594,46 +18590,22 @@ run(function()
 	local function attemptBreak(tab, localPosition, route, camera)
 		if not tab then return end
 		
-		if Mode.Value == 'Closest' then
-			local block = findClosestBlock(tab, localPosition, camera)
-			if block then
-				local target, path, endpos = bedwars.breakBlock(block, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value] or breakmethods['Health'], not route)
-				local currentnode = target
-				for _, part in parts do
-					part.Position = currentnode or Vector3.zero
-					if currentnode then
-						part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
-					end
-					currentnode = path and path[currentnode]
+		local block = findBlockInView(tab, localPosition, camera)
+		if block then
+			local target, path, endpos = bedwars.breakBlock(block, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, false, breakmethods[Mode.Value] or breakmethods['Health'], not route)
+			local currentnode = target
+			for _, part in parts do
+				part.Position = currentnode or Vector3.zero
+				if currentnode then
+					part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
 				end
-				return true
+				currentnode = path and path[currentnode]
 			end
-			return false
+			
+			task.wait(BreakSpeed.Value)
+			return true
 		end
 		
-		for _, v in tab do
-			if (v.Position - localPosition).Magnitude < Range.Value and bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
-				if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
-				if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
-				if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
-				if Wallcheck.Enabled and not hasLineOfSight(v.Position, localPosition, camera) then continue end
-	
-				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value], not route)
-				local currentnode = target
-				for _, part in parts do
-					part.Position = currentnode or Vector3.zero
-					if currentnode then
-						part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
-					end
-					currentnode = path and path[currentnode]
-				end
-	
-				task.wait(BreakSpeed.Value)
-	
-				return true
-			end
-		end
-	
 		return false
 	end
 	
@@ -18716,7 +18688,7 @@ run(function()
 	})
 	Mode = Breaker:CreateDropdown({
 		Name = 'Break mode',
-		List = {'Health', 'Distance', 'Closest'},
+		List = {'Health', 'Distance'},
 		Default = 'Health'
 	})
 	Range = Breaker:CreateSlider({
@@ -18792,9 +18764,9 @@ run(function()
 	Animation = Breaker:CreateToggle({Name = 'Animation'})
 	SelfBreak = Breaker:CreateToggle({Name = 'Self Break'})
 	Wallcheck = Breaker:CreateToggle({
-		Name = 'Smart Wallcheck',
+		Name = 'View-based breaking',
 		Default = true,
-		Tooltip = 'Uses raycasting to ensure line of sight to blocks'
+		Tooltip = 'Only breaks blocks in your view direction'
 	})
 	AutoTool = Breaker:CreateToggle({
 		Name = 'Auto Tool',
