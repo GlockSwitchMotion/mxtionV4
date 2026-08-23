@@ -18571,14 +18571,23 @@ run(function()
 			local distance = (v.Position - localPosition).Magnitude
 			if distance > Range.Value then continue end
 
-			local directionToBlock = (v.Position - localPosition).Unit
-			local dot = directionToBlock:Dot(cameraDirection)
+			-- If Wallcheck is enabled, enforce strict view cone checking
+			if Wallcheck.Enabled then
+				local directionToBlock = (v.Position - localPosition).Unit
+				local dot = directionToBlock:Dot(cameraDirection)
 
-			if dot < math.cos(math.rad(coneAngle)) then continue end
+				if dot < math.cos(math.rad(coneAngle)) then continue end
 
-			if dot > bestDot then
-				bestDot = dot
-				bestBlock = v
+				if dot > bestDot then
+					bestDot = dot
+					bestBlock = v
+				end
+			else
+				-- No view check, just pick closest by distance
+				if distance < Range.Value then
+					bestBlock = v
+					break
+				end
 			end
 		end
 
