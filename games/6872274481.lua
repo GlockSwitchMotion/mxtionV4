@@ -17951,6 +17951,81 @@ run(function()
 end)
 
 run(function()
+	local InstantHit
+	local lastHitTime = {}
+	
+	InstantHit = vape.Categories.Minigames:CreateModule({
+		Name = 'Instant Hit',
+		Function = function(callback)
+			if callback then
+				local player = game.Players.LocalPlayer
+				local mouse = player:GetMouse()
+				local character = player.Character
+				
+				local connection
+				connection = mouse.Button1Down:Connect(function()
+					if not InstantHit.Enabled or not character.Parent then
+						return
+					end
+					
+					local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+					if not humanoidRootPart then return end
+					
+					local SwordHitRemote = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"].net.out.__NetManaged.SwordHit
+					local allPlayers = game.Players:GetPlayers()
+					local camera = workspace.CurrentCamera
+					
+					-- Fire hit for every player in range
+					for _, targetPlayer in ipairs(allPlayers) do
+						if targetPlayer == player then continue end
+						
+						local targetCharacter = targetPlayer.Character
+						if not targetCharacter then continue end
+						
+						local targetHRP = targetCharacter:FindFirstChild("HumanoidRootPart")
+						if not targetHRP then continue end
+						
+						local distance = (targetHRP.Position - humanoidRootPart.Position).Magnitude
+						if distance > 50 then continue end
+						
+						-- Fire the remote
+						SwordHitRemote:FireServer({
+							chargedAttack = { chargeRatio = 0 },
+							entityInstance = targetCharacter,
+							validate = {
+								targetPosition = { value = targetHRP.Position },
+								raycast = {
+									cameraPosition = { value = camera.CFrame.Position },
+									cursorDirection = { value = (targetHRP.Position - camera.CFrame.Position).Unit },
+									selfPosition = { value = humanoidRootPart.Position }
+								},
+								weapon = game:GetService("ReplicatedStorage").Inventories[player.Name].wood_sword
+							}
+						})
+					end
+				end)
+				
+				InstantHit._connection = connection
+			else
+				if InstantHit._connection then
+					InstantHit._connection:Disconnect()
+					InstantHit._connection = nil
+				end
+			end
+		end,
+		Tooltip = 'Hits all nearby players when you click'
+	})
+	
+	InstantHit:CreateSlider({
+		Name = 'Range',
+		Min = 5,
+		Max = 100,
+		Default = 50,
+		Suffix = 'studs'
+	})
+end)
+
+run(function()
 	local AutoZeno
 	local Targets
 	local TargetMode
