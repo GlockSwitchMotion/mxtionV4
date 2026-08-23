@@ -21467,13 +21467,14 @@ end)
 
 run(function()
 	local UpgradeNotifier
-	local BreakSpeed, Armor, Damage, DiamondGen
+	local BreakSpeed, Armor, Damage, DiamondGen, TeamGen
 
 	local upgradeNames = {
 		["BREAK_SPEED"] = "Break Speed",
 		["ARMOR"] = "Armor",
 		["DAMAGE"] = "Damage",
-		["TEAM_GENERATOR"] = "Diamond Gen"
+		["DIAMOND_GEN"] = "Diamond Gen",
+		["TEAM_GENERATOR"] = "Team Gen"
 	}
 
 	local function getUpgradeInfo(upgradeTable)
@@ -21487,11 +21488,18 @@ run(function()
 		return false
 	end
 
+	local function getPlayerTeamId()
+		local playerTeam = lplr:GetAttribute('Team')
+		-- Handle both string and number team IDs
+		return tonumber(playerTeam) or playerTeam
+	end
+
 	local function isUpgradeEnabled(upgradeKey)
 		if upgradeKey == "BREAK_SPEED" then return BreakSpeed.Enabled end
 		if upgradeKey == "ARMOR" then return Armor.Enabled end
 		if upgradeKey == "DAMAGE" then return Damage.Enabled end
-		if upgradeKey == "TEAM_GENERATOR" then return DiamondGen.Enabled end
+		if upgradeKey == "DIAMOND_GEN" then return DiamondGen.Enabled end
+		if upgradeKey == "TEAM_GENERATOR" then return TeamGen.Enabled end
 		return false
 	end
 
@@ -21538,13 +21546,15 @@ run(function()
 				
 				if remote then
 					UpgradeNotifier:Clean(remote.OnClientEvent:Connect(function(teamId, upgradeData)
-						local playerTeam = lplr:GetAttribute('Team')
+						-- Get your team ID
+						local playerTeamId = getPlayerTeamId()
 						
-						-- Convert teamId to number if it's a string
+						-- Convert incoming teamId to number if it's a string
 						local teamNum = tonumber(teamId) or teamId
+						local incomingTeamId = tonumber(teamNum)
 						
-						-- IGNORE your own team - only show enemy team upgrades
-						if teamNum == playerTeam then
+						-- STRICTLY IGNORE YOUR OWN TEAM
+						if incomingTeamId == playerTeamId then
 							return
 						end
 						
@@ -21557,7 +21567,7 @@ run(function()
 								[3] = "Green",
 								[4] = "Yellow"
 							}
-							local teamName = teamColors[teamNum] or "Team " .. (teamNum or "?")
+							local teamName = teamColors[incomingTeamId] or "Team " .. (incomingTeamId or "?")
 							
 							-- Format: "Red bought Break Speed Tier 1!"
 							local message = teamName .. ' bought ' .. upgradeName .. ' Tier ' .. upgradeTier .. '!'
@@ -21591,6 +21601,10 @@ run(function()
 	})
 	DiamondGen = UpgradeNotifier:CreateToggle({
 		Name = 'Diamond Gen',
+		Default = true
+	})
+	TeamGen = UpgradeNotifier:CreateToggle({
+		Name = 'Team Gen',
 		Default = true
 	})
 end)
