@@ -21832,6 +21832,41 @@ run(function()
 end)
 
 run(function()
+	local InstantKaliyah
+	
+	InstantKaliyah = vape.Categories.Minigames:CreateModule({
+		Name = 'InstantKaliyah',
+		Function = function(callback)
+			if callback then
+				local Event = game:GetService("ReplicatedStorage")["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].abilityCooldownUpdate
+				
+				local connection
+				connection = Event:Connect(function(ability, cooldown)
+					if ability == "dragon_slayer_punch" then
+						-- Set cooldown to 0 immediately
+						local player = game.Players.LocalPlayer
+						local character = player.Character
+						if character then
+							-- Fire the event back with 0 cooldown
+							game:GetService("ReplicatedStorage")["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].abilityCooldownUpdate:FireServer(ability, 0)
+						end
+					end
+				end)
+				
+				-- Store connection for cleanup
+				InstantKaliyah._connection = connection
+			else
+				if InstantKaliyah._connection then
+					InstantKaliyah._connection:Disconnect()
+					InstantKaliyah._connection = nil
+				end
+			end
+		end,
+		Tooltip = 'Removes cooldown from dragon slayer punch'
+	})
+end)
+
+run(function()
 	local MetalDetectorSpy
 	
 	MetalDetectorSpy = vape.Categories.Utility:CreateModule({
