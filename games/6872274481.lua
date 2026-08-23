@@ -21467,15 +21467,31 @@ end)
 
 run(function()
 	local UpgradeNotifier
+	local BreakSpeed, Armor, Damage, DiamondGen
 
-	local function isGenerator(upgradeTable)
+	local upgradeNames = {
+		["BREAK_SPEED"] = "Break Speed",
+		["ARMOR"] = "Armor",
+		["DAMAGE"] = "Damage",
+		["TEAM_GENERATOR"] = "Diamond Gen"
+	}
+
+	local function getUpgradeInfo(upgradeTable)
 		if type(upgradeTable) == 'table' then
-			for key, value in pairs(upgradeTable) do
-				if key:find("GENERATOR") or key:find("Generator") then
-					return true, key
+			for key, tier in pairs(upgradeTable) do
+				if upgradeNames[key] then
+					return true, upgradeNames[key], tonumber(tier) or 1, key
 				end
 			end
 		end
+		return false
+	end
+
+	local function isUpgradeEnabled(upgradeKey)
+		if upgradeKey == "BREAK_SPEED" then return BreakSpeed.Enabled end
+		if upgradeKey == "ARMOR" then return Armor.Enabled end
+		if upgradeKey == "DAMAGE" then return Damage.Enabled end
+		if upgradeKey == "TEAM_GENERATOR" then return DiamondGen.Enabled end
 		return false
 	end
 
@@ -21521,21 +21537,20 @@ run(function()
 				end
 				
 				if remote then
-					notif('UpgradeNotifier', 'Found remote! Listening...', 3, 'info')
 					UpgradeNotifier:Clean(remote.OnClientEvent:Connect(function(teamId, upgradeData)
 						local playerTeam = lplr:GetAttribute('Team')
 						
 						-- Convert teamId to number if it's a string
 						local teamNum = tonumber(teamId) or teamId
 						
-						-- Ignore upgrades purchased by player's own team
+						-- IGNORE your own team - only show enemy team upgrades
 						if teamNum == playerTeam then
 							return
 						end
 						
-						-- Check if it's a generator
-						local isGen, upgradeName = isGenerator(upgradeData)
-						if isGen then
+						-- Check if it's a valid upgrade
+						local isUpgrade, upgradeName, upgradeTier, upgradeKey = getUpgradeInfo(upgradeData)
+						if isUpgrade and isUpgradeEnabled(upgradeKey) then
 							local teamColors = {
 								[1] = "Red",
 								[2] = "Blue",
@@ -21544,13 +21559,9 @@ run(function()
 							}
 							local teamName = teamColors[teamNum] or "Team " .. (teamNum or "?")
 							
-							-- Extract generator tier if available
-							local genName = "Team Generator"
-							if upgradeName:find("TEAM_GENERATOR") then
-								genName = "Team Generator"
-							end
-							
-							notif('UpgradeNotifier', teamName .. ' bought ' .. genName .. '!', 5, 'info')
+							-- Format: "Red bought Break Speed Tier 1!"
+							local message = teamName .. ' bought ' .. upgradeName .. ' Tier ' .. upgradeTier .. '!'
+							notif('UpgradeNotifier', message, 5, 'info')
 						end
 					end))
 				else
@@ -21564,7 +21575,23 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Notifies when enemy teams purchase generators. Ignores your own team purchases.'
+		Tooltip = 'Notifies when enemy teams purchase upgrades. Ignores your own team purchases.'
+	})
+	BreakSpeed = UpgradeNotifier:CreateToggle({
+		Name = 'Break Speed',
+		Default = true
+	})
+	Armor = UpgradeNotifier:CreateToggle({
+		Name = 'Armor',
+		Default = true
+	})
+	Damage = UpgradeNotifier:CreateToggle({
+		Name = 'Damage',
+		Default = true
+	})
+	DiamondGen = UpgradeNotifier:CreateToggle({
+		Name = 'Diamond Gen',
+		Default = true
 	})
 end)
 
