@@ -21832,6 +21832,156 @@ run(function()
 end)
 
 run(function()
+	local InfZeno
+	local MaxManaSlider
+	local FireRateSlider
+	local AutoSpamToggle
+	
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Players = game:GetService("Players")
+	local lplr = Players.LocalPlayer
+	
+	-- Cache remotes
+	local abilityProgressUpdateRemote
+	local abilityUsedRemote
+	local wizardLightningStrikeRemote
+	local zapReliableRemote
+	
+	local function findRemote(pathStr)
+		local parts = string.split(pathStr, ".")
+		local obj = ReplicatedStorage
+		
+		for i = 2, #parts do
+			if obj then
+				obj = obj[parts[i]]
+			end
+		end
+		
+		return obj
+	end
+	
+	local function initRemotes()
+		abilityProgressUpdateRemote = findRemote("ReplicatedStorage.events-@easy-games/game-core:shared/game-core-networking@getEvents.Events.abilityProgressUpdate")
+		abilityUsedRemote = findRemote("ReplicatedStorage.events-@easy-games/game-core:shared/game-core-networking@getEvents.Events.abilityUsed")
+		wizardLightningStrikeRemote = findRemote("ReplicatedStorage.rxbxts_include.node_modules.@rxbxts.net.out._.NetManaged.WizardLightningStrike")
+		zapReliableRemote = findRemote("ReplicatedStorage.ZAP.ZAP_RELIABLE")
+		
+		if not abilityProgressUpdateRemote then
+			warn("InfZeno: Could not find abilityProgressUpdate remote")
+		end
+		if not abilityUsedRemote then
+			warn("InfZeno: Could not find abilityUsed remote")
+		end
+		if not wizardLightningStrikeRemote then
+			warn("InfZeno: Could not find WizardLightningStrike remote")
+		end
+	end
+	
+	local function hookRemotes()
+		-- Hook abilityProgressUpdate to prevent mana drain
+		if abilityProgressUpdateRemote then
+			local original = abilityProgressUpdateRemote.FireServer
+			abilityProgressUpdateRemote.FireServer = function(self, ...)
+				local args = {...}
+				-- Keep mana at max
+				if args[2] == "WIZARD_MANA" then
+					args[3] = MaxManaSlider.Value
+				end
+				return original(self, unpack(args))
+			end
+		end
+		
+		-- Hook abilityUsed to restore mana after use
+		if abilityUsedRemote then
+			local original = abilityUsedRemote.FireServer
+			abilityUsedRemote.FireServer = function(self, ...)
+				local args = {...}
+				local result = original(self, unpack(args))
+				
+				-- Immediately restore mana
+				if args[2] == "WIZARD_MANA" and abilityProgressUpdateRemote then
+					task.defer(function()
+						abilityProgressUpdateRemote:FireServer(
+							abilityProgressUpdateRemote.OnClientEvent,
+							"WIZARD_MANA",
+							MaxManaSlider.Value
+						)
+					end)
+				end
+				
+				return result
+			end
+		end
+	end
+	
+	local function fireStrike()
+		if not wizardLightningStrikeRemote then return end
+		
+		local character = lplr.Character
+		if not character then return end
+		
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then return end
+		
+		-- Fire strike at target position in front of player
+		local strikePos = rootPart.Position + rootPart.CFrame.LookVector * 50
+		
+		wizardLightningStrikeRemote:FireServer(
+			wizardLightningStrikeRemote.OnClientEvent,
+			strikePos,
+			lplr
+		)
+	end
+	
+	InfZeno = vape.Categories.Kits:CreateModule({
+		Name = 'InfZeno',
+		Function = function(callback)
+			if callback then
+				initRemotes()
+				hookRemotes()
+				
+				-- Auto spam lightning strikes if enabled
+				repeat
+					if AutoSpamToggle.Enabled then
+						fireStrike()
+						task.wait(FireRateSlider.Value)
+					else
+						task.wait(0.05)
+					end
+				until not InfZeno.Enabled
+			end
+		end,
+		Tooltip = 'Infinite Zeno staff - no cooldown drain, infinite mana'
+	})
+	
+	MaxManaSlider = InfZeno:CreateSlider({
+		Name = 'Max Mana',
+		Min = 1,
+		Max = 10,
+		Default = 6,
+		Tooltip = 'Maximum mana to keep'
+	})
+	
+	FireRateSlider = InfZeno:CreateSlider({
+		Name = 'Fire Rate',
+		Min = 0.01,
+		Max = 1,
+		Default = 0.1,
+		Decimal = 2,
+		Suffix = function(val)
+			return val <= 1 and 'sec' or 'secs'
+		end,
+		Tooltip = 'Delay between lightning strikes'
+	})
+	
+	AutoSpamToggle = InfZeno:CreateToggle({
+		Name = 'Auto Spam Strikes',
+		Default = false,
+		Tooltip = 'Automatically spam lightning strikes'
+	})
+end)
+
+run(function()
 	local MetalDetectorSpy
 	
 	MetalDetectorSpy = vape.Categories.Utility:CreateModule({
