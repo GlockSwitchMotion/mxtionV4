@@ -13936,39 +13936,13 @@ run(function()
     local Break
     local Jump
     local LimitItem
-    local TNTAim
+    local InstantAim
 
-    local old, oldAim
+    local old, oldAim, oldUpdateAim
 
     local function canBreak()
         if not LimitItem.Enabled then return true end
         return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
-    end
-
-    local function isHoldingTNT()
-        return store.hand.tool and store.hand.tool.Name:lower():find("tnt") ~= nil
-    end
-
-    local function getEnemyBedPosition()
-        local myTeam = bedwars.ClientStoreHandler:getState().Game.myTeam
-        local closestBed = nil
-        local shortestDist = math.huge
-        local localPos = entitylib.character.RootPart.Position
-
-        for _, v in pairs(workspace:GetChildren()) do
-            if v.Name == "bed" and v:IsA("Model") then
-                local bedTeam = v:GetAttribute("Team")
-                if bedTeam and (not myTeam or bedTeam ~= myTeam.id) then
-                    local bedPos = v:GetPivot().Position
-                    local dist = (bedPos - localPos).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestBed = bedPos
-                    end
-                end
-            end
-        end
-        return closestBed
     end
 
     AutoDavey = vape.Categories.Kits:CreateModule({
@@ -13977,16 +13951,17 @@ run(function()
             if callback then
                 oldAim = bedwars.CannonController.startAiming
                 bedwars.CannonController.startAiming = function(self, block, ...)
-                    if TNTAim.Enabled and isHoldingTNT() then
-                        local targetBedPos = getEnemyBedPosition()
-                        if targetBedPos and self.aimCFrame then
-                            -- Override cannon look direction toward the enemy bed
-                            local cannonPos = block and block.Position or entitylib.character.RootPart.Position
-                            self.aimCFrame = CFrame.lookAt(cannonPos, Vector3.new(targetBedPos.X, cannonPos.Y, targetBedPos.Z))
+                    local call = oldAim(self, block, ...)
+
+                    if InstantAim.Enabled then
+                        -- Snap camera angle and cannon instantly without lerp delay
+                        if self.aimCFrame then
+                            workspace.CurrentCamera.CFrame = self.aimCFrame
+                        end
+                        if self.aimTween then
+                            self.aimTween:Cancel()
                         end
                     end
-
-                    local call = oldAim(self, block, ...)
 
                     if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() then
                         task.spawn(function()
@@ -13997,6 +13972,18 @@ run(function()
                     end
 
                     return call
+                end
+
+                -- Hook camera/aim update to eliminate smooth damping/delay frame-by-frame
+                oldUpdateAim = bedwars.CannonController.updateAim
+                if oldUpdateAim then
+                    bedwars.CannonController.updateAim = function(self, ...)
+                        if InstantAim.Enabled and self.aimCFrame then
+                            workspace.CurrentCamera.CFrame = self.aimCFrame
+                            return
+                        end
+                        return oldUpdateAim(self, ...)
+                    end
                 end
 
                 old = bedwars.CannonHandController.launchSelf
@@ -14020,15 +14007,18 @@ run(function()
             else
                 bedwars.CannonHandController.launchSelf = old
                 bedwars.CannonController.startAiming = oldAim
+                if oldUpdateAim then
+                    bedwars.CannonController.updateAim = oldUpdateAim
+                end
             end
         end,
-        Tooltip = 'Automatically breaks cannon/jump on launch and aims at enemy beds'
+        Tooltip = 'Instantly snaps camera on cannon aim and handles break/jump features'
     })
 
-    TNTAim = AutoDavey:CreateToggle({
-        Name = 'TNT Aim',
+    InstantAim = AutoDavey:CreateToggle({
+        Name = 'Instant Aim',
         Default = true,
-        Tooltip = 'Automatically aims cannon at the nearest enemy bed when holding TNT'
+        Tooltip = 'Removes camera interpolation delay when aiming the cannon'
     })
 
     Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
