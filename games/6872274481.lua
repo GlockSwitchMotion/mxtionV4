@@ -21832,163 +21832,75 @@ run(function()
 end)
 
 run(function()
-	local InfZeno
-	local MaxManaSlider
-	local FireRateSlider
-	local AutoSpamToggle
+	local InfKaliyah
+	local AutoToggle
 	
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local Players = game:GetService("Players")
-	local RunService = game:GetService("RunService")
 	local lplr = Players.LocalPlayer
 	
-	-- Cache remotes
-	local useAbilityRemote
-	local abilityProgressUpdateRemote
-	
-	local manaToKeep = 9
-	local lastManaRestore = 0
+	-- Cache remote
+	local abilityCooldownUpdateRemote
 	
 	local function initRemotes()
-		useAbilityRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
-		abilityProgressUpdateRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("abilityProgressUpdate")
+		abilityCooldownUpdateRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("abilityCooldownUpdate")
 		
-		print("✓ useAbility remote found")
-		print("✓ abilityProgressUpdate remote found")
-	end
-	
-	local function restoreManaStacks()
-		-- Send the mana restore to server
-		if abilityProgressUpdateRemote then
-			abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaToKeep)
-		end
+		print("✓ abilityCooldownUpdate remote found")
 	end
 	
 	local function hookRemotes()
-		-- HOOK useAbility: After ability fires, immediately restore mana stacks
-		if useAbilityRemote then
-			local original = useAbilityRemote.FireServer
+		-- HOOK abilityCooldownUpdate: Change cooldown to 0
+		if abilityCooldownUpdateRemote then
+			local original = abilityCooldownUpdateRemote.FireServer
 			
-			useAbilityRemote.FireServer = function(self, abilityName, args, ...)
-				-- Fire the ability
-				local result = original(self, abilityName, args, ...)
-				
-				-- If it's LIGHTNING_STRIKE, restore mana stacks immediately after
-				if abilityName == "LIGHTNING_STRIKE" then
-					-- Wait tiny bit for server to process
-					task.wait(0.01)
-					-- Restore mana stacks back to 9
-					restoreManaStacks()
+			abilityCooldownUpdateRemote.FireServer = function(self, abilityName, cooldown, ...)
+				-- For dragon_slayer_punch (Kaliyah ability), set cooldown to 0
+				if abilityName == "dragon_slayer_punch" then
+					return original(self, abilityName, 0, ...)
 				end
-				
-				return result
+				return original(self, abilityName, cooldown, ...)
 			end
 		end
 		
-		-- HOOK abilityProgressUpdate: Force mana to always be at the keep value
-		if abilityProgressUpdateRemote then
-			local original = abilityProgressUpdateRemote.FireServer
-			
-			abilityProgressUpdateRemote.FireServer = function(self, abilityName, progress, ...)
-				-- If trying to restore WIZARD_MANA, always use our value
-				if abilityName == "WIZARD_MANA" then
-					return original(self, abilityName, manaToKeep, ...)
-				end
-				return original(self, abilityName, progress, ...)
-			end
-		end
-		
-		-- LISTEN to server events and counter-restore if it drains
-		if abilityProgressUpdateRemote then
-			InfZeno:Clean(abilityProgressUpdateRemote.OnClientEvent:Connect(function(abilityName, progress)
-				if abilityName == "WIZARD_MANA" then
-					-- Server sent mana update
-					if progress < manaToKeep then
-						-- Mana was drained, restore it immediately
-						task.spawn(function()
-							for i = 1, 5 do
-								task.wait(0.002)
-								abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaToKeep)
-							end
-						end)
-					end
+		-- LISTEN to server events and override cooldown attempts
+		if abilityCooldownUpdateRemote then
+			InfKaliyah:Clean(abilityCooldownUpdateRemote.OnClientEvent:Connect(function(abilityName, cooldown)
+				if abilityName == "dragon_slayer_punch" then
+					-- Server tried to set cooldown, override to 0
+					task.spawn(function()
+						for i = 1, 5 do
+							task.wait(0.002)
+							abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
+						end
+					end)
 				end
 			end))
 		end
 	end
 	
-	local function fireStrike(targetPos)
-		if not useAbilityRemote then return end
-		
-		if not targetPos then
-			local character = lplr.Character
-			if not character then return end
-			
-			local rootPart = character:FindFirstChild("HumanoidRootPart")
-			if not rootPart then return end
-			
-			targetPos = rootPart.Position + rootPart.CFrame.LookVector * 50
-		end
-		
-		local args = {
-			[1] = "LIGHTNING_STRIKE",
-			[2] = {
-				["target"] = targetPos
-			}
-		}
-		
-		useAbilityRemote:FireServer(unpack(args))
-	end
-	
-	InfZeno = vape.Categories.Kits:CreateModule({
-		Name = 'InfZeno',
+	InfKaliyah = vape.Categories.Kits:CreateModule({
+		Name = 'InfKaliyah',
 		Function = function(callback)
 			if callback then
 				initRemotes()
 				hookRemotes()
 				
-				print("InfZeno activated - Mana stacks restored after each use")
+				print("InfKaliyah activated - Cooldown locked at 0")
 				
-				-- Main loop for auto spam
 				repeat
-					if AutoSpamToggle.Enabled then
-						fireStrike()
-						task.wait(FireRateSlider.Value)
-					else
-						task.wait(0.05)
-					end
-				until not InfZeno.Enabled
+					task.wait(0.05)
+				until not InfKaliyah.Enabled
 				
-				print("InfZeno deactivated")
+				print("InfKaliyah deactivated")
 			end
 		end,
-		Tooltip = 'Infinite Zeno staff - restores mana stacks after each strike for unlimited reuse'
+		Tooltip = 'Infinite Kaliyah - no cooldown on dragon_slayer_punch'
 	})
 	
-	MaxManaSlider = InfZeno:CreateSlider({
-		Name = 'Mana to Restore',
-		Min = 1,
-		Max = 9,
-		Default = 9,
-		Tooltip = 'Mana stacks to restore after ability use'
-	})
-	
-	FireRateSlider = InfZeno:CreateSlider({
-		Name = 'Fire Rate',
-		Min = 0.01,
-		Max = 1,
-		Default = 0.1,
-		Decimal = 2,
-		Suffix = function(val)
-			return val <= 1 and 'sec' or 'secs'
-		end,
-		Tooltip = 'Delay between lightning strikes'
-	})
-	
-	AutoSpamToggle = InfZeno:CreateToggle({
-		Name = 'Auto Spam Strikes',
+	AutoToggle = InfKaliyah:CreateToggle({
+		Name = 'Auto Enable',
 		Default = false,
-		Tooltip = 'Automatically spam lightning strikes'
+		Tooltip = 'Automatically enable on spawn'
 	})
 end)
 
