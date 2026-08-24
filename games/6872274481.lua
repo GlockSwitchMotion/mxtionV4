@@ -21995,75 +21995,154 @@ run(function()
 end)
 
 run(function()
-	local InfKaliyah
-	local AutoToggle
+	local UmekoExtender
 	
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local Players = game:GetService("Players")
-	local lplr = Players.LocalPlayer
-	
-	-- Cache remote
-	local abilityCooldownUpdateRemote
-	
-	local function initRemotes()
-		abilityCooldownUpdateRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("abilityCooldownUpdate")
-		
-		print("✓ abilityCooldownUpdate remote found")
-	end
-	
-	local function hookRemotes()
-		-- HOOK abilityCooldownUpdate: Change cooldown to 0
-		if abilityCooldownUpdateRemote then
-			local original = abilityCooldownUpdateRemote.FireServer
-			
-			abilityCooldownUpdateRemote.FireServer = function(self, abilityName, cooldown, ...)
-				-- For dragon_slayer_punch (Kaliyah ability), set cooldown to 0
-				if abilityName == "dragon_slayer_punch" then
-					return original(self, abilityName, 0, ...)
-				end
-				return original(self, abilityName, cooldown, ...)
-			end
-		end
-		
-		-- LISTEN to server events and override cooldown attempts
-		if abilityCooldownUpdateRemote then
-			InfKaliyah:Clean(abilityCooldownUpdateRemote.OnClientEvent:Connect(function(abilityName, cooldown)
-				if abilityName == "dragon_slayer_punch" then
-					-- Server tried to set cooldown, override to 0
-					task.spawn(function()
-						for i = 1, 5 do
-							task.wait(0.002)
-							abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
-						end
-					end)
-				end
-			end))
-		end
-	end
-	
-	InfKaliyah = vape.Categories.Kits:CreateModule({
-		Name = 'InfKaliyah',
+	UmekoExtender = vape.Categories.Utility:CreateModule({
+		Name = 'UmekoExtender',
 		Function = function(callback)
 			if callback then
-				initRemotes()
-				hookRemotes()
+				local extendDistance = 50
+				local MIN_EXTEND = 0
+				local MAX_EXTEND = 200
 				
-				print("InfKaliyah activated - Cooldown locked at 0")
+				-- Create GUI
+				local screenGui = Instance.new("ScreenGui")
+				screenGui.Name = "UmekoExtenderGui"
+				screenGui.ResetOnSpawn = false
+				screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 				
-				repeat
-					task.wait(0.05)
-				until not InfKaliyah.Enabled
+				-- Title
+				local titleLabel = Instance.new("TextLabel")
+				titleLabel.Name = "Title"
+				titleLabel.Size = UDim2.new(0, 300, 0, 25)
+				titleLabel.Position = UDim2.new(0, 10, 0, 10)
+				titleLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+				titleLabel.TextColor3 = Color3.fromRGB(255, 150, 255)
+				titleLabel.TextSize = 14
+				titleLabel.Font = Enum.Font.GothamBold
+				titleLabel.Text = "🎯 Umeko Extender"
+				titleLabel.BorderSizePixel = 0
+				titleLabel.Parent = screenGui
 				
-				print("InfKaliyah deactivated")
+				-- Slider background
+				local sliderBg = Instance.new("Frame")
+				sliderBg.Name = "SliderBackground"
+				sliderBg.Size = UDim2.new(0, 300, 0, 20)
+				sliderBg.Position = UDim2.new(0, 10, 0, 45)
+				sliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+				sliderBg.BorderSizePixel = 0
+				sliderBg.Parent = screenGui
+				
+				-- Slider handle
+				local sliderHandle = Instance.new("Frame")
+				sliderHandle.Name = "SliderHandle"
+				sliderHandle.Size = UDim2.new(0, 15, 0, 20)
+				sliderHandle.Position = UDim2.new(0, 0, 0, 0)
+				sliderHandle.BackgroundColor3 = Color3.fromRGB(255, 100, 255)
+				sliderHandle.BorderSizePixel = 0
+				sliderHandle.Parent = sliderBg
+				
+				-- Value label
+				local valueLabel = Instance.new("TextLabel")
+				valueLabel.Name = "ValueLabel"
+				valueLabel.Size = UDim2.new(0, 300, 0, 20)
+				valueLabel.Position = UDim2.new(0, 10, 0, 70)
+				valueLabel.BackgroundTransparency = 1
+				valueLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+				valueLabel.TextSize = 12
+				valueLabel.Font = Enum.Font.Gotham
+				valueLabel.Text = string.format("Distance: %d studs", extendDistance)
+				valueLabel.Parent = screenGui
+				
+				-- Slider interaction
+				local dragging = false
+				
+				local function UpdateSliderPosition(input)
+					local sliderPos = sliderBg.AbsolutePosition.X
+					local sliderSize = sliderBg.AbsoluteSize.X
+					local mouseX = input.Position.X
+					
+					local relativePos = math.max(0, math.min(mouseX - sliderPos, sliderSize))
+					local percentage = relativePos / sliderSize
+					
+					extendDistance = math.floor(MIN_EXTEND + (MAX_EXTEND - MIN_EXTEND) * percentage)
+					
+					sliderHandle.Position = UDim2.new(0, relativePos - 7.5, 0, 0)
+					valueLabel.Text = string.format("Distance: %d studs", extendDistance)
+				end
+				
+				sliderHandle.InputBegan:Connect(function(input, gameProcessed)
+					if gameProcessed then return end
+					if input.UserInputType == Enum.UserInputType.MouseButton1 then
+						dragging = true
+					end
+				end)
+				
+				sliderHandle.InputEnded:Connect(function(input, gameProcessed)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 then
+						dragging = false
+					end
+				end)
+				
+				sliderBg.InputBegan:Connect(function(input, gameProcessed)
+					if gameProcessed then return end
+					if input.UserInputType == Enum.UserInputType.MouseButton1 then
+						UpdateSliderPosition(input)
+						dragging = true
+					end
+				end)
+				
+				sliderBg.InputEnded:Connect(function(input, gameProcessed)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 then
+						dragging = false
+					end
+				end)
+				
+				game:GetService("UserInputService").InputChanged:Connect(function(input, gameProcessed)
+					if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+						UpdateSliderPosition(input)
+					end
+				end)
+				
+				-- Initialize slider position
+				local initialPercentage = extendDistance / (MAX_EXTEND - MIN_EXTEND)
+				sliderHandle.Position = UDim2.new(0, (300 - 15) * initialPercentage, 0, 0)
+				
+				-- Hook into ProjectileFire
+				local remote = nil
+				pcall(function()
+					remote = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"].net.out._NetManaged.ProjectileFire
+				end)
+				
+				if remote then
+					-- Store original InvokeServer
+					local originalInvoke = remote.InvokeServer
+					
+					function remote:InvokeServer(...)
+						local args = {...}
+						
+						-- If the last argument contains drawDurationSec, extend it
+						if type(args[#args]) == 'table' and args[#args].drawDurationSec then
+							args[#args].drawDurationSec = args[#args].drawDurationSec + (extendDistance / 150)
+						end
+						
+						return originalInvoke(self, ...)
+					end
+					
+					notif('UmekoExtender', 'Extender loaded! Adjust the slider to extend chakram distance.', 5, 'success')
+				else
+					if UmekoExtender.Enabled then
+						notif('UmekoExtender', 'Could not find the ProjectileFire remote.', 5, 'warning')
+					end
+				end
+				
+				-- Cleanup
+				UmekoExtender:Clean(function()
+					screenGui:Destroy()
+				end)
 			end
 		end,
-		Tooltip = 'Infinite Kaliyah - no cooldown on dragon_slayer_punch'
-	})
-	
-	AutoToggle = InfKaliyah:CreateToggle({
-		Name = 'Auto Enable',
-		Default = false,
-		Tooltip = 'Automatically enable on spawn'
+		Tooltip = 'Extends how far your chakrams travel with an adjustable slider'
 	})
 end)
 
