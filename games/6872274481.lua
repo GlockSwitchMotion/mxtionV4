@@ -15537,7 +15537,10 @@ run(function()
     local stackValues = {
         ['S1'] = 1,
         ['S2'] = 2,
-        ['S3'] = 3
+        ['S3'] = 3,
+        ['S4'] = 4,
+        ['S5'] = 5,
+        ['S6'] = 6
     }
     
     local function punch()
@@ -15590,7 +15593,7 @@ run(function()
 
     StackMode = AutoKaliyah:CreateDropdown({
         Name = 'Stack Mode',
-        List = {'S1', 'S2', 'S3'},
+        List = {'S1', 'S2', 'S3', 'S4', 'S5', 'S6'},
         Default = 'S1',
         Tooltip = 'Minimum dragon slayer stacks required before activating punch'
     })
