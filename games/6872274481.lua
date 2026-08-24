@@ -6214,8 +6214,6 @@ run(function()
 	end)
 	
 	local methodused
-	-- assigned once the Updated table below exists; lets the rank fetch redraw a tag when
-	-- the division finally lands
 	local refreshTag
 
 	local RankMeta = (function()
@@ -6277,6 +6275,7 @@ run(function()
 	end
 
 	local enchantConns = {}
+	local inventoryConns = {}
 
 	local function unwatchEnchant(ent)
 		local conn = enchantConns[ent]
@@ -6297,6 +6296,56 @@ run(function()
 				end
 			end)
 		end)
+	end
+
+	-- Live listener for active held items and inventory updates
+	local function unwatchInventory(plr)
+		if inventoryConns[plr] then
+			for _, conn in inventoryConns[plr] do
+				pcall(function() conn:Disconnect() end)
+			end
+			inventoryConns[plr] = nil
+		end
+	end
+
+	local function watchInventory(plr)
+		unwatchInventory(plr)
+		inventoryConns[plr] = {}
+
+		local function triggerUpdate()
+			local ent = entitylib.getEntity(plr)
+			if ent and refreshTag then
+				refreshTag(ent)
+			end
+		end
+
+		-- Connect to character tool equip/unequip events
+		local function bindChar(char)
+			if not char then return end
+			table.insert(inventoryConns[plr], char.ChildAdded:Connect(function(child)
+				if child:IsA('Accessory') or child:IsA('Tool') then
+					triggerUpdate()
+				end
+			end))
+			table.insert(inventoryConns[plr], char.ChildRemoved:Connect(function(child)
+				if child:IsA('Accessory') or child:IsA('Tool') then
+					triggerUpdate()
+				end
+			end))
+		end
+
+		if plr.Character then bindChar(plr.Character) end
+		table.insert(inventoryConns[plr], plr.CharacterAdded:Connect(bindChar))
+
+		-- Hook into client inventory store events if available
+		if store and store.inventories then
+			local inv = store.inventories[plr]
+			if inv and typeof(inv) == 'table' and inv.onHandItemChanged then
+				pcall(function()
+					table.insert(inventoryConns[plr], inv.onHandItemChanged:Connect(triggerUpdate))
+				end)
+			end
+		end
 	end
 
 	local deviceEmojis = {gamepad = '🎮', touch = '📱', keyboard = '🖥️'}
@@ -6361,7 +6410,6 @@ run(function()
 						Icon.Image = ''
 						Icon.Parent = nametag
 
-						-- Added item amount text overlay for Hand item
 						if v == 'Hand' then
 							local ValueLabel = Instance.new('TextLabel')
 							ValueLabel.Name = 'AmountLabel'
@@ -6408,6 +6456,10 @@ run(function()
 					Icon.Visible = false
 					Icon.Parent = nametag
 					watchEnchant(ent)
+				end
+
+				if ent.Player then
+					watchInventory(ent.Player)
 				end
 
 				positionIcons(nametag, size.X)
@@ -6470,6 +6522,7 @@ run(function()
 		Normal = function(ent)
 			pcall(function()
 				unwatchEnchant(ent)
+				if ent.Player then unwatchInventory(ent.Player) end
 				local v = Reference[ent]
 				if v then
 					Reference[ent] = nil
@@ -6482,6 +6535,7 @@ run(function()
 		Drawing = function(ent)
 			pcall(function()
 				unwatchEnchant(ent)
+				if ent.Player then unwatchInventory(ent.Player) end
 				local v = Reference[ent]
 				if v then
 					Reference[ent] = nil
@@ -6537,7 +6591,6 @@ run(function()
 					nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
 					nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
 
-					-- Update the item stack count/amount label
 					local amountLabel = nametag.Hand:FindFirstChild('AmountLabel')
 					if amountLabel then
 						local amount = handItem.amount or handItem.quantity or 1
@@ -6657,6 +6710,19 @@ run(function()
 						continue
 					end
 
+					-- Dynamic live update check for held equipment amounts during render loop
+					if Equipment.Enabled and store.inventories[ent.Player] then
+						local handItem = store.inventories[ent.Player].hand or {itemType = '', amount = 1}
+						local amountLabel = nametag.Hand and nametag.Hand:FindFirstChild('AmountLabel')
+						if amountLabel then
+							local amount = handItem.amount or handItem.quantity or 1
+							local newText = amount > 1 and tostring(amount) or ''
+							if amountLabel.Text ~= newText then
+								amountLabel.Text = newText
+							end
+						end
+					end
+
 					if Distance.Enabled then
 						local mag = selfPos and math.floor((selfPos - ent.RootPart.Position).Magnitude) or 0
 						if Sizes[ent] ~= mag then
@@ -6770,6 +6836,9 @@ run(function()
 				end
 				for ent in enchantConns do
 					unwatchEnchant(ent)
+				end
+				for plr in inventoryConns do
+					unwatchInventory(plr)
 				end
 			end
 		end,
