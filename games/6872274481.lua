@@ -15200,13 +15200,15 @@ end)
 run(function()
 	local AutoHephaestus
 	local lastRepair = 0
+	local RepairHealth
 	
 	AutoHephaestus = vape.Categories.Kits:CreateModule({
 		Name = 'AutoHephaestus',
 		Function = function(callback)
 			if callback then
 				AutoHephaestus:Clean(runService.Heartbeat:Connect(function()
-					if tick() >= lastRepair and store.equippedKit == 'tinker' and bedwars.TinkerKitController.mounted and bedwars.AbilityController:canUseAbility('tinker_self_repair', {disableBlockedAbilityAlert = true}) and (workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 1 then
+					local machineHealth = bedwars.TinkerKitController.mounted and bedwars.TinkerKitController.mounted.Health or 100
+					if tick() >= lastRepair and store.equippedKit == 'tinker' and bedwars.TinkerKitController.mounted and bedwars.AbilityController:canUseAbility('tinker_self_repair', {disableBlockedAbilityAlert = true}) and (workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 1 and machineHealth <= RepairHealth.Value then
 						lastRepair = tick() + 0.5
 						bedwars.AbilityController:useAbility('tinker_self_repair')
 					end
@@ -15214,6 +15216,14 @@ run(function()
 			end
 		end,
 		Tooltip = 'Automatically repairs your Tinker machine whenever the self repair ability is available'
+	})
+
+	RepairHealth = AutoHephaestus:CreateSlider({
+		Name = 'Repair Health',
+		Min = 1,
+		Max = 100,
+		Default = 50,
+		Suffix = '%'
 	})
 end)
 
