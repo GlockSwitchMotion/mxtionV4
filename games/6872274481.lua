@@ -21836,6 +21836,7 @@ run(function()
 	local MaxManaSlider
 	local FireRateSlider
 	local AutoSpamToggle
+	local DebugToggle
 	
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local Players = game:GetService("Players")
@@ -21846,6 +21847,9 @@ run(function()
 	local abilityUsedRemote
 	local wizardLightningStrikeRemote
 	local zapReliableRemote
+	local wizardStaff1Remote
+	local wizardStaff2Remote
+	local wizardStaff3Remote
 	
 	local function findRemote(pathStr)
 		local parts = string.split(pathStr, ".")
@@ -21866,14 +21870,93 @@ run(function()
 		wizardLightningStrikeRemote = findRemote("ReplicatedStorage.rxbxts_include.node_modules.@rxbxts.net.out._.NetManaged.WizardLightningStrike")
 		zapReliableRemote = findRemote("ReplicatedStorage.ZAP.ZAP_RELIABLE")
 		
-		if not abilityProgressUpdateRemote then
-			warn("InfZeno: Could not find abilityProgressUpdate remote")
+		-- Try to find wizard_staff remotes
+		wizardStaff1Remote = findRemote("ReplicatedStorage.wizard_staff_1")
+		wizardStaff2Remote = findRemote("ReplicatedStorage.wizard_staff_2")
+		wizardStaff3Remote = findRemote("ReplicatedStorage.wizard_staff_3")
+		
+		print("=== INFZENO REMOTE STATUS ===")
+		print("abilityProgressUpdate:", abilityProgressUpdateRemote ~= nil)
+		print("abilityUsed:", abilityUsedRemote ~= nil)
+		print("WizardLightningStrike:", wizardLightningStrikeRemote ~= nil)
+		print("ZAP_RELIABLE:", zapReliableRemote ~= nil)
+		print("wizard_staff_1:", wizardStaff1Remote ~= nil)
+		print("wizard_staff_2:", wizardStaff2Remote ~= nil)
+		print("wizard_staff_3:", wizardStaff3Remote ~= nil)
+		print("============================")
+	end
+	
+	local function logRemoteFires()
+		-- Log wizard_staff_1
+		if wizardStaff1Remote then
+			local original1 = wizardStaff1Remote.FireServer
+			wizardStaff1Remote.FireServer = function(self, ...)
+				if DebugToggle.Enabled then
+					print("[FIRE] wizard_staff_1:", ...)
+				end
+				return original1(self, ...)
+			end
+			
+			InfZeno:Clean(wizardStaff1Remote.OnClientEvent:Connect(function(...)
+				if DebugToggle.Enabled then
+					print("[EVENT] wizard_staff_1:", ...)
+				end
+			end))
 		end
-		if not abilityUsedRemote then
-			warn("InfZeno: Could not find abilityUsed remote")
+		
+		-- Log wizard_staff_2
+		if wizardStaff2Remote then
+			local original2 = wizardStaff2Remote.FireServer
+			wizardStaff2Remote.FireServer = function(self, ...)
+				if DebugToggle.Enabled then
+					print("[FIRE] wizard_staff_2:", ...)
+				end
+				return original2(self, ...)
+			end
+			
+			InfZeno:Clean(wizardStaff2Remote.OnClientEvent:Connect(function(...)
+				if DebugToggle.Enabled then
+					print("[EVENT] wizard_staff_2:", ...)
+				end
+			end))
 		end
-		if not wizardLightningStrikeRemote then
-			warn("InfZeno: Could not find WizardLightningStrike remote")
+		
+		-- Log wizard_staff_3
+		if wizardStaff3Remote then
+			local original3 = wizardStaff3Remote.FireServer
+			wizardStaff3Remote.FireServer = function(self, ...)
+				if DebugToggle.Enabled then
+					print("[FIRE] wizard_staff_3:", ...)
+				end
+				return original3(self, ...)
+			end
+			
+			InfZeno:Clean(wizardStaff3Remote.OnClientEvent:Connect(function(...)
+				if DebugToggle.Enabled then
+					print("[EVENT] wizard_staff_3:", ...)
+				end
+			end))
+		end
+		
+		-- Log other key remotes
+		if abilityProgressUpdateRemote then
+			local original = abilityProgressUpdateRemote.FireServer
+			abilityProgressUpdateRemote.FireServer = function(self, ...)
+				if DebugToggle.Enabled then
+					print("[FIRE] abilityProgressUpdate:", ...)
+				end
+				return original(self, ...)
+			end
+		end
+		
+		if abilityUsedRemote then
+			local original = abilityUsedRemote.FireServer
+			abilityUsedRemote.FireServer = function(self, ...)
+				if DebugToggle.Enabled then
+					print("[FIRE] abilityUsed:", ...)
+				end
+				return original(self, ...)
+			end
 		end
 	end
 	
@@ -21898,7 +21981,7 @@ run(function()
 				
 				-- IMMEDIATELY restore mana on next frame
 				if abilityName == "WIZARD_MANA" then
-					task.wait(0.001) -- Tiny delay to let server process
+					task.wait(0.001)
 					if abilityProgressUpdateRemote then
 						abilityProgressUpdateRemote:FireServer(event, "WIZARD_MANA", MaxManaSlider.Value)
 					end
@@ -21912,7 +21995,6 @@ run(function()
 		if abilityProgressUpdateRemote then
 			InfZeno:Clean(abilityProgressUpdateRemote.OnClientEvent:Connect(function(abilityName, progress)
 				if abilityName == "WIZARD_MANA" then
-					-- Force send max mana back to server
 					task.defer(function()
 						abilityProgressUpdateRemote:FireServer(abilityProgressUpdateRemote.OnClientEvent, "WIZARD_MANA", MaxManaSlider.Value)
 					end)
@@ -21930,7 +22012,6 @@ run(function()
 		local rootPart = character:FindFirstChild("HumanoidRootPart")
 		if not rootPart then return end
 		
-		-- Fire strike at target position in front of player
 		local strikePos = rootPart.Position + rootPart.CFrame.LookVector * 50
 		
 		wizardLightningStrikeRemote:FireServer(
@@ -21945,9 +22026,9 @@ run(function()
 		Function = function(callback)
 			if callback then
 				initRemotes()
+				logRemoteFires()
 				hookRemotes()
 				
-				-- Continuous mana restoration every tick
 				repeat
 					if abilityProgressUpdateRemote then
 						abilityProgressUpdateRemote:FireServer(abilityProgressUpdateRemote.OnClientEvent, "WIZARD_MANA", MaxManaSlider.Value)
@@ -21989,6 +22070,12 @@ run(function()
 		Name = 'Auto Spam Strikes',
 		Default = false,
 		Tooltip = 'Automatically spam lightning strikes'
+	})
+	
+	DebugToggle = InfZeno:CreateToggle({
+		Name = 'Debug Logging',
+		Default = false,
+		Tooltip = 'Log all remote fires to console'
 	})
 end)
 
