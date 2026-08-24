@@ -21837,24 +21837,46 @@ run(function()
 	
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
 	local lplr = Players.LocalPlayer
 	
-	-- Cache remote
+	-- Cache remotes
+	local useAbilityRemote
 	local abilityCooldownUpdateRemote
 	
 	local function initRemotes()
+		useAbilityRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
 		abilityCooldownUpdateRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("abilityCooldownUpdate")
 		
+		print("✓ useAbility remote found")
 		print("✓ abilityCooldownUpdate remote found")
 	end
 	
 	local function hookRemotes()
-		-- HOOK abilityCooldownUpdate: Change cooldown to 0
+		-- HOOK useAbility to prevent cooldown from being applied
+		if useAbilityRemote then
+			local original = useAbilityRemote.FireServer
+			
+			useAbilityRemote.FireServer = function(self, abilityName, ...)
+				-- Fire ability
+				local result = original(self, abilityName, ...)
+				
+				-- If it's dragon_slayer_punch, immediately send 0 cooldown
+				if abilityName == "dragon_slayer_punch" then
+					task.wait(0.01)
+					abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
+				end
+				
+				return result
+			end
+		end
+		
+		-- HOOK abilityCooldownUpdate to force cooldown to 0
 		if abilityCooldownUpdateRemote then
 			local original = abilityCooldownUpdateRemote.FireServer
 			
 			abilityCooldownUpdateRemote.FireServer = function(self, abilityName, cooldown, ...)
-				-- For dragon_slayer_punch (Kaliyah ability), set cooldown to 0
+				-- Always send 0 for dragon_slayer_punch
 				if abilityName == "dragon_slayer_punch" then
 					return original(self, abilityName, 0, ...)
 				end
@@ -21862,20 +21884,29 @@ run(function()
 			end
 		end
 		
-		-- LISTEN to server events and override cooldown attempts
+		-- LISTEN to server cooldown updates and override to 0
 		if abilityCooldownUpdateRemote then
 			InfKaliyah:Clean(abilityCooldownUpdateRemote.OnClientEvent:Connect(function(abilityName, cooldown)
-				if abilityName == "dragon_slayer_punch" then
+				if abilityName == "dragon_slayer_punch" and cooldown > 0 then
 					-- Server tried to set cooldown, override to 0
 					task.spawn(function()
-						for i = 1, 5 do
-							task.wait(0.002)
+						for i = 1, 10 do
+							task.wait(0.001)
 							abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
 						end
 					end)
 				end
 			end))
 		end
+		
+		-- CONTINUOUS override via Heartbeat
+		InfKaliyah:Clean(RunService.Heartbeat:Connect(function()
+			if InfKaliyah.Enabled then
+				if abilityCooldownUpdateRemote then
+					abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
+				end
+			end
+		end))
 	end
 	
 	InfKaliyah = vape.Categories.Kits:CreateModule({
@@ -21894,7 +21925,7 @@ run(function()
 				print("InfKaliyah deactivated")
 			end
 		end,
-		Tooltip = 'Infinite Kaliyah - no cooldown on dragon_slayer_punch'
+		Tooltip = 'Infinite Kaliyah - dragon_slayer_punch has zero cooldown'
 	})
 	
 	AutoToggle = InfKaliyah:CreateToggle({
