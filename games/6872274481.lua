@@ -6298,6 +6298,12 @@ run(function()
 		end)
 	end
 
+	-- Helper function to extract exact item amount from dynamic item objects
+	local function getItemAmount(item)
+		if not item then return 0 end
+		return item.amount or item.quantity or item.count or (item.item or {}).amount or (item.item or {}).quantity or 1
+	end
+
 	-- Live listener for active held items and inventory updates
 	local function unwatchInventory(plr)
 		if inventoryConns[plr] then
@@ -6340,10 +6346,17 @@ run(function()
 		-- Hook into client inventory store events if available
 		if store and store.inventories then
 			local inv = store.inventories[plr]
-			if inv and typeof(inv) == 'table' and inv.onHandItemChanged then
-				pcall(function()
-					table.insert(inventoryConns[plr], inv.onHandItemChanged:Connect(triggerUpdate))
-				end)
+			if inv and typeof(inv) == 'table' then
+				if inv.onHandItemChanged then
+					pcall(function()
+						table.insert(inventoryConns[plr], inv.onHandItemChanged:Connect(triggerUpdate))
+					end)
+				end
+				if inv.onItemAmountChanged then
+					pcall(function()
+						table.insert(inventoryConns[plr], inv.onItemAmountChanged:Connect(triggerUpdate))
+					end)
+				end
 			end
 		end
 	end
@@ -6393,7 +6406,7 @@ run(function()
 
 				if Health.Enabled then
 					local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
-					Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
+					Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255)). me..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
 				end
 
 				if Distance.Enabled then
@@ -6593,12 +6606,8 @@ run(function()
 
 					local amountLabel = nametag.Hand:FindFirstChild('AmountLabel')
 					if amountLabel then
-						local amount = handItem.amount or handItem.quantity or 1
-						if amount > 1 then
-							amountLabel.Text = tostring(amount)
-						else
-							amountLabel.Text = ''
-						end
+						local amount = getItemAmount(handItem)
+						amountLabel.Text = amount > 1 and tostring(amount) or ''
 					end
 				end
 
@@ -6710,15 +6719,27 @@ run(function()
 						continue
 					end
 
-					-- Dynamic live update check for held equipment amounts during render loop
-					if Equipment.Enabled and store.inventories[ent.Player] then
-						local handItem = store.inventories[ent.Player].hand or {itemType = '', amount = 1}
-						local amountLabel = nametag.Hand and nametag.Hand:FindFirstChild('AmountLabel')
-						if amountLabel then
-							local amount = handItem.amount or handItem.quantity or 1
-							local newText = amount > 1 and tostring(amount) or ''
-							if amountLabel.Text ~= newText then
-								amountLabel.Text = newText
+					-- Live realtime equipment & amount updates inside render loop
+					if Equipment.Enabled and ent.Player and store.inventories[ent.Player] then
+						local handIcon = nametag:FindFirstChild('Hand')
+						if handIcon then
+							local inventory = store.inventories[ent.Player]
+							local handItem = inventory.hand or {itemType = '', amount = 1}
+							
+							-- Update held item icon live
+							local newIcon = bedwars.getIcon(handItem, true)
+							if handIcon.Image ~= newIcon then
+								handIcon.Image = newIcon
+							end
+
+							-- Update stack count label live
+							local amountLabel = handIcon:FindFirstChild('AmountLabel')
+							if amountLabel then
+								local amount = getItemAmount(handItem)
+								local newText = amount > 1 and tostring(amount) or ''
+								if amountLabel.Text ~= newText then
+									amountLabel.Text = newText
+								end
 							end
 						end
 					end
