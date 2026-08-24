@@ -13944,7 +13944,6 @@ end)
 run(function()
     local ElektraExtender
     local ExtensionSlider
-    local MultiplierSlider
     local InstantToggle
 
     local netManaged = game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged")
@@ -13967,12 +13966,9 @@ run(function()
                             local data = args[1]
                             if data.startCFrame and data.destCFrame then
                                 local direction = (data.destCFrame.Position - data.startCFrame.Position).Unit
-                                local baseDistance = (data.destCFrame.Position - data.startCFrame.Position).Magnitude
+                                local distance = (data.destCFrame.Position - data.startCFrame.Position).Magnitude + ExtensionSlider.Value
                                 
-                                -- Apply multiplier and additional stud extension
-                                local newDistance = (baseDistance * MultiplierSlider.Value) + ExtensionSlider.Value
-                                
-                                local newDestPos = data.startCFrame.Position + (direction * newDistance)
+                                local newDestPos = data.startCFrame.Position + (direction * distance)
                                 data.destCFrame = CFrame.new(newDestPos) * (data.destCFrame - data.destCFrame.Position)
                             end
                         end
@@ -13999,30 +13995,18 @@ run(function()
                 end
             end
         end,
-        Tooltip = 'Extends Elektra dash distance/speed and removes teleport delay'
-    })
-
-    MultiplierSlider = ElektraExtender:CreateSlider({
-        Name = 'Dash Multiplier',
-        Min = 1,
-        Max = 5,
-        Default = 1.5,
-        Decimal = 100,
-        Suffix = function(val)
-            return 'x'
-        end,
-        Tooltip = 'Multiplies the default dash distance'
+        Tooltip = 'Extends Elektra dash distance and removes teleport delay'
     })
 
     ExtensionSlider = ElektraExtender:CreateSlider({
         Name = 'Extra Studs',
         Min = 0,
-        Max = 30,
-        Default = 0,
+        Max = 13,
+        Default = 5,
         Suffix = function(val)
             return val == 1 and 'stud' or 'studs'
         end,
-        Tooltip = 'Additional fixed stud distance added on top of multiplier'
+        Tooltip = 'Additional distance added to your ElectricDash (Max 13)'
     })
 
     InstantToggle = ElektraExtender:CreateToggle({
