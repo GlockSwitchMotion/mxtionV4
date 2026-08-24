@@ -21845,6 +21845,9 @@ run(function()
 	local useAbilityRemote
 	local abilityProgressUpdateRemote
 	
+	local manaOverride = 8
+	local lastManaRestore = 0
+	
 	local function initRemotes()
 		useAbilityRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
 		abilityProgressUpdateRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("abilityProgressUpdate")
@@ -21853,48 +21856,75 @@ run(function()
 		print("✓ abilityProgressUpdate remote found")
 	end
 	
+	local function restoreMana()
+		if tick() - lastManaRestore < 0.01 then return end -- Prevent spam
+		lastManaRestore = tick()
+		
+		if abilityProgressUpdateRemote then
+			abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaOverride)
+		end
+	end
+	
 	local function hookRemotes()
-		-- Hook useAbility to prevent mana drain when firing LIGHTNING_STRIKE
+		-- AGGRESSIVE HOOK: Override useAbility completely
 		if useAbilityRemote then
 			local original = useAbilityRemote.FireServer
+			
 			useAbilityRemote.FireServer = function(self, abilityName, args, ...)
-				-- Fire the ability normally
-				local result = original(self, abilityName, args, ...)
-				
-				-- IMMEDIATELY restore mana after strike
+				-- For LIGHTNING_STRIKE, restore mana BEFORE and AFTER
 				if abilityName == "LIGHTNING_STRIKE" then
-					task.defer(function()
-						abilityProgressUpdateRemote:FireServer("WIZARD_MANA", MaxManaSlider.Value)
-					end)
+					-- Ensure mana is at max before firing
+					abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaOverride)
+					task.wait(0.001)
+					
+					-- Fire the strike
+					local result = original(self, abilityName, args, ...)
+					
+					-- Immediately restore mana after
+					task.wait(0.001)
+					abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaOverride)
+					
+					return result
 				end
 				
-				return result
+				return original(self, abilityName, args, ...)
 			end
 		end
 		
-		-- Hook abilityProgressUpdate to intercept any mana drain attempts
+		-- AGGRESSIVE HOOK: Override abilityProgressUpdate to FORCE max mana
 		if abilityProgressUpdateRemote then
 			local original = abilityProgressUpdateRemote.FireServer
+			
 			abilityProgressUpdateRemote.FireServer = function(self, abilityName, progress, ...)
-				-- ALWAYS keep WIZARD_MANA at max
+				-- WIZARD_MANA ALWAYS goes to 8
 				if abilityName == "WIZARD_MANA" then
-					return original(self, abilityName, MaxManaSlider.Value, ...)
+					return original(self, abilityName, manaOverride, ...)
 				end
 				return original(self, abilityName, progress, ...)
 			end
 		end
 		
-		-- Also listen to OnClientEvent and force max when server tries to drain
+		-- INTERCEPT SERVER ATTEMPTS: Listen to all mana updates and override
 		if abilityProgressUpdateRemote then
 			InfZeno:Clean(abilityProgressUpdateRemote.OnClientEvent:Connect(function(abilityName, progress)
-				if abilityName == "WIZARD_MANA" and progress < MaxManaSlider.Value then
-					-- Server tried to drain, immediately restore to max
-					task.defer(function()
-						abilityProgressUpdateRemote:FireServer("WIZARD_MANA", MaxManaSlider.Value)
+				if abilityName == "WIZARD_MANA" then
+					-- Server sent mana update, ignore it and force max
+					task.spawn(function()
+						for i = 1, 5 do -- Try multiple times to ensure it sticks
+							task.wait(0.002)
+							abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaOverride)
+						end
 					end)
 				end
 			end))
 		end
+		
+		-- CONTINUOUS RESTORATION: Keep sending max mana every frame
+		InfZeno:Clean(game:GetService("RunService").Heartbeat:Connect(function()
+			if InfZeno.Enabled then
+				restoreMana()
+			end
+		end))
 	end
 	
 	local function fireStrike(targetPos)
@@ -21927,13 +21957,10 @@ run(function()
 				initRemotes()
 				hookRemotes()
 				
-				-- Continuous mana restoration + auto spam
+				print("InfZeno activated - Mana locked at 8")
+				
+				-- Main loop for auto spam
 				repeat
-					-- Always keep mana at max
-					if abilityProgressUpdateRemote then
-						abilityProgressUpdateRemote:FireServer("WIZARD_MANA", MaxManaSlider.Value)
-					end
-					
 					if AutoSpamToggle.Enabled then
 						fireStrike()
 						task.wait(FireRateSlider.Value)
@@ -21941,24 +21968,26 @@ run(function()
 						task.wait(0.05)
 					end
 				until not InfZeno.Enabled
+				
+				print("InfZeno deactivated")
 			end
 		end,
-		Tooltip = 'Infinite Zeno staff - no mana drain, spam lightning strikes'
+		Tooltip = 'Infinite Zeno staff - locked mana at 8, unlimited strikes'
 	})
 	
 	MaxManaSlider = InfZeno:CreateSlider({
 		Name = 'Max Mana',
 		Min = 1,
-		Max = 10,
+		Max = 8,
 		Default = 8,
-		Tooltip = 'Maximum mana to keep'
+		Tooltip = 'Mana to lock at (max is 8)'
 	})
 	
 	FireRateSlider = InfZeno:CreateSlider({
 		Name = 'Fire Rate',
 		Min = 0.01,
 		Max = 1,
-		Default = 0.1,
+		Default = 0.05,
 		Decimal = 2,
 		Suffix = function(val)
 			return val <= 1 and 'sec' or 'secs'
@@ -21969,7 +21998,7 @@ run(function()
 	AutoSpamToggle = InfZeno:CreateToggle({
 		Name = 'Auto Spam Strikes',
 		Default = false,
-		Tooltip = 'Automatically spam lightning strikes'
+		Tooltip = 'Automatically spam lightning strikes forever'
 	})
 end)
 
