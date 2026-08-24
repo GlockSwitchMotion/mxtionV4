@@ -15523,16 +15523,72 @@ run(function()
 	end)
 end)
 
-
 run(function()
 	local AutoKaliyah
 	local Range
 	local Delay
 	local NoSlow
+	local StackModeToggle
+	local Stack1Toggle
+	local Stack2Toggle
+	local Stack3Toggle
+	local CurrentStackDisplay
 	
 	local Legit = getFunctionRange(bedwars.DragonSlayerController.hasEligiblePunchTarget) or 14.4
 	local modifier, old
 	local noSlowUntil = 0
+	
+	-- Track current stack count
+	local currentStackCount = 0
+	
+	local function updateStackDisplay()
+		if CurrentStackDisplay then
+			CurrentStackDisplay:SetValue("Current Stacks: " .. currentStackCount)
+		end
+	end
+	
+	local function hookStackUpdateRemote()
+		-- Hook UpdateDragonSlayerStacks to track stack changes
+		local UpdateDragonSlayerStacks = ReplicatedStorage.rxbxts_include.node_modules["@rxbxts"].net.out._.NetManaged.UpdateDragonSlayerStacks
+		
+		if UpdateDragonSlayerStacks then
+			local original = UpdateDragonSlayerStacks.FireServer
+			
+			UpdateDragonSlayerStacks.FireServer = function(self, ...)
+				local args = {...}
+				-- args[3] should be stacks value
+				if args[3] then
+					currentStackCount = args[3]
+					updateStackDisplay()
+				end
+				return original(self, ...)
+			end
+			
+			-- Also listen to OnClientEvent to catch server updates
+			AutoKaliyah:Clean(UpdateDragonSlayerStacks.OnClientEvent:Connect(function(target, stacks, kitUser)
+				currentStackCount = stacks or 0
+				updateStackDisplay()
+			end))
+		end
+	end
+	
+	local function shouldPunch()
+		-- Check if stack mode is enabled
+		if not StackModeToggle.Enabled then
+			return true -- Punch on any stack if mode is disabled
+		end
+		
+		-- Check which stacks are enabled and match current stacks
+		if currentStackCount == 1 and Stack1Toggle.Enabled then
+			return true
+		elseif currentStackCount == 2 and Stack2Toggle.Enabled then
+			return true
+		elseif currentStackCount == 3 and Stack3Toggle.Enabled then
+			return true
+		end
+		
+		return false
+	end
 	
 	local function punch()
 		if NoSlow.Enabled then
@@ -15563,13 +15619,18 @@ run(function()
 		Name = 'AutoKaliyah',
 		Function = function(call)
 			if call then
+				hookStackUpdateRemote()
+				
 				repeat
 					if entitylib.isAlive and store.equippedKit == 'dragon_slayer' and bedwars.AbilityController:canUseAbility('dragon_slayer_punch', {disableBlockedAbilityAlert = true}) then
 						local localPosition = entitylib.character.RootPart.Position
 						for target, v in bedwars.DragonSlayerController.dragonEmblems do
 							if v.stackCount >= 1 and target.PrimaryPart and (target.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
-								punch()
-								break
+								-- Check if we should punch based on stack mode
+								if shouldPunch() then
+									punch()
+									break
+								end
 							end
 						end
 					end
@@ -15577,13 +15638,15 @@ run(function()
 				until not AutoKaliyah.Enabled
 			end
 		end,
-		Tooltip = 'Automatically uses the "punch" ability from kaliyah'
+		Tooltip = 'Automatically uses punch with stack count detection'
 	})
+	
 	NoSlow = AutoKaliyah:CreateToggle({
 		Name = 'No Slow',
 		Default = true,
 		Tooltip = 'Prevents you from being slowed down after using the "Punch" ability'
 	})
+	
 	Range = AutoKaliyah:CreateSlider({
 		Name = 'Range',
 		Min = 1,
@@ -15593,18 +15656,48 @@ run(function()
 			return val <= 1 and 'stud' or 'studs'
 		end
 	})
+	
 	AutoKaliyah:CreateButton({
 		Name = 'Sync to legit range',
 		Function = function()
 			Range:SetValue(Legit)
 		end
 	})
+	
 	Delay = AutoKaliyah:CreateSlider({
 		Name = 'Delay',
 		Min = 0,
 		Max = 1,
 		Default = 0.1,
 		Decimal = 100
+	})
+	
+	StackModeToggle = AutoKaliyah:CreateToggle({
+		Name = 'Stack Mode',
+		Default = false,
+		Tooltip = 'Only punch at specific stack counts'
+	})
+	
+	Stack1Toggle = AutoKaliyah:CreateToggle({
+		Name = 'Punch at Stack 1',
+		Default = true,
+		Tooltip = 'Punch when target has 1 stack'
+	})
+	
+	Stack2Toggle = AutoKaliyah:CreateToggle({
+		Name = 'Punch at Stack 2',
+		Default = false,
+		Tooltip = 'Punch when target has 2 stacks'
+	})
+	
+	Stack3Toggle = AutoKaliyah:CreateToggle({
+		Name = 'Punch at Stack 3',
+		Default = false,
+		Tooltip = 'Punch when target has 3 stacks'
+	})
+	
+	CurrentStackDisplay = AutoKaliyah:CreateLabel({
+		Name = 'Current Stacks: 0'
 	})
 end)
 
