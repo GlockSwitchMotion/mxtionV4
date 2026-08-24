@@ -18126,7 +18126,7 @@ run(function()
     local UseStorm
     local Range
     local Delay
-    local WallCheck -- Added Toggle Variable
+    local WallCheck
     
     local function getAttackData()
         if Limit.Enabled then
@@ -18148,14 +18148,12 @@ run(function()
         return nil
     end
     
-    -- Helper function to verify if target is visible behind obstacles
     local function isVisible(origin, targetPart)
         if not WallCheck.Enabled then return true end
 
         local raycastParams = RaycastParams.new()
         raycastParams.FilterType = Enum.RaycastFilterType.Exclude
         
-        -- Ignore local player character and target character in raycast calculation
         local ignoreList = {entitylib.character.Character}
         if targetPart and targetPart.Parent then
             table.insert(ignoreList, targetPart.Parent)
@@ -18165,7 +18163,6 @@ run(function()
         local direction = targetPart.Position - origin
         local raycastResult = workspace:Raycast(origin, direction, raycastParams)
 
-        -- If hit is nil, there are no walls in between
         return raycastResult == nil
     end
 
@@ -18180,8 +18177,14 @@ run(function()
     end
     
     local function useAbility(ability, target)
+        local targetPosition = target
+        if ability == 'SHOCKWAVE' then
+            targetPosition = entitylib.character.RootPart.Position
+        end
+
         local data = {
-            target = ability == 'SHOCKWAVE' and Vector3.zero or target
+            target = targetPosition,
+            origin = entitylib.character.RootPart.Position
         }
         return pcall(bedwars.AbilityController.useAbility, bedwars.AbilityController, ability, newproxy(true), data)
     end
@@ -18199,25 +18202,40 @@ run(function()
                             local localPosition = entitylib.character.RootPart.Position
                             local castRange = math.min(Range.Value, bedwars.WizardUtil:getCastRange(itemType))
                             local shockwave = AutoShockWave.Enabled and bedwars.WizardUtil:hasAbility(itemType, 'SHOCKWAVE')
+                            
+                            local searchRange = castRange
+                            if shockwave then
+                                searchRange = math.max(castRange, ShockwaveRange.Value)
+                            end
+
                             local ent = entitylib.EntityPosition({
                                 Origin = localPosition,
-                                Range = math.max(castRange, shockwave and ShockwaveRange.Value or 0),
+                                Range = searchRange,
                                 Part = 'RootPart',
                                 Players = Targets.Players.Enabled,
                                 NPCs = Targets.NPCs.Enabled,
                                 Sort = sortmethods[TargetMode.Value]
                             })
     
-                            -- Validate entity and perform raycast wall check
                             if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
                                 local distance = (localPosition - ent.RootPart.Position).Magnitude
                                 local target = ent.RootPart.Position + ((ent.Humanoid.MoveDirection or Vector3.zero) * (1 + lplr:GetNetworkPing()))
-                                local abilities = {
+                                
+                                -- 1. Check & cast Shockwave independently (high priority close-range)
+                                if shockwave and distance <= ShockwaveRange.Value then
+                                    if (attempts['SHOCKWAVE'] or 0) <= tick() and canUseAbility('SHOCKWAVE', itemType) then
+                                        attempts['SHOCKWAVE'] = tick() + math.max(Delay.Value, 0.25)
+                                        useAbility('SHOCKWAVE', target)
+                                    end
+                                end
+
+                                -- 2. Cast ranged offensive abilities (Lightning Storm / Lightning Strike)
+                                local rangedAbilities = {
                                     {'LIGHTNING_STORM', UseStorm.Enabled and distance <= castRange},
-                                    {'SHOCKWAVE', shockwave and distance <= ShockwaveRange.Value},
                                     {'LIGHTNING_STRIKE', UseStrike.Enabled and distance <= castRange}
                                 }
-                                for _, ability in abilities do
+
+                                for _, ability in rangedAbilities do
                                     if ability[2] and (attempts[ability[1]] or 0) <= tick() and canUseAbility(ability[1], itemType) then
                                         attempts[ability[1]] = tick() + math.max(Delay.Value, 0.25)
                                         local success = useAbility(ability[1], target)
