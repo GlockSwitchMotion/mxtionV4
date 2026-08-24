@@ -6236,17 +6236,6 @@ run(function()
 		return meta and meta.image or nil
 	end
 
-	-- the icons ride the right edge of the text, so everywhere that re-measures the tag has
-	-- to move them as well. They pack outward from the end of the text in list order,
-	-- and a slot is consumed only by an icon that is actually SHOWING something.
-	--
-	-- Existence isn't enough: both icons get created up front whenever their toggle is
-	-- on, and start blank -- rank until the async fetch lands (or forever, if the player
-	-- is unranked), enchant whenever nothing is currently applied. A blank one used to
-	-- hold its slot, which is what left the hole. Skipping it means an enchant-only
-	-- player draws exactly where a rank icon would have gone, a rank-only player is
-	-- unaffected, and with both showing they sit flush against each other -- the same
-	-- 30px step the equipment row above uses, so the two rows line up.
 	local ICON_SIZE = 30
 	local rightIcons = {'RankIcon', 'EnchantIcon'}
 	local function positionIcons(nametag, width)
@@ -6271,8 +6260,6 @@ run(function()
 		rankRequested[plr.UserId] = true
 		task.spawn(function()
 			pcall(function()
-				-- forced: getRanks skips the server call once its cache holds anything, so
-				-- an uncached player would otherwise never resolve
 				controller:getRanks({plr.UserId}, true):andThen(function()
 					if refreshTag then refreshTag(ent) end
 				end)
@@ -6280,10 +6267,6 @@ run(function()
 		end)
 	end
 
-	-- The guards are kept without the logging: every step of the chain
-	-- (store.enchants -> StatusEffectMeta -> EnchantMeta) throws on a nil table rather
-	-- than returning nil, so a missing piece has to fall out as a blank icon instead of
-	-- an error escaping into the tag build.
 	local function getEnchantImage(plr)
 		if not plr then return nil end
 		if not (store.enchants and bedwars.EnchantMeta) then return nil end
@@ -6293,10 +6276,6 @@ run(function()
 		return suc and res or nil
 	end
 
-	-- Enchants come and go as StatusEffect_* attributes on the character, several times
-	-- over a fight, and far more often than EntityUpdated fires -- so the icon gets its
-	-- own watcher rather than riding the health/equipment refresh and showing a stale
-	-- enchant in between. Keyed by entity and torn down with the tag.
 	local enchantConns = {}
 
 	local function unwatchEnchant(ent)
@@ -6324,21 +6303,17 @@ run(function()
 
 	local function getDeviceEmoji(plr)
 		if not plr then return nil end
-		-- checked on the character too, in case the attribute is written there
 		local inputType = plr:GetAttribute('UserInputType')
 		if inputType == nil and plr.Character then
 			inputType = plr.Character:GetAttribute('UserInputType')
 		end
 		if inputType == nil then return nil end
 		if type(inputType) == 'number' then
-			-- Enum.UserInputType values: Touch 7, Keyboard 8, Gamepad1..8 9-16
 			if inputType == 7 then return deviceEmojis.touch end
 			if inputType == 8 then return deviceEmojis.keyboard end
 			if inputType >= 9 and inputType <= 16 then return deviceEmojis.gamepad end
 			return deviceEmojis.keyboard
 		end
-		-- covers a plain string and an EnumItem alike ("Enum.UserInputType.Touch"), and the
-		-- platform-flavoured values some servers write instead of the enum names
 		local name = tostring(inputType):lower()
 		if name:find('gamepad') or name:find('console') or name:find('xbox') or name:find('playstation') then
 			return deviceEmojis.gamepad
@@ -6346,9 +6321,6 @@ run(function()
 		if name:find('touch') or name:find('mobile') or name:find('phone') or name:find('tablet') then
 			return deviceEmojis.touch
 		end
-		-- anything left that carries a value at all is a desktop input (keyboard, any of
-		-- the mouse variants, MouseMovement, TextInput...), so fall through rather than
-		-- silently showing nothing
 		return name ~= '' and deviceEmojis.keyboard or nil
 	end
 
@@ -6358,7 +6330,7 @@ run(function()
 				if not Targets.Players.Enabled and ent.Player then return end
 				if not Targets.NPCs.Enabled and ent.NPC then return end
 				if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
-				if Reference[ent] then return end -- Prevent duplicates
+				if Reference[ent] then return end
 
 				local nametag = Instance.new('TextLabel')
 				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
@@ -6388,6 +6360,23 @@ run(function()
 						Icon.BackgroundTransparency = 1
 						Icon.Image = ''
 						Icon.Parent = nametag
+
+						-- Added item amount text overlay for Hand item
+						if v == 'Hand' then
+							local ValueLabel = Instance.new('TextLabel')
+							ValueLabel.Name = 'AmountLabel'
+							ValueLabel.Size = UDim2.fromScale(1, 1)
+							ValueLabel.Position = UDim2.fromOffset(0, 0)
+							ValueLabel.BackgroundTransparency = 1
+							ValueLabel.Text = ''
+							ValueLabel.TextColor3 = Color3.new(1, 1, 1)
+							ValueLabel.TextStrokeTransparency = 0
+							ValueLabel.TextSize = 12
+							ValueLabel.Font = Enum.Font.SourceSansBold
+							ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+							ValueLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+							ValueLabel.Parent = Icon
+						end
 					end
 				end
 
@@ -6397,11 +6386,7 @@ run(function()
 				nametag.Name = ent.Player and ent.Player.Name or ent.Character.Name
 				nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
 
-				-- Rank Icon: sits immediately to the right of the text, so it has to be
-				-- built after the text has been measured
 				if Rank.Enabled and ent.Player then
-					-- no Position here: positionIcons below owns the layout, and setting
-					-- one now would flash the icon at a slot it may not end up in
 					local Icon = Instance.new('ImageLabel')
 					Icon.Name = 'RankIcon'
 					Icon.Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE)
@@ -6425,7 +6410,6 @@ run(function()
 					watchEnchant(ent)
 				end
 
-				-- after both right-side icons exist, so each lands at its own slot
 				positionIcons(nametag, size.X)
 
 				nametag.AnchorPoint = Vector2.new(0.5, 1)
@@ -6459,8 +6443,6 @@ run(function()
 				nametag.Text.ZIndex = 2
 				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
 
-				-- Drawing text only; the rank icon needs an ImageLabel, which this render
-				-- path has no equivalent for
 				if Device.Enabled and ent.Player then
 					local emoji = getDeviceEmoji(ent.Player)
 					if emoji then
@@ -6499,8 +6481,6 @@ run(function()
 		end,
 		Drawing = function(ent)
 			pcall(function()
-				-- the Drawing path never creates the watcher, but Removed runs for
-				-- entities whose tag was built under the other method too
 				unwatchEnchant(ent)
 				local v = Reference[ent]
 				if v then
@@ -6549,11 +6529,24 @@ run(function()
 				if Equipment.Enabled and store.inventories[ent.Player] and nametag:FindFirstChild("Hand") then
 					local kit = ent.Player:GetAttribute('PlayingAsKit')
 					local inventory = store.inventories[ent.Player]
-					nametag.Hand.Image = bedwars.getIcon(inventory.hand or {itemType = ''}, true)
+					local handItem = inventory.hand or {itemType = '', amount = 1}
+
+					nametag.Hand.Image = bedwars.getIcon(handItem, true)
 					nametag.Helmet.Image = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true)
 					nametag.Chestplate.Image = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true)
 					nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
 					nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
+
+					-- Update the item stack count/amount label
+					local amountLabel = nametag.Hand:FindFirstChild('AmountLabel')
+					if amountLabel then
+						local amount = handItem.amount or handItem.quantity or 1
+						if amount > 1 then
+							amountLabel.Text = tostring(amount)
+						else
+							amountLabel.Text = ''
+						end
+					end
 				end
 
 				if Rank.Enabled and ent.Player then
@@ -6643,8 +6636,6 @@ run(function()
 	local Loop = {
 		Normal = function()
 			pcall(function()
-				-- Local player's position is identical for every nametag this frame;
-				-- resolve the property chain once instead of per-entity.
 				local selfPos = entitylib.isAlive and entitylib.character.RootPart.Position
 				for ent, nametag in Reference do
 					if not nametag or not nametag.Parent then
@@ -6682,8 +6673,6 @@ run(function()
 		end,
 		Drawing = function()
 			pcall(function()
-				-- Local player's position is identical for every nametag this frame;
-				-- resolve the property chain once instead of per-entity.
 				local selfPos = entitylib.isAlive and entitylib.character.RootPart.Position
 				for ent, nametag in Reference do
 					if not nametag or not nametag.Text or not nametag.BG then
@@ -6759,10 +6748,6 @@ run(function()
 					NameTags:Clean(runService.RenderStepped:Connect(Loop[methodused]))
 				end
 
-				-- UserInputType can replicate after the tag was built (and changes when a
-				-- player switches input), and the tag is only rebuilt on health/equipment
-				-- updates -- which is why the emoji was missing on some players and not
-				-- others. Redraw whoever's attribute lands or changes.
 				local function watchDevice(plr)
 					NameTags:Clean(plr:GetAttributeChangedSignal('UserInputType'):Connect(function()
 						if not Device.Enabled then return end
@@ -6783,8 +6768,6 @@ run(function()
 						Removed[methodused](i)
 					end
 				end
-				-- the loop above only reaches entities that still have a tag; sweep the
-				-- rest so no attribute listener outlives the module
 				for ent in enchantConns do
 					unwatchEnchant(ent)
 				end
