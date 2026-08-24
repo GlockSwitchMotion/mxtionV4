@@ -21878,39 +21878,46 @@ run(function()
 	end
 	
 	local function hookRemotes()
-		-- Hook abilityProgressUpdate to prevent mana drain
+		-- Hook abilityProgressUpdate to prevent ANY mana change
 		if abilityProgressUpdateRemote then
 			local original = abilityProgressUpdateRemote.FireServer
-			abilityProgressUpdateRemote.FireServer = function(self, ...)
-				local args = {...}
-				-- Keep mana at max
-				if args[2] == "WIZARD_MANA" then
-					args[3] = MaxManaSlider.Value
+			abilityProgressUpdateRemote.FireServer = function(self, event, abilityName, progress, ...)
+				-- ALWAYS set to max for WIZARD_MANA
+				if abilityName == "WIZARD_MANA" then
+					return original(self, event, abilityName, MaxManaSlider.Value, ...)
 				end
-				return original(self, unpack(args))
+				return original(self, event, abilityName, progress, ...)
 			end
 		end
 		
-		-- Hook abilityUsed to restore mana after use
+		-- Hook abilityUsed to immediately restore mana
 		if abilityUsedRemote then
 			local original = abilityUsedRemote.FireServer
-			abilityUsedRemote.FireServer = function(self, ...)
-				local args = {...}
-				local result = original(self, unpack(args))
+			abilityUsedRemote.FireServer = function(self, event, abilityName, ...)
+				local result = original(self, event, abilityName, ...)
 				
-				-- Immediately restore mana
-				if args[2] == "WIZARD_MANA" and abilityProgressUpdateRemote then
-					task.defer(function()
-						abilityProgressUpdateRemote:FireServer(
-							abilityProgressUpdateRemote.OnClientEvent,
-							"WIZARD_MANA",
-							MaxManaSlider.Value
-						)
-					end)
+				-- IMMEDIATELY restore mana on next frame
+				if abilityName == "WIZARD_MANA" then
+					task.wait(0.001) -- Tiny delay to let server process
+					if abilityProgressUpdateRemote then
+						abilityProgressUpdateRemote:FireServer(event, "WIZARD_MANA", MaxManaSlider.Value)
+					end
 				end
 				
 				return result
 			end
+		end
+		
+		-- Also hook OnClientEvent to intercept server updates and force max
+		if abilityProgressUpdateRemote then
+			InfZeno:Clean(abilityProgressUpdateRemote.OnClientEvent:Connect(function(abilityName, progress)
+				if abilityName == "WIZARD_MANA" then
+					-- Force send max mana back to server
+					task.defer(function()
+						abilityProgressUpdateRemote:FireServer(abilityProgressUpdateRemote.OnClientEvent, "WIZARD_MANA", MaxManaSlider.Value)
+					end)
+				end
+			end))
 		end
 	end
 	
@@ -21940,8 +21947,12 @@ run(function()
 				initRemotes()
 				hookRemotes()
 				
-				-- Auto spam lightning strikes if enabled
+				-- Continuous mana restoration every tick
 				repeat
+					if abilityProgressUpdateRemote then
+						abilityProgressUpdateRemote:FireServer(abilityProgressUpdateRemote.OnClientEvent, "WIZARD_MANA", MaxManaSlider.Value)
+					end
+					
 					if AutoSpamToggle.Enabled then
 						fireStrike()
 						task.wait(FireRateSlider.Value)
