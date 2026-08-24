@@ -15198,33 +15198,223 @@ run(function()
 end)
 
 run(function()
-	local AutoHephaestus
-	local lastRepair = 0
-	local RepairHealth
+	local ArmorTrims
+	local AutoTrim
+	local SelectedEffect
+	local SelectedColor
+	local SelectedPack
+	local SelectedRank
+	local activeTrims = {}
 	
-	AutoHephaestus = vape.Categories.Kits:CreateModule({
-		Name = 'AutoHephaestus',
-		Function = function(callback)
-			if callback then
-				AutoHephaestus:Clean(runService.Heartbeat:Connect(function()
-					local machineHealth = bedwars.TinkerKitController.mounted and bedwars.TinkerKitController.mounted.Health or 100
-					if tick() >= lastRepair and store.equippedKit == 'tinker' and bedwars.TinkerKitController.mounted and bedwars.AbilityController:canUseAbility('tinker_self_repair', {disableBlockedAbilityAlert = true}) and (workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 1 and machineHealth <= RepairHealth.Value then
-						lastRepair = tick() + 0.5
-						bedwars.AbilityController:useAbility('tinker_self_repair')
-					end
-				end))
+	local function getArmorTrimController()
+		local controller = nil
+		pcall(function()
+			controller = bedwars.KnitClient.Controllers.ArmorTrimController
+		end)
+		return controller
+	end
+
+	local function loadArmorTrimModules()
+		local modules = {}
+		pcall(function()
+			local trimPath = game:GetService("ReplicatedStorage").TS.games.bedwars["armor-trim"]
+			if trimPath then
+				modules.effects = require(trimPath.effects)
+				modules.colors = require(trimPath.colors)
+				modules.packs = require(trimPath.packs)
+				modules.ranks = require(trimPath.ranks)
 			end
-		end,
-		Tooltip = 'Automatically repairs your Tinker machine whenever the self repair ability is available'
+		end)
+		return modules
+	end
+
+	local function getAvailableOptions(modules, optionType)
+		local options = {}
+		if modules[optionType] then
+			for key, _ in pairs(modules[optionType]) do
+				table.insert(options, key)
+			end
+		end
+		table.sort(options)
+		return options
+	end
+
+	local function applyArmorTrimEffects()
+		local controller = getArmorTrimController()
+		if not controller then return end
+		
+		pcall(function()
+			controller:attachArmorTrimEffects(
+				SelectedEffect.Value,
+				SelectedColor.Value,
+				SelectedPack.Value,
+				SelectedRank.Value
+			)
+		end)
+	end
+
+	local function weldTrimToCharacter(trimName, bodyPart)
+		if not lplr.Character or not lplr.Character:FindFirstChild(bodyPart) then
+			return
+		end
+
+		pcall(function()
+			local trimAsset = game:GetService("ReplicatedStorage").TS.games.bedwars["armor-trim"].accessories[trimName]
+			if trimAsset then
+				local trimClone = trimAsset:Clone()
+				trimClone.Parent = lplr.Character
+
+				-- Color/materialize the trim
+				for _, part in pairs(trimClone:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CanCollide = false
+					end
+				end
+
+				-- Weld to body part
+				local targetPart = lplr.Character:FindFirstChild(bodyPart)
+				if targetPart and trimClone.PrimaryPart then
+					local weld = Instance.new("WeldConstraint")
+					weld.Part0 = targetPart
+					weld.Part1 = trimClone.PrimaryPart
+					weld.Parent = trimClone.PrimaryPart
+
+					activeTrims[trimName] = {
+						model = trimClone,
+						weld = weld
+					}
+				end
+			end
+		end)
+	end
+
+	local function loadAllArmorTrims()
+		-- Clean up old trims
+		for trimName, trimData in pairs(activeTrims) do
+			if trimData.model then
+				trimData.model:Destroy()
+			end
+		end
+		activeTrims = {}
+
+		-- Define trim mappings
+		local trimMappings = {
+			['boots_left_trim'] = 'LeftFoot',
+			['boots_right_trim'] = 'RightFoot',
+			['chestplate_left_shoulder_trim'] = 'LeftUpperArm',
+			['chestplate_right_shoulder_trim'] = 'RightUpperArm',
+			['chestplate_trim'] = 'UpperTorso',
+			['helmet_trim'] = 'Head'
+		}
+
+		-- Weld each trim
+		for trimName, bodyPart in pairs(trimMappings) do
+			weldTrimToCharacter(trimName, bodyPart)
+		end
+	end
+
+	ArmorTrims = vape.Categories:CreateCategory({
+		Name = 'ArmorTrims',
+		Tooltip = 'Customize your armor trim appearance'
 	})
 
-	RepairHealth = AutoHephaestus:CreateSlider({
-		Name = 'Repair Health',
-		Min = 1,
-		Max = 100,
-		Default = 50,
-		Suffix = '%'
+	local modules = loadArmorTrimModules()
+	local effectOptions = getAvailableOptions(modules, 'effects')
+	local colorOptions = getAvailableOptions(modules, 'colors')
+	local packOptions = getAvailableOptions(modules, 'packs')
+	local rankOptions = getAvailableOptions(modules, 'ranks')
+
+	AutoTrim = ArmorTrims:CreateModule({
+		Name = 'AutoTrim',
+		Function = function(callback)
+			if callback then
+				loadAllArmorTrims()
+				applyArmorTrimEffects()
+				
+				-- Reconnect on character respawn
+				ArmorTrims:Clean(lplr.CharacterAdded:Connect(function()
+					if AutoTrim.Enabled then
+						task.wait(0.5)
+						loadAllArmorTrims()
+						applyArmorTrimEffects()
+					end
+				end))
+			else
+				-- Clean up trims when disabled
+				for trimName, trimData in pairs(activeTrims) do
+					if trimData.model then
+						trimData.model:Destroy()
+					end
+				end
+				activeTrims = {}
+			end
+		end,
+		Tooltip = 'Automatically load and apply armor trims with effects'
 	})
+
+	SelectedEffect = AutoTrim:CreateDropdown({
+		Name = 'Effect',
+		Options = #effectOptions > 0 and effectOptions or {'None'},
+		Default = effectOptions[1] or 'None',
+		Function = function()
+			if AutoTrim.Enabled then
+				applyArmorTrimEffects()
+			end
+		end
+	})
+
+	SelectedColor = AutoTrim:CreateDropdown({
+		Name = 'Color',
+		Options = #colorOptions > 0 and colorOptions or {'None'},
+		Default = colorOptions[1] or 'None',
+		Function = function()
+			if AutoTrim.Enabled then
+				applyArmorTrimEffects()
+			end
+		end
+	})
+
+	SelectedPack = AutoTrim:CreateDropdown({
+		Name = 'Pack',
+		Options = #packOptions > 0 and packOptions or {'None'},
+		Default = packOptions[1] or 'None',
+		Function = function()
+			if AutoTrim.Enabled then
+				applyArmorTrimEffects()
+			end
+		end
+	})
+
+	SelectedRank = AutoTrim:CreateDropdown({
+		Name = 'Rank',
+		Options = #rankOptions > 0 and rankOptions or {'None'},
+		Default = rankOptions[1] or 'None',
+		Function = function()
+			if AutoTrim.Enabled then
+				applyArmorTrimEffects()
+			end
+		end
+	})
+end)
+
+run(function()
+    local AutoHephaestus
+    local lastRepair = 0
+    
+    AutoHephaestus = vape.Categories.Kits:CreateModule({
+        Name = 'AutoHephaestus',
+        Function = function(callback)
+            if callback then
+                AutoHephaestus:Clean(runService.Heartbeat:Connect(function()
+                    if tick() >= lastRepair and store.equippedKit == 'tinker' and bedwars.TinkerKitController.mounted and bedwars.AbilityController:canUseAbility('tinker_self_repair', {disableBlockedAbilityAlert = true}) and (workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 1 then
+                        lastRepair = tick() + 0.5
+                        bedwars.AbilityController:useAbility('tinker_self_repair')
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Automatically repairs your Tinker machine whenever the self repair ability is available'
+    })
 end)
 
 run(function()
