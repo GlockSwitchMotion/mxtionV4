@@ -15523,130 +15523,89 @@ run(function()
 	end)
 end)
 
+
 run(function()
-    local AutoKaliyah
-    local Range
-    local Delay
-    local NoSlow
-    local StackMode
-    
-    local currentStacks = {}
-    local Legit = getFunctionRange(bedwars.DragonSlayerController.hasEligiblePunchTarget) or 14.4
-    local modifier, old
-    local noSlowUntil = 0
-    
-    local function setupStackListener()
-        local Event = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@bxts"].net.out._NetManaged.UpdateDragonSlayerStacks
-        
-        Event.OnClientEvent:Connect(function(target, stackCount, kitUser)
-            if target and typeof(target) == "Instance" then
-                currentStacks[target] = stackCount
-            end
-        end)
-    end
-    
-    local function punch()
-        if NoSlow.Enabled then
-            if not old then
-                modifier = bedwars.SprintController:getMovementStatusModifier()
-                old = modifier.addModifier
-                modifier.addModifier = function(self, tab)
-                    if NoSlow.Enabled and tick() < noSlowUntil and tab and tab.moveSpeedMultiplier == 0 then
-                        tab.moveSpeedMultiplier = 1
-                    end
-                    return old(self, tab)
-                end
-
-                AutoKaliyah:Clean(function()
-                    modifier.addModifier = old
-                    modifier, old = nil, nil
-                    noSlowUntil = 0
-                end)
-            end
-            noSlowUntil = math.max(noSlowUntil, tick() + Delay.Value + 0.1)
-        end
-
-        task.wait(Delay.Value)
-        bedwars.AbilityController:useAbility('dragon_slayer_punch')
-    end
-    
-    AutoKaliyah = vape.Categories.Kits:CreateModule({
-        Name = 'AutoKaliyah',
-        Function = function(call)
-            if call then
-                setupStackListener()
-                repeat
-                    if entitylib.isAlive and store.equippedKit == 'dragon_slayer' and bedwars.AbilityController:canUseAbility('dragon_slayer_punch', {disableBlockedAbilityAlert = true}) then
-                        local localPosition = entitylib.character.RootPart.Position
-                        local targetStackMode = StackMode.Value
-                        
-                        for target, v in bedwars.DragonSlayerController.dragonEmblems do
-                            local stackCount = currentStacks[target] or v.stackCount or 0
-                            
-                            -- Check if target is in range and matches stack mode
-                            if target.PrimaryPart and (target.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
-                                if targetStackMode == 'Stack 1' and stackCount >= 1 then
-                                    punch()
-                                    break
-                                elseif targetStackMode == 'Stack 2' and stackCount >= 2 then
-                                    punch()
-                                    break
-                                elseif targetStackMode == 'Stack 3' and stackCount >= 3 then
-                                    punch()
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    task.wait(0.1)
-                until not AutoKaliyah.Enabled
-            end
-        end,
-        Tooltip = 'Automatically uses the "punch" ability from kaliyah based on stack count'
-    })
-    
-    StackMode = AutoKaliyah:CreateDropdown({
-        Name = 'Stack Mode',
-        Options = {'Stack 1', 'Stack 2', 'Stack 3'},
-        Default = 'Stack 1',
-        Tooltip = 'Only punch when target reaches the selected stack count'
-    })
-    
-    NoSlow = AutoKaliyah:CreateToggle({
-        Name = 'No Slow',
-        Default = true,
-        Tooltip = 'Prevents you from being slowed down after using the "Punch" ability'
-    })
-    
-    Range = AutoKaliyah:CreateSlider({
-        Name = 'Range',
-        Min = 1,
-        Max = 20,
-        Default = 18,
-        Suffix = function(val)
-            return val <= 1 and 'stud' or 'studs'
-        end
-    })
-    
-    AutoKaliyah:CreateButton({
-        Name = 'Sync to legit range',
-        Function = function()
-            Range:SetValue(Legit)
-        end
-    })
-    
-    Delay = AutoKaliyah:CreateSlider({
-        Name = 'Delay',
-        Min = 0,
-        Max = 1,
-        Default = 0.1,
-        Decimal = 100
-    })
-    
-    AutoKaliyah:Clean(function()
-        currentStacks = {}
-        modifier, old = nil, nil
-    end)
+	local AutoKaliyah
+	local Range
+	local Delay
+	local NoSlow
+	
+	local Legit = getFunctionRange(bedwars.DragonSlayerController.hasEligiblePunchTarget) or 14.4
+	local modifier, old
+	local noSlowUntil = 0
+	
+	local function punch()
+		if NoSlow.Enabled then
+			if not old then
+				modifier = bedwars.SprintController:getMovementStatusModifier()
+				old = modifier.addModifier
+				modifier.addModifier = function(self, tab)
+					if NoSlow.Enabled and tick() < noSlowUntil and tab and tab.moveSpeedMultiplier == 0 then
+						tab.moveSpeedMultiplier = 1
+					end
+					return old(self, tab)
+				end
+	
+				AutoKaliyah:Clean(function()
+					modifier.addModifier = old
+					modifier, old = nil, nil
+					noSlowUntil = 0
+				end)
+			end
+			noSlowUntil = math.max(noSlowUntil, tick() + Delay.Value + 0.1)
+		end
+	
+		task.wait(Delay.Value)
+		bedwars.AbilityController:useAbility('dragon_slayer_punch')
+	end
+	
+	AutoKaliyah = vape.Categories.Kits:CreateModule({
+		Name = 'AutoKaliyah',
+		Function = function(call)
+			if call then
+				repeat
+					if entitylib.isAlive and store.equippedKit == 'dragon_slayer' and bedwars.AbilityController:canUseAbility('dragon_slayer_punch', {disableBlockedAbilityAlert = true}) then
+						local localPosition = entitylib.character.RootPart.Position
+						for target, v in bedwars.DragonSlayerController.dragonEmblems do
+							if v.stackCount >= 1 and target.PrimaryPart and (target.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
+								punch()
+								break
+							end
+						end
+					end
+					task.wait(0.1)
+				until not AutoKaliyah.Enabled
+			end
+		end,
+		Tooltip = 'Automatically uses the "punch" ability from kaliyah'
+	})
+	NoSlow = AutoKaliyah:CreateToggle({
+		Name = 'No Slow',
+		Default = true,
+		Tooltip = 'Prevents you from being slowed down after using the "Punch" ability'
+	})
+	Range = AutoKaliyah:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 20,
+		Default = 18,
+		Suffix = function(val)
+			return val <= 1 and 'stud' or 'studs'
+		end
+	})
+	AutoKaliyah:CreateButton({
+		Name = 'Sync to legit range',
+		Function = function()
+			Range:SetValue(Legit)
+		end
+	})
+	Delay = AutoKaliyah:CreateSlider({
+		Name = 'Delay',
+		Min = 0,
+		Max = 1,
+		Default = 0.1,
+		Decimal = 100
+	})
 end)
 
 run(function()
@@ -21874,12 +21833,10 @@ end)
 
 run(function()
 	local InfKaliyah
-	local CooldownSlider
 	local AutoToggle
 	
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local Players = game:GetService("Players")
-	local RunService = game:GetService("RunService")
 	local lplr = Players.LocalPlayer
 	
 	-- Cache remote
@@ -21892,41 +21849,33 @@ run(function()
 	end
 	
 	local function hookRemotes()
-		-- HOOK OnClientEvent to intercept server cooldown and override it
-		if abilityCooldownUpdateRemote then
-			InfKaliyah:Clean(abilityCooldownUpdateRemote.OnClientEvent:Connect(function(abilityName, cooldown)
-				if abilityName == "dragon_slayer_punch" then
-					-- Server sent cooldown, override with our value by firing back
-					task.spawn(function()
-						for i = 1, 15 do
-							task.wait(0.0005)
-							-- Fire the remote with our custom cooldown
-							abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", CooldownSlider.Value)
-						end
-					end)
-				end
-			end))
-		end
-		
-		-- HOOK FireServer to change any outgoing cooldown value
+		-- HOOK abilityCooldownUpdate: Change cooldown to 0
 		if abilityCooldownUpdateRemote then
 			local original = abilityCooldownUpdateRemote.FireServer
 			
 			abilityCooldownUpdateRemote.FireServer = function(self, abilityName, cooldown, ...)
-				-- Always use our custom cooldown for dragon_slayer_punch
+				-- For dragon_slayer_punch (Kaliyah ability), set cooldown to 0
 				if abilityName == "dragon_slayer_punch" then
-					return original(self, abilityName, CooldownSlider.Value, ...)
+					return original(self, abilityName, 0, ...)
 				end
 				return original(self, abilityName, cooldown, ...)
 			end
 		end
 		
-		-- CONTINUOUS HEARTBEAT: Keep sending custom cooldown
-		InfKaliyah:Clean(RunService.Heartbeat:Connect(function()
-			if InfKaliyah.Enabled and abilityCooldownUpdateRemote then
-				abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", CooldownSlider.Value)
-			end
-		end))
+		-- LISTEN to server events and override cooldown attempts
+		if abilityCooldownUpdateRemote then
+			InfKaliyah:Clean(abilityCooldownUpdateRemote.OnClientEvent:Connect(function(abilityName, cooldown)
+				if abilityName == "dragon_slayer_punch" then
+					-- Server tried to set cooldown, override to 0
+					task.spawn(function()
+						for i = 1, 5 do
+							task.wait(0.002)
+							abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
+						end
+					end)
+				end
+			end))
+		end
 	end
 	
 	InfKaliyah = vape.Categories.Kits:CreateModule({
@@ -21936,7 +21885,7 @@ run(function()
 				initRemotes()
 				hookRemotes()
 				
-				print("InfKaliyah activated - Cooldown overridden to " .. CooldownSlider.Value .. "s")
+				print("InfKaliyah activated - Cooldown locked at 0")
 				
 				repeat
 					task.wait(0.05)
@@ -21945,19 +21894,7 @@ run(function()
 				print("InfKaliyah deactivated")
 			end
 		end,
-		Tooltip = 'Kaliyah infinite - dragon_slayer_punch cooldown reduced'
-	})
-	
-	CooldownSlider = InfKaliyah:CreateSlider({
-		Name = 'Cooldown Override',
-		Min = 0.1,
-		Max = 2.5,
-		Default = 0.5,
-		Decimal = 2,
-		Suffix = function(val)
-			return val <= 1 and 'sec' or 'secs'
-		end,
-		Tooltip = 'Override cooldown (default is 2.5s, server sends 6s)'
+		Tooltip = 'Infinite Kaliyah - no cooldown on dragon_slayer_punch'
 	})
 	
 	AutoToggle = InfKaliyah:CreateToggle({
