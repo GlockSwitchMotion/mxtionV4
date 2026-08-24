@@ -15524,127 +15524,129 @@ run(function()
 end)
 
 run(function()
-	local AutoKaliyah
-	local Range
-	local Delay
-	local NoSlow
-	local StackModeDropdown
-	
-	local Legit = getFunctionRange(bedwars.DragonSlayerController.hasEligiblePunchTarget) or 14.4
-	local modifier, old
-	local noSlowUntil = 0
-	
-	local function punch()
-		if NoSlow.Enabled then
-			if not old then
-				modifier = bedwars.SprintController:getMovementStatusModifier()
-				old = modifier.addModifier
-				modifier.addModifier = function(self, tab)
-					if NoSlow.Enabled and tick() < noSlowUntil and tab and tab.moveSpeedMultiplier == 0 then
-						tab.moveSpeedMultiplier = 1
-					end
-					return old(self, tab)
-				end
-	
-				AutoKaliyah:Clean(function()
-					modifier.addModifier = old
-					modifier, old = nil, nil
-					noSlowUntil = 0
-				end)
-			end
-			noSlowUntil = math.max(noSlowUntil, tick() + Delay.Value + 0.1)
-		end
-	
-		task.wait(Delay.Value)
-		bedwars.AbilityController:useAbility('dragon_slayer_punch')
-	end
-	
-	local function shouldPunchAtStack(stackCount)
-		local mode = StackModeDropdown.Value
-		
-		if mode == "Any Stack" then
-			return true
-		elseif mode == "Stack 1" then
-			return stackCount == 1
-		elseif mode == "Stack 2" then
-			return stackCount == 2
-		elseif mode == "Stack 3" then
-			return stackCount == 3
-		elseif mode == "Stack 1-2" then
-			return stackCount == 1 or stackCount == 2
-		elseif mode == "Stack 2-3" then
-			return stackCount == 2 or stackCount == 3
-		elseif mode == "Stack 1-3" then
-			return stackCount >= 1
-		end
-		
-		return true
-	end
-	
-	AutoKaliyah = vape.Categories.Kits:CreateModule({
-		Name = 'AutoKaliyah',
-		Function = function(call)
-			if call then
-				repeat
-					if entitylib.isAlive and store.equippedKit == 'dragon_slayer' and bedwars.AbilityController:canUseAbility('dragon_slayer_punch', {disableBlockedAbilityAlert = true}) then
-						local localPosition = entitylib.character.RootPart.Position
-						for target, v in bedwars.DragonSlayerController.dragonEmblems do
-							-- Check stack count from the remote data
-							local stackCount = v.stackCount or 0
-							
-							if stackCount >= 1 and target.PrimaryPart and (target.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
-								-- Check if we should punch based on stack mode dropdown
-								if shouldPunchAtStack(stackCount) then
-									punch()
-									break
-								end
-							end
-						end
-					end
-					task.wait(0.1)
-				until not AutoKaliyah.Enabled
-			end
-		end,
-		Tooltip = 'Automatically uses the "punch" ability from kaliyah'
-	})
-	
-	NoSlow = AutoKaliyah:CreateToggle({
-		Name = 'No Slow',
-		Default = true,
-		Tooltip = 'Prevents you from being slowed down after using the "Punch" ability'
-	})
-	
-	Range = AutoKaliyah:CreateSlider({
-		Name = 'Range',
-		Min = 1,
-		Max = 20,
-		Default = 18,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end
-	})
-	
-	AutoKaliyah:CreateButton({
-		Name = 'Sync to legit range',
-		Function = function()
-			Range:SetValue(Legit)
-		end
-	})
-	
-	Delay = AutoKaliyah:CreateSlider({
-		Name = 'Delay',
-		Min = 0,
-		Max = 1,
-		Default = 0.1,
-		Decimal = 100
-	})
-	
-	StackModeDropdown = AutoKaliyah:CreateDropdown({
-		Name = 'Stack Mode - Stable',
-		Options = {'Any Stack', 'Stack 1', 'Stack 2', 'Stack 3', 'Stack 1-2', 'Stack 2-3', 'Stack 1-3'},
-		Default = 'Any Stack',
-		Tooltip = 'Select which stack count to punch at'
-	})
+    local AutoKaliyah
+    local Range
+    local Delay
+    local NoSlow
+    local StackMode
+    
+    local currentStacks = {}
+    local Legit = getFunctionRange(bedwars.DragonSlayerController.hasEligiblePunchTarget) or 14.4
+    local modifier, old
+    local noSlowUntil = 0
+    
+    local function setupStackListener()
+        local Event = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@bxts"].net.out._NetManaged.UpdateDragonSlayerStacks
+        
+        Event.OnClientEvent:Connect(function(target, stackCount, kitUser)
+            if target and typeof(target) == "Instance" then
+                currentStacks[target] = stackCount
+            end
+        end)
+    end
+    
+    local function punch()
+        if NoSlow.Enabled then
+            if not old then
+                modifier = bedwars.SprintController:getMovementStatusModifier()
+                old = modifier.addModifier
+                modifier.addModifier = function(self, tab)
+                    if NoSlow.Enabled and tick() < noSlowUntil and tab and tab.moveSpeedMultiplier == 0 then
+                        tab.moveSpeedMultiplier = 1
+                    end
+                    return old(self, tab)
+                end
+
+                AutoKaliyah:Clean(function()
+                    modifier.addModifier = old
+                    modifier, old = nil, nil
+                    noSlowUntil = 0
+                end)
+            end
+            noSlowUntil = math.max(noSlowUntil, tick() + Delay.Value + 0.1)
+        end
+
+        task.wait(Delay.Value)
+        bedwars.AbilityController:useAbility('dragon_slayer_punch')
+    end
+    
+    AutoKaliyah = vape.Categories.Kits:CreateModule({
+        Name = 'AutoKaliyah',
+        Function = function(call)
+            if call then
+                setupStackListener()
+                repeat
+                    if entitylib.isAlive and store.equippedKit == 'dragon_slayer' and bedwars.AbilityController:canUseAbility('dragon_slayer_punch', {disableBlockedAbilityAlert = true}) then
+                        local localPosition = entitylib.character.RootPart.Position
+                        local targetStackMode = StackMode.Value
+                        
+                        for target, v in bedwars.DragonSlayerController.dragonEmblems do
+                            local stackCount = currentStacks[target] or v.stackCount or 0
+                            
+                            -- Check if target is in range and matches stack mode
+                            if target.PrimaryPart and (target.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
+                                if targetStackMode == 'Stack 1' and stackCount >= 1 then
+                                    punch()
+                                    break
+                                elseif targetStackMode == 'Stack 2' and stackCount >= 2 then
+                                    punch()
+                                    break
+                                elseif targetStackMode == 'Stack 3' and stackCount >= 3 then
+                                    punch()
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.1)
+                until not AutoKaliyah.Enabled
+            end
+        end,
+        Tooltip = 'Automatically uses the "punch" ability from kaliyah based on stack count'
+    })
+    
+    StackMode = AutoKaliyah:CreateDropdown({
+        Name = 'Stack Mode',
+        Options = {'Stack 1', 'Stack 2', 'Stack 3'},
+        Default = 'Stack 1',
+        Tooltip = 'Only punch when target reaches the selected stack count'
+    })
+    
+    NoSlow = AutoKaliyah:CreateToggle({
+        Name = 'No Slow',
+        Default = true,
+        Tooltip = 'Prevents you from being slowed down after using the "Punch" ability'
+    })
+    
+    Range = AutoKaliyah:CreateSlider({
+        Name = 'Range',
+        Min = 1,
+        Max = 20,
+        Default = 18,
+        Suffix = function(val)
+            return val <= 1 and 'stud' or 'studs'
+        end
+    })
+    
+    AutoKaliyah:CreateButton({
+        Name = 'Sync to legit range',
+        Function = function()
+            Range:SetValue(Legit)
+        end
+    })
+    
+    Delay = AutoKaliyah:CreateSlider({
+        Name = 'Delay',
+        Min = 0,
+        Max = 1,
+        Default = 0.1,
+        Decimal = 100
+    })
+    
+    AutoKaliyah:Clean(function()
+        currentStacks = {}
+        modifier, old = nil, nil
+    end)
 end)
 
 run(function()
