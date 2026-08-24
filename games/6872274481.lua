@@ -6214,6 +6214,8 @@ run(function()
 	end)
 	
 	local methodused
+	-- assigned once the Updated table below exists; lets the rank fetch redraw a tag when
+	-- the division finally lands
 	local refreshTag
 
 	local RankMeta = (function()
@@ -6275,7 +6277,6 @@ run(function()
 	end
 
 	local enchantConns = {}
-	local inventoryConns = {}
 
 	local function unwatchEnchant(ent)
 		local conn = enchantConns[ent]
@@ -6296,69 +6297,6 @@ run(function()
 				end
 			end)
 		end)
-	end
-
-	-- Helper function to extract exact item amount from dynamic item objects
-	local function getItemAmount(item)
-		if not item then return 0 end
-		return item.amount or item.quantity or item.count or (item.item or {}).amount or (item.item or {}).quantity or 1
-	end
-
-	-- Live listener for active held items and inventory updates
-	local function unwatchInventory(plr)
-		if inventoryConns[plr] then
-			for _, conn in inventoryConns[plr] do
-				pcall(function() conn:Disconnect() end)
-			end
-			inventoryConns[plr] = nil
-		end
-	end
-
-	local function watchInventory(plr)
-		unwatchInventory(plr)
-		inventoryConns[plr] = {}
-
-		local function triggerUpdate()
-			local ent = entitylib.getEntity(plr)
-			if ent and refreshTag then
-				refreshTag(ent)
-			end
-		end
-
-		-- Connect to character tool equip/unequip events
-		local function bindChar(char)
-			if not char then return end
-			table.insert(inventoryConns[plr], char.ChildAdded:Connect(function(child)
-				if child:IsA('Accessory') or child:IsA('Tool') then
-					triggerUpdate()
-				end
-			end))
-			table.insert(inventoryConns[plr], char.ChildRemoved:Connect(function(child)
-				if child:IsA('Accessory') or child:IsA('Tool') then
-					triggerUpdate()
-				end
-			end))
-		end
-
-		if plr.Character then bindChar(plr.Character) end
-		table.insert(inventoryConns[plr], plr.CharacterAdded:Connect(bindChar))
-
-		-- Hook into client inventory store events if available
-		if store and store.inventories then
-			local inv = store.inventories[plr]
-			if inv and typeof(inv) == 'table' then
-				if inv.onHandItemChanged then
-					pcall(function()
-						table.insert(inventoryConns[plr], inv.onHandItemChanged:Connect(triggerUpdate))
-					end)
-				end
-				if inv.onItemAmountChanged then
-					pcall(function()
-						table.insert(inventoryConns[plr], inv.onItemAmountChanged:Connect(triggerUpdate))
-					end)
-				end
-			end
-		end
 	end
 
 	local deviceEmojis = {gamepad = '🎮', touch = '📱', keyboard = '🖥️'}
@@ -6386,6 +6324,26 @@ run(function()
 		return name ~= '' and deviceEmojis.keyboard or nil
 	end
 
+	-- Watch inventory changes for live updates
+	local inventoryConns = {}
+	local function unwatchInventory(ent)
+		local conn = inventoryConns[ent]
+		if conn then
+			pcall(function() conn:Disconnect() end)
+			inventoryConns[ent] = nil
+		end
+	end
+
+	local function watchInventory(ent)
+		unwatchInventory(ent)
+		if not ent.Player or not store.inventories then return end
+		pcall(function()
+			inventoryConns[ent] = ent.Player.CharacterAdded:Connect(function()
+				if refreshTag then refreshTag(ent) end
+			end)
+		end)
+	end
+
 	local Added = {
 		Normal = function(ent)
 			pcall(function()
@@ -6406,7 +6364,7 @@ run(function()
 
 				if Health.Enabled then
 					local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
-					Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255)). me..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
+					Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
 				end
 
 				if Distance.Enabled then
@@ -6423,6 +6381,7 @@ run(function()
 						Icon.Image = ''
 						Icon.Parent = nametag
 
+						-- Added item amount text overlay for Hand item
 						if v == 'Hand' then
 							local ValueLabel = Instance.new('TextLabel')
 							ValueLabel.Name = 'AmountLabel'
@@ -6471,10 +6430,6 @@ run(function()
 					watchEnchant(ent)
 				end
 
-				if ent.Player then
-					watchInventory(ent.Player)
-				end
-
 				positionIcons(nametag, size.X)
 
 				nametag.AnchorPoint = Vector2.new(0.5, 1)
@@ -6487,6 +6442,10 @@ run(function()
 				nametag.RichText = true
 				nametag.Parent = Folder
 				Reference[ent] = nametag
+				
+				if Equipment.Enabled and ent.Player then
+					watchInventory(ent)
+				end
 			end)
 		end,
 		Drawing = function(ent)
@@ -6535,7 +6494,7 @@ run(function()
 		Normal = function(ent)
 			pcall(function()
 				unwatchEnchant(ent)
-				if ent.Player then unwatchInventory(ent.Player) end
+				unwatchInventory(ent)
 				local v = Reference[ent]
 				if v then
 					Reference[ent] = nil
@@ -6548,7 +6507,7 @@ run(function()
 		Drawing = function(ent)
 			pcall(function()
 				unwatchEnchant(ent)
-				if ent.Player then unwatchInventory(ent.Player) end
+				unwatchInventory(ent)
 				local v = Reference[ent]
 				if v then
 					Reference[ent] = nil
@@ -6604,10 +6563,15 @@ run(function()
 					nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
 					nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
 
+					-- Update the item stack count/amount label in real-time
 					local amountLabel = nametag.Hand:FindFirstChild('AmountLabel')
 					if amountLabel then
-						local amount = getItemAmount(handItem)
-						amountLabel.Text = amount > 1 and tostring(amount) or ''
+						local amount = handItem.amount or handItem.quantity or 1
+						if amount > 1 then
+							amountLabel.Text = tostring(amount)
+						else
+							amountLabel.Text = ''
+						end
 					end
 				end
 
@@ -6719,31 +6683,6 @@ run(function()
 						continue
 					end
 
-					-- Live realtime equipment & amount updates inside render loop
-					if Equipment.Enabled and ent.Player and store.inventories[ent.Player] then
-						local handIcon = nametag:FindFirstChild('Hand')
-						if handIcon then
-							local inventory = store.inventories[ent.Player]
-							local handItem = inventory.hand or {itemType = '', amount = 1}
-							
-							-- Update held item icon live
-							local newIcon = bedwars.getIcon(handItem, true)
-							if handIcon.Image ~= newIcon then
-								handIcon.Image = newIcon
-							end
-
-							-- Update stack count label live
-							local amountLabel = handIcon:FindFirstChild('AmountLabel')
-							if amountLabel then
-								local amount = getItemAmount(handItem)
-								local newText = amount > 1 and tostring(amount) or ''
-								if amountLabel.Text ~= newText then
-									amountLabel.Text = newText
-								end
-							end
-						end
-					end
-
 					if Distance.Enabled then
 						local mag = selfPos and math.floor((selfPos - ent.RootPart.Position).Magnitude) or 0
 						if Sizes[ent] ~= mag then
@@ -6754,6 +6693,22 @@ run(function()
 							Sizes[ent] = mag
 						end
 					end
+					
+					-- Live update equipment amounts
+					if Equipment.Enabled and store.inventories[ent.Player] then
+						local inventory = store.inventories[ent.Player]
+						local handItem = inventory.hand or {itemType = '', amount = 1}
+						local amountLabel = nametag:FindFirstChild('Hand') and nametag.Hand:FindFirstChild('AmountLabel')
+						
+						if amountLabel then
+							local amount = handItem.amount or handItem.quantity or 1
+							local newText = amount > 1 and tostring(amount) or ''
+							if amountLabel.Text ~= newText then
+								amountLabel.Text = newText
+							end
+						end
+					end
+					
 					nametag.Position = UDim2.fromOffset(headPos.X, headPos.Y)
 				end
 			end)
@@ -6858,8 +6813,8 @@ run(function()
 				for ent in enchantConns do
 					unwatchEnchant(ent)
 				end
-				for plr in inventoryConns do
-					unwatchInventory(plr)
+				for ent in inventoryConns do
+					unwatchInventory(ent)
 				end
 			end
 		end,
