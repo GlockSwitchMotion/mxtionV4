@@ -21833,120 +21833,162 @@ end)
 
 run(function()
 	local InfZeno
-	local DebugToggle
+	local MaxManaSlider
+	local FireRateSlider
+	local AutoSpamToggle
 	
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
 	local lplr = Players.LocalPlayer
 	
 	-- Cache remotes
 	local useAbilityRemote
 	local abilityProgressUpdateRemote
 	
-	local eventLog = {}
+	local manaToKeep = 9
+	local lastManaRestore = 0
 	
 	local function initRemotes()
 		useAbilityRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
 		abilityProgressUpdateRemote = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("abilityProgressUpdate")
 		
-		print("✓ Remotes found")
+		print("✓ useAbility remote found")
+		print("✓ abilityProgressUpdate remote found")
 	end
 	
-	local function hookAllRemotes()
-		-- Hook useAbility
+	local function restoreManaStacks()
+		-- Send the mana restore to server
+		if abilityProgressUpdateRemote then
+			abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaToKeep)
+		end
+	end
+	
+	local function hookRemotes()
+		-- HOOK useAbility: After ability fires, immediately restore mana stacks
 		if useAbilityRemote then
 			local original = useAbilityRemote.FireServer
+			
 			useAbilityRemote.FireServer = function(self, abilityName, args, ...)
-				if DebugToggle.Enabled then
-					print("[useAbility FIRE]", abilityName, args)
+				-- Fire the ability
+				local result = original(self, abilityName, args, ...)
+				
+				-- If it's LIGHTNING_STRIKE, restore mana stacks immediately after
+				if abilityName == "LIGHTNING_STRIKE" then
+					-- Wait tiny bit for server to process
+					task.wait(0.01)
+					-- Restore mana stacks back to 9
+					restoreManaStacks()
 				end
-				return original(self, abilityName, args, ...)
+				
+				return result
 			end
 		end
 		
-		-- Hook abilityProgressUpdate FireServer
+		-- HOOK abilityProgressUpdate: Force mana to always be at the keep value
 		if abilityProgressUpdateRemote then
 			local original = abilityProgressUpdateRemote.FireServer
+			
 			abilityProgressUpdateRemote.FireServer = function(self, abilityName, progress, ...)
-				if DebugToggle.Enabled then
-					print("[abilityProgressUpdate FIRE]", abilityName, progress)
+				-- If trying to restore WIZARD_MANA, always use our value
+				if abilityName == "WIZARD_MANA" then
+					return original(self, abilityName, manaToKeep, ...)
 				end
 				return original(self, abilityName, progress, ...)
 			end
 		end
 		
-		-- Hook abilityProgressUpdate OnClientEvent (SERVER SENDING UPDATES)
+		-- LISTEN to server events and counter-restore if it drains
 		if abilityProgressUpdateRemote then
 			InfZeno:Clean(abilityProgressUpdateRemote.OnClientEvent:Connect(function(abilityName, progress)
-				if DebugToggle.Enabled then
-					print("[abilityProgressUpdate EVENT]", abilityName, progress)
+				if abilityName == "WIZARD_MANA" then
+					-- Server sent mana update
+					if progress < manaToKeep then
+						-- Mana was drained, restore it immediately
+						task.spawn(function()
+							for i = 1, 5 do
+								task.wait(0.002)
+								abilityProgressUpdateRemote:FireServer("WIZARD_MANA", manaToKeep)
+							end
+						end)
+					end
 				end
 			end))
 		end
+	end
+	
+	local function fireStrike(targetPos)
+		if not useAbilityRemote then return end
 		
-		-- Search for ALL remotes in ReplicatedStorage and hook them
-		local function findAndHookAllRemotes(folder, depth)
-			if depth > 10 then return end
+		if not targetPos then
+			local character = lplr.Character
+			if not character then return end
 			
-			for _, child in pairs(folder:GetChildren()) do
-				if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-					if child.Name:lower():find("mana") or child.Name:lower():find("ability") or child.Name:lower():find("progress") or child.Name:lower():find("drain") or child.Name:lower():find("wizard") then
-						if DebugToggle.Enabled then
-							print("[FOUND REMOTE]", child:GetFullName())
-						end
-						
-						-- Hook it
-						if child:IsA("RemoteEvent") then
-							local originalFire = child.FireServer
-							child.FireServer = function(self, ...)
-								if DebugToggle.Enabled then
-									print("[REMOTE FIRE]", child:GetFullName(), "->", ...)
-								end
-								return originalFire(self, ...)
-							end
-							
-							InfZeno:Clean(child.OnClientEvent:Connect(function(...)
-								if DebugToggle.Enabled then
-									print("[REMOTE EVENT]", child:GetFullName(), "->", ...)
-								end
-							end))
-						end
-					end
-				elseif child:IsA("Folder") then
-					findAndHookAllRemotes(child, depth + 1)
-				end
-			end
+			local rootPart = character:FindFirstChild("HumanoidRootPart")
+			if not rootPart then return end
+			
+			targetPos = rootPart.Position + rootPart.CFrame.LookVector * 50
 		end
 		
-		findAndHookAllRemotes(ReplicatedStorage, 0)
+		local args = {
+			[1] = "LIGHTNING_STRIKE",
+			[2] = {
+				["target"] = targetPos
+			}
+		}
+		
+		useAbilityRemote:FireServer(unpack(args))
 	end
 	
 	InfZeno = vape.Categories.Kits:CreateModule({
-		Name = 'InfZeno Debug',
+		Name = 'InfZeno',
 		Function = function(callback)
 			if callback then
 				initRemotes()
-				hookAllRemotes()
+				hookRemotes()
 				
-				print("=== INFZENO DEBUG ACTIVE ===")
-				print("Hold Zeno staff and use ability")
-				print("Check console for all remote activity")
-				print("============================")
+				print("InfZeno activated - Mana stacks restored after each use")
 				
+				-- Main loop for auto spam
 				repeat
-					task.wait(0.1)
+					if AutoSpamToggle.Enabled then
+						fireStrike()
+						task.wait(FireRateSlider.Value)
+					else
+						task.wait(0.05)
+					end
 				until not InfZeno.Enabled
 				
-				print("Debug ended")
+				print("InfZeno deactivated")
 			end
 		end,
-		Tooltip = 'Debug mode - logs all remote activity'
+		Tooltip = 'Infinite Zeno staff - restores mana stacks after each strike for unlimited reuse'
 	})
 	
-	DebugToggle = InfZeno:CreateToggle({
-		Name = 'Log Activity',
-		Default = true,
-		Tooltip = 'Enable/disable logging'
+	MaxManaSlider = InfZeno:CreateSlider({
+		Name = 'Mana to Restore',
+		Min = 1,
+		Max = 9,
+		Default = 9,
+		Tooltip = 'Mana stacks to restore after ability use'
+	})
+	
+	FireRateSlider = InfZeno:CreateSlider({
+		Name = 'Fire Rate',
+		Min = 0.01,
+		Max = 1,
+		Default = 0.1,
+		Decimal = 2,
+		Suffix = function(val)
+			return val <= 1 and 'sec' or 'secs'
+		end,
+		Tooltip = 'Delay between lightning strikes'
+	})
+	
+	AutoSpamToggle = InfZeno:CreateToggle({
+		Name = 'Auto Spam Strikes',
+		Default = false,
+		Tooltip = 'Automatically spam lightning strikes'
 	})
 end)
 
