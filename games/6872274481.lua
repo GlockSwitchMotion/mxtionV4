@@ -9007,7 +9007,7 @@ run(function()
 		return false
 	end
 	
-	AutoShoot = vape.Categories.Combat:CreateModule({
+	AutoShoot = vape.Categories.Utility:CreateModule({
 		Name = 'FastHits',
 		Function = function(callback)
 			if callback then
@@ -9083,7 +9083,7 @@ run(function()
 		end
 	})
 	Projectiles = AutoShoot:CreateTextList({
-		Name = 'Projectiles',
+		Name = 'WhiteList',
 		Default = {'arrow', 'snowball'}
 	})
 	UseSophia = AutoShoot:CreateToggle({
