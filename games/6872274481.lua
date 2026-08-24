@@ -5107,332 +5107,6 @@ run(function()
 end)
 
 run(function()
-	local AutoPilot
-	local CurrentState = 'Farming'
-	local IronTarget = 20
-	local StraddleDistance = 16
-	local CombatRadius = 20
-	local LastStateChange = tick()
-	local StateTimeout = 10
-	
-	local function getMyTeam()
-		return entitylib.player and entitylib.player.Team
-	end
-	
-	local function getMyTeamColor()
-		local team = getMyTeam()
-		if not team then return nil end
-		return team.TeamColor and team.TeamColor.Color
-	end
-	
-	local function getCurrentIron()
-		local iron = 0
-		pcall(function()
-			-- Try multiple ways to get iron amount
-			if bedwars.Player and bedwars.Player.stats then
-				iron = bedwars.Player.stats.Iron or 0
-			end
-			if iron == 0 and store and store.resources then
-				iron = store.resources.Iron or 0
-			end
-		end)
-		return iron
-	end
-	
-	local function getNearestGenerator()
-		local nearest = nil
-		local nearestDist = math.huge
-		
-		for _, ent in entitylib.List do
-			if ent.NPC and ent.Character then
-				local char = ent.Character
-				if char.Name:find('Generator') or char.Name:find('Iron') then
-					local dist = (entitylib.character.RootPart.Position - char.RootPart.Position).Magnitude
-					if dist < nearestDist then
-						nearestDist = dist
-						nearest = char.RootPart.Position
-					end
-				end
-			end
-		end
-		
-		return nearest
-	end
-	
-	local function findBedInWorkspace()
-		local beds = {}
-		local myTeam = getMyTeam()
-		local myTeamColor = getMyTeamColor()
-		
-		-- Search workspace for beds
-		for _, obj in workspace:FindPartBoundsInRadius(entitylib.character.RootPart.Position, 100) do
-			if obj.Name:lower():find('bed') and obj.Parent then
-				local objTeam = obj.BrickColor and obj.BrickColor.Color or nil
-				
-				if objTeam and myTeamColor then
-					local isSameteam = math.abs(objTeam.R - myTeamColor.R) < 0.15 and 
-					                    math.abs(objTeam.G - myTeamColor.G) < 0.15 and 
-					                    math.abs(objTeam.B - myTeamColor.B) < 0.15
-					
-					if not isSameteam then
-						table.insert(beds, obj)
-					end
-				end
-			end
-		end
-		
-		return beds
-	end
-	
-	local function getNearestEnemyBed()
-		local beds = findBedInWorkspace()
-		
-		if #beds == 0 then return nil end
-		
-		local nearest = beds[1]
-		local nearestDist = (entitylib.character.RootPart.Position - beds[1].Position).Magnitude
-		
-		for i = 2, #beds do
-			local dist = (entitylib.character.RootPart.Position - beds[i].Position).Magnitude
-			if dist < nearestDist then
-				nearestDist = dist
-				nearest = beds[i]
-			end
-		end
-		
-		return nearest
-	end
-	
-	local function getEnemiesNearby(radius)
-		local enemies = {}
-		
-		for _, ent in entitylib.List do
-			if ent.Player and ent.Targetable and not ent.Friend and ent.Character and ent.Character:FindFirstChild('RootPart') then
-				local dist = (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude
-				if dist < radius and dist > 0 then
-					table.insert(enemies, {entity = ent, distance = dist})
-				end
-			end
-		end
-		
-		table.sort(enemies, function(a, b) return a.distance < b.distance end)
-		return enemies
-	end
-	
-	local function moveTowards(targetPos)
-		if not entitylib.isAlive or not entitylib.character then return end
-		
-		local humanoid = entitylib.character:FindFirstChild('Humanoid')
-		if not humanoid then return end
-		
-		local distance = (entitylib.character.RootPart.Position - targetPos).Magnitude
-		if distance < 1.5 then return end
-		
-		humanoid:MoveTo(targetPos)
-	end
-	
-	local function strafeAroundEnemy(enemy)
-		if not enemy or not entitylib.isAlive or not entitylib.character then return end
-		
-		local myPos = entitylib.character.RootPart.Position
-		local enemyPos = enemy.RootPart.Position
-		local direction = (enemyPos - myPos)
-		local distance = direction.Magnitude
-		
-		-- Perpendicular vector for strafing
-		local perp = Vector3.new(-direction.Z, 0, direction.X).Unit
-		
-		-- Alternate strafe direction every 0.5 seconds
-		local strafeDir = (math.floor(tick() * 2) % 2 == 0) and perp or -perp
-		
-		-- Target position: at strafe distance from enemy
-		local targetStrafeDist = math.max(StraddleDistance * 0.7, StraddleDistance - 3)
-		local basePos = enemyPos + direction.Unit * targetStrafeDist
-		local strafePos = basePos + strafeDir * (StraddleDistance * 0.5)
-		
-		moveTowards(strafePos)
-		
-		-- Attack
-		pcall(function()
-			local mouse = entitylib.player:GetMouse()
-			mouse.Target = enemy.Character
-			mouse:TriggerButton1Down()
-			task.wait(0.06)
-			mouse:TriggerButton1Up()
-		end)
-	end
-	
-	local function breakBed(bed)
-		if not bed or not bed.Parent or not entitylib.isAlive then return end
-		
-		local distance = (entitylib.character.RootPart.Position - bed.Position).Magnitude
-		
-		if distance < 7 then
-			-- Attack bed
-			pcall(function()
-				local mouse = entitylib.player:GetMouse()
-				mouse.Target = bed
-				for i = 1, 3 do
-					mouse:TriggerButton1Down()
-					task.wait(0.04)
-					mouse:TriggerButton1Up()
-					task.wait(0.04)
-				end
-			end)
-		else
-			-- Move closer
-			moveTowards(bed.Position + Vector3.new(0, 2, 0))
-		end
-	end
-	
-	local function buyBlocks()
-		pcall(function()
-			-- Try to buy blocks via bedwars API
-			if bedwars.buyBlock then
-				for i = 1, 3 do
-					bedwars.buyBlock('Wood')
-					task.wait(0.15)
-				end
-			end
-		end)
-	end
-	
-	local function farmIron()
-		local currentIron = getCurrentIron()
-		
-		if currentIron >= IronTarget.Value then
-			return true
-		end
-		
-		local genPos = getNearestGenerator()
-		if genPos then
-			moveTowards(genPos)
-		end
-		
-		return false
-	end
-	
-	local function mainLoop()
-		if not entitylib.isAlive or not entitylib.character then
-			CurrentState = 'Farming'
-			return
-		end
-		
-		-- Check for enemies ALWAYS
-		local enemies = getEnemiesNearby(CombatRadius.Value)
-		if #enemies > 0 then
-			CurrentState = 'Combat'
-			strafeAroundEnemy(enemies[1].entity)
-			LastStateChange = tick()
-			return
-		end
-		
-		-- State machine
-		if CurrentState == 'Farming' then
-			if farmIron() then
-				CurrentState = 'Shopping'
-				LastStateChange = tick()
-			end
-		
-		elseif CurrentState == 'Shopping' then
-			buyBlocks()
-			CurrentState = 'Rushing'
-			LastStateChange = tick()
-		
-		elseif CurrentState == 'Rushing' then
-			local bed = getNearestEnemyBed()
-			
-			if not bed or not bed.Parent then
-				CurrentState = 'Farming'
-				LastStateChange = tick()
-				return
-			end
-			
-			-- Check for enemies again
-			local nearbyEnemies = getEnemiesNearby(CombatRadius.Value)
-			if #nearbyEnemies > 0 then
-				CurrentState = 'Combat'
-				return
-			end
-			
-			local bedDist = (entitylib.character.RootPart.Position - bed.Position).Magnitude
-			
-			if bedDist < 8 then
-				breakBed(bed)
-			else
-				moveTowards(bed.Position + Vector3.new(0, 3, 0))
-			end
-		
-		elseif CurrentState == 'Combat' then
-			if #enemies == 0 then
-				CurrentState = 'Rushing'
-				LastStateChange = tick()
-			else
-				strafeAroundEnemy(enemies[1].entity)
-			end
-		end
-		
-		-- Timeout safety - if stuck in state too long, restart
-		if tick() - LastStateChange > StateTimeout then
-			CurrentState = 'Farming'
-			LastStateChange = tick()
-		end
-	end
-	
-	-- Module creation
-	AutoPilot = vape.Categories.Minigames:CreateModule({
-		Name = 'AutoPilot',
-		Function = function(callback)
-			if callback then
-				CurrentState = 'Farming'
-				LastStateChange = tick()
-				
-				AutoPilot:Clean(runService.Heartbeat:Connect(function()
-					mainLoop()
-				end))
-			else
-				CurrentState = 'Farming'
-			end
-		end,
-		Tooltip = 'Automatically farms iron, buys blocks, bridges to enemy base, and fights enemies'
-	})
-	
-	-- Iron target slider (0-35)
-	IronTarget = AutoPilot:CreateSlider({
-		Name = 'Iron Target',
-		Default = 20,
-		Min = 0,
-		Max = 35,
-		Decimal = 1
-	})
-	
-	-- Strafe distance slider
-	local StratfeDist = AutoPilot:CreateSlider({
-		Name = 'Strafe Distance',
-		Default = 16,
-		Min = 8,
-		Max = 25,
-		Decimal = 1,
-		Function = function(val)
-			StraddleDistance = val
-		end
-	})
-	
-	-- Combat radius slider
-	local CombatRad = AutoPilot:CreateSlider({
-		Name = 'Combat Radius',
-		Default = 20,
-		Min = 10,
-		Max = 50,
-		Decimal = 1,
-		Function = function(val)
-			CombatRadius.Value = val
-		end
-	})
-
-end)
-
-run(function()
     local InventoryESP
     local Empty
     local Color = {}
@@ -9163,6 +8837,266 @@ run(function()
 	UseWhim = AutoShoot:CreateToggle({
 		Name = 'Use whim',
 		Tooltip = 'Also casts whim\'s magic book, follows whatever element you have cycled'
+	})
+	FireRate = AutoShoot:CreateTwoSlider({
+		Name = 'Fire Rate',
+		Min = 0,
+		Max = 1,
+		DefaultMin = 0.05,
+		DefaultMax = 0.12,
+		Decimal = 100
+	})
+	SwitchDelay = AutoShoot:CreateSlider({
+		Name = 'Switch Delay',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Suffix = 'seconds',
+		Default = 0.02
+	})
+end)
+
+run(function()
+	local AutoShoot
+	local Targets
+	local Check
+	local Projectiles
+	local UseSophia
+	local UseWhim
+	local FireRate
+	local SwitchDelay
+	local UseGloop
+	
+	local FireDelays = {}
+	local GloopedPlayers = {} -- {playerId = timestamp_when_glooped}
+	local CurrentTargetId = nil
+	local GLOOP_COOLDOWN = 30 -- 30 seconds before same player can be glooped again
+	
+	local function getEntity()
+		local selfpos = entitylib.character.RootPart.Position
+		local plrs = entitylib.AllPosition({
+			Origin = selfpos,
+			Part = 'RootPart',
+			Range = 22,
+			Players = Targets.Players.Enabled,
+			NPCs = Targets.NPCs.Enabled,
+			Wallcheck = Targets.Walls.Enabled,
+			Limit = 10
+		})
+		if #plrs > 0 then
+			for _, ent in plrs do
+				local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+				local delta = (ent.RootPart.Position - selfpos) * Vector3.new(1, 0, 1)
+				local angle = localfacing.Magnitude > 0 and delta.Magnitude > 0 and math.acos(math.clamp(localfacing.Unit:Dot(delta.Unit), -1, 1)) or 0
+				if angle > (math.rad(120) / 2) then continue end
+				return ent
+			end
+		end
+		return nil
+	end
+	
+	local function hasGloopItem()
+		if not store.inventories or not entitylib.player then return false end
+		local inv = store.inventories[entitylib.player]
+		if not inv or not inv.hand then return false end
+		
+		-- Check if gloop is in hand or hotbar
+		return inv.hand.itemType == 'gloop' or false
+	end
+	
+	local function canGloopPlayer(playerId)
+		local now = tick()
+		
+		-- If player was never glooped, they can be glooped
+		if not GloopedPlayers[playerId] then
+			return true
+		end
+		
+		-- If cooldown has expired (30 seconds), they can be glooped again
+		local timeSinceGloop = now - GloopedPlayers[playerId]
+		return timeSinceGloop >= GLOOP_COOLDOWN
+	end
+	
+	local function markPlayerGlooped(playerId)
+		GloopedPlayers[playerId] = tick()
+	end
+	
+	local function switchTargetLogic(newTargetId)
+		-- Clear gloop cooldown for previous target if switching
+		if CurrentTargetId and CurrentTargetId ~= newTargetId then
+			-- When switching targets, we don't clear the timer - just track it
+			CurrentTargetId = newTargetId
+		elseif not CurrentTargetId then
+			CurrentTargetId = newTargetId
+		end
+	end
+	
+	local function throwGloop(targetEntity)
+		if not targetEntity or not targetEntity.Player then return false end
+		
+		local playerId = targetEntity.Player.UserId
+		
+		-- Check if this player was already glooped by us
+		if not canGloopPlayer(playerId) then
+			return false
+		end
+		
+		-- Update target tracking
+		switchTargetLogic(playerId)
+		
+		-- Check if we have gloop item
+		if not hasGloopItem() then
+			return false
+		end
+		
+		pcall(function()
+			if (FireDelays['gloop'] or 0) < tick() then
+				local hotbar = store.hand.tool and getHotbar(store.hand.tool) or nil
+				
+				-- Switch to gloop if needed
+				if hotbarSwitch then
+					hotbarSwitch(getHotbar(store.inventories[entitylib.player].hand.tool))
+				end
+				
+				task.wait(store.ping.total or 0)
+				
+				-- Aim at target
+				local shootPosition = entitylib.character.RootPart.Position
+				local targetPos = targetEntity.RootPart.Position + Vector3.new(0, targetEntity.HipHeight, 0)
+				local dir = (targetPos - shootPosition).Unit
+				
+				-- Fire gloop
+				if bedwars.Handler and bedwars.Handler:Get('ProjectileFire') then
+					local id = httpService:GenerateGUID(true)
+					
+					bedwars.Handler:Get('ProjectileFire'):Fire('CallServerAsync',
+						store.hand.tool,
+						store.inventories[entitylib.player].hand,
+						'gloop',
+						shootPosition,
+						shootPosition,
+										dir * 90, -- gloop velocity
+										id,
+										{
+											drawDurationSeconds = 1,
+											shotId = httpService:GenerateGUID(false),
+										},
+										workspace:GetServerTimeNow() - 0.045
+									):andThen(function(res)
+										if res then
+											res.Parent = replicatedStorage
+										end
+									end)
+				end
+				
+				-- Mark this player as glooped
+				markPlayerGlooped(playerId)
+				
+				-- Set fire delay for gloop
+				FireDelays['gloop'] = tick() + 0.5 -- Gloop has its own cooldown
+				
+				-- Switch back to previous weapon if available
+				if hotbar then
+					hotbarSwitch(hotbar)
+				end
+				
+				return true
+			end
+		end)
+		
+		return false
+	end
+	
+	AutoShoot = vape.Categories.Combat:CreateModule({
+		Name = 'FastHits',
+		Function = function(callback)
+			if callback then
+				repeat
+					if entitylib.isAlive and store.hand.toolType == 'sword' and (tick() - bedwars.SwordController.lastSwing) < 0.2 then
+						local hotbar = store.hand.tool and getHotbar(store.hand.tool) or nil
+						for _, data in getProjectiles(Projectiles.ListEnabled, UseSophia.Enabled, UseWhim.Enabled) do
+							local item, ammo, projectile, itemMeta = unpack(data)
+							if (FireDelays[item.itemType] or 0) < tick() then
+								local ent = getEntity()
+								if (not Check.Enabled or ent) and hotbarSwitch(getHotbar(item.tool)) then
+									task.wait(store.ping.total or 0)
+									local meta = bedwars.ProjectileMeta[projectile]
+									local projSpeed, gravity = meta.launchVelocity, meta.gravitationalAcceleration or 196.2
+									local calc = ent and prediction.SolveTrajectory(entitylib.character.RootPart.Position, projSpeed, gravity, ent.RootPart.Position, ent.RootPart.Velocity, workspace.Gravity, ent.HipHeight, ent.Jumping and 42.6 or nil, rayCheck, ent.Humanoid.FloorMaterial == Enum.Material.Air or math.abs(ent.RootPart.Velocity.Y) > 0.01, ent.RootPart.Position, ent.RootPart, nil, true) or nil
+									if calc then
+										local shootPosition = (CFrame.new(entitylib.character.RootPart.Position, calc) * CFrame.new(Vector3.new(-bedwars.BowConstantsTable.RelX, -bedwars.BowConstantsTable.RelY, -bedwars.BowConstantsTable.RelZ))).Position
+										local aim = prediction.SolveTrajectory(shootPosition, projSpeed, gravity, ent.RootPart.Position, ent.RootPart.Velocity, workspace.Gravity, ent.HipHeight, ent.Jumping and 42.6 or nil, rayCheck, ent.Humanoid.FloorMaterial == Enum.Material.Air or math.abs(ent.RootPart.Velocity.Y) > 0.01, ent.RootPart.Position, ent.RootPart, nil, true) or calc
+										local dir, id = CFrame.lookAt(shootPosition, aim).LookVector, httpService:GenerateGUID(true)
+										bedwars.ProjectileController:createLocalProjectile(meta, ammo, projectile, shootPosition, id, dir * projSpeed, {drawDurationSeconds = 1})
+										bedwars.Handler:Get('ProjectileFire'):Fire('CallServerAsync',
+											item.tool,
+											ammo,
+											projectile,
+											shootPosition,
+											entitylib.character.RootPart.Position,
+											dir * projSpeed,
+											id,
+											{
+												drawDurationSeconds = 1,
+												shotId = httpService:GenerateGUID(false),
+											},
+											workspace:GetServerTimeNow() - 0.045
+										):andThen(function(res)
+											if res then
+												res.Parent = replicatedStorage
+											end
+										end)
+										prediction.trackShot(ent.RootPart)
+										FireDelays[item.itemType] = tick() + (itemMeta.fireDelaySec + FireRate:GetRandomValue())
+										task.wait(SwitchDelay.Value)
+									end
+								end
+							end
+						end
+						
+						-- Auto Gloop Logic
+						if UseGloop.Enabled then
+							local ent = getEntity()
+							if ent then
+								throwGloop(ent)
+							end
+						end
+						
+						hotbarSwitch(hotbar)
+					end
+					task.wait(0.1)
+				until not AutoShoot.Enabled
+			else
+				bedwars.ProjectileController.createLocalProjectile = old
+			end
+		end,
+		Tooltip = 'Automatically shoots projectiles and throws gloop during combat'
+	})
+	Targets = AutoShoot:CreateTargets({Players = true})
+	Check = AutoShoot:CreateToggle({
+		Name = 'Target check',
+		Default = true,
+		Function = function(callback)
+			if Targets.Object then
+				Targets.Object.Visible = callback
+			end
+		end
+	})
+	Projectiles = AutoShoot:CreateTextList({
+		Name = 'Projectiles',
+		Default = {'arrow', 'snowball'}
+	})
+	UseSophia = AutoShoot:CreateToggle({
+		Name = 'Use sophia',
+		Tooltip = 'Also shoots sophia\'s frost staff, swapping it out of mist mode on its own'
+	})
+	UseWhim = AutoShoot:CreateToggle({
+		Name = 'Use whim',
+		Tooltip = 'Also casts whim\'s magic book, follows whatever element you have cycled'
+	})
+	UseGloop = AutoShoot:CreateToggle({
+		Name = 'Use Gloop',
+		Tooltip = 'Auto throws gloop at targets. Only throws once per player, 30s cooldown before re-throwing'
 	})
 	FireRate = AutoShoot:CreateTwoSlider({
 		Name = 'Fire Rate',
