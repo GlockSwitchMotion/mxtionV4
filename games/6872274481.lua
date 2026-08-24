@@ -13931,73 +13931,116 @@ run(function()
 end)
 
 run(function()
-	local AutoDavey
-	local Switch
-	local Break
-	local Jump
-	local LimitItem
-	
-	local old, oldAim
-	
-	local function canBreak()
-		if not LimitItem.Enabled then return true end
-		return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
-	end
-	
-	AutoDavey = vape.Categories.Kits:CreateModule({
-		Name = 'AutoDavey',
-		Function = function(callback)
-			if callback then
-				oldAim = bedwars.CannonController.startAiming
-				bedwars.CannonController.startAiming = function(self, block, ...)
-					local call = oldAim(self, block, ...)
-	
-					if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() then
-						task.spawn(function()
-							if getBlockHits(block, block.Position) > 1 then
-								bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-							end
-						end)
-					end
-	
-					return call
-				end
-	
-				old = bedwars.CannonHandController.launchSelf
-				bedwars.CannonHandController.launchSelf = function(self, block, ...)
-					local call = old(self, block, ...)
-	
-					if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() then
-						task.delay(0, function()
-							for i = 1, 2 do
-								task.spawn(bedwars.breakBlock, block, true, true, nil, Switch.Enabled)
-								task.wait(0.1)
-							end
-						end)
-					end
-	
-					if Jump.Enabled and entitylib.isAlive then
-						entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-					end
-					return call
-				end
-			else
-				bedwars.CannonHandController.launchSelf = old
-				bedwars.CannonController.startAiming = oldAim
-			end
-		end,
-		Tooltip = 'Automatically breaks cannon/jump on launch'
-	})
-	Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
-	
-	Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
-	
-	Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
-	
-	LimitItem = AutoDavey:CreateToggle({
-		Name = 'Limit to items',
-		Tooltip = 'Only breaks when tools are held'
-	})
+    local AutoDavey
+    local Switch
+    local Break
+    local Jump
+    local LimitItem
+    local TNTAim
+
+    local old, oldAim
+
+    local function canBreak()
+        if not LimitItem.Enabled then return true end
+        return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
+    end
+
+    local function isHoldingTNT()
+        return store.hand.tool and store.hand.tool.Name:lower():find("tnt") ~= nil
+    end
+
+    local function getEnemyBedPosition()
+        local myTeam = bedwars.ClientStoreHandler:getState().Game.myTeam
+        local closestBed = nil
+        local shortestDist = math.huge
+        local localPos = entitylib.character.RootPart.Position
+
+        for _, v in pairs(workspace:GetChildren()) do
+            if v.Name == "bed" and v:IsA("Model") then
+                local bedTeam = v:GetAttribute("Team")
+                if bedTeam and (not myTeam or bedTeam ~= myTeam.id) then
+                    local bedPos = v:GetPivot().Position
+                    local dist = (bedPos - localPos).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestBed = bedPos
+                    end
+                end
+            end
+        end
+        return closestBed
+    end
+
+    AutoDavey = vape.Categories.Kits:CreateModule({
+        Name = 'AutoDavey',
+        Function = function(callback)
+            if callback then
+                oldAim = bedwars.CannonController.startAiming
+                bedwars.CannonController.startAiming = function(self, block, ...)
+                    if TNTAim.Enabled and isHoldingTNT() then
+                        local targetBedPos = getEnemyBedPosition()
+                        if targetBedPos and self.aimCFrame then
+                            -- Override cannon look direction toward the enemy bed
+                            local cannonPos = block and block.Position or entitylib.character.RootPart.Position
+                            self.aimCFrame = CFrame.lookAt(cannonPos, Vector3.new(targetBedPos.X, cannonPos.Y, targetBedPos.Z))
+                        end
+                    end
+
+                    local call = oldAim(self, block, ...)
+
+                    if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() then
+                        task.spawn(function()
+                            if getBlockHits(block, block.Position) > 1 then
+                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+                            end
+                        end)
+                    end
+
+                    return call
+                end
+
+                old = bedwars.CannonHandController.launchSelf
+                bedwars.CannonHandController.launchSelf = function(self, block, ...)
+                    local call = old(self, block, ...)
+
+                    if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() then
+                        task.delay(0, function()
+                            for i = 1, 2 do
+                                task.spawn(bedwars.breakBlock, block, true, true, nil, Switch.Enabled)
+                                task.wait(0.1)
+                            end
+                        end)
+                    end
+
+                    if Jump.Enabled and entitylib.isAlive then
+                        entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end
+                    return call
+                end
+            else
+                bedwars.CannonHandController.launchSelf = old
+                bedwars.CannonController.startAiming = oldAim
+            end
+        end,
+        Tooltip = 'Automatically breaks cannon/jump on launch and aims at enemy beds'
+    })
+
+    TNTAim = AutoDavey:CreateToggle({
+        Name = 'TNT Aim',
+        Default = true,
+        Tooltip = 'Automatically aims cannon at the nearest enemy bed when holding TNT'
+    })
+
+    Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
+
+    Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
+
+    Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
+
+    LimitItem = AutoDavey:CreateToggle({
+        Name = 'Limit to items',
+        Tooltip = 'Only breaks when tools are held'
+    })
 end)
 
 run(function()
@@ -15537,10 +15580,7 @@ run(function()
     local stackValues = {
         ['S1'] = 1,
         ['S2'] = 2,
-        ['S3'] = 3,
-        ['S4'] = 4,
-        ['S5'] = 5,
-        ['S6'] = 6
+        ['S3'] = 3
     }
     
     local function punch()
@@ -15593,7 +15633,7 @@ run(function()
 
     StackMode = AutoKaliyah:CreateDropdown({
         Name = 'Stack Mode',
-        List = {'S1', 'S2', 'S3', 'S4', 'S5', 'S6'},
+        List = {'S1', 'S2', 'S3'},
         Default = 'S1',
         Tooltip = 'Minimum dragon slayer stacks required before activating punch'
     })
