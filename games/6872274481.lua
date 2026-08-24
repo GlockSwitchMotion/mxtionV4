@@ -21833,6 +21833,7 @@ end)
 
 run(function()
 	local InfKaliyah
+	local CooldownSlider
 	local AutoToggle
 	
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21853,7 +21854,7 @@ run(function()
 	end
 	
 	local function hookRemotes()
-		-- HOOK useAbility to prevent cooldown from being applied
+		-- HOOK useAbility to set custom cooldown
 		if useAbilityRemote then
 			local original = useAbilityRemote.FireServer
 			
@@ -21861,38 +21862,38 @@ run(function()
 				-- Fire ability
 				local result = original(self, abilityName, ...)
 				
-				-- If it's dragon_slayer_punch, immediately send 0 cooldown
+				-- If it's dragon_slayer_punch, set custom cooldown
 				if abilityName == "dragon_slayer_punch" then
 					task.wait(0.01)
-					abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
+					abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", CooldownSlider.Value)
 				end
 				
 				return result
 			end
 		end
 		
-		-- HOOK abilityCooldownUpdate to force cooldown to 0
+		-- HOOK abilityCooldownUpdate to force custom cooldown
 		if abilityCooldownUpdateRemote then
 			local original = abilityCooldownUpdateRemote.FireServer
 			
 			abilityCooldownUpdateRemote.FireServer = function(self, abilityName, cooldown, ...)
-				-- Always send 0 for dragon_slayer_punch
+				-- Always send custom cooldown for dragon_slayer_punch
 				if abilityName == "dragon_slayer_punch" then
-					return original(self, abilityName, 0, ...)
+					return original(self, abilityName, CooldownSlider.Value, ...)
 				end
 				return original(self, abilityName, cooldown, ...)
 			end
 		end
 		
-		-- LISTEN to server cooldown updates and override to 0
+		-- LISTEN to server cooldown updates and override with custom value
 		if abilityCooldownUpdateRemote then
 			InfKaliyah:Clean(abilityCooldownUpdateRemote.OnClientEvent:Connect(function(abilityName, cooldown)
-				if abilityName == "dragon_slayer_punch" and cooldown > 0 then
-					-- Server tried to set cooldown, override to 0
+				if abilityName == "dragon_slayer_punch" and cooldown > CooldownSlider.Value then
+					-- Server tried to set higher cooldown, override with our value
 					task.spawn(function()
 						for i = 1, 10 do
 							task.wait(0.001)
-							abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
+							abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", CooldownSlider.Value)
 						end
 					end)
 				end
@@ -21903,7 +21904,7 @@ run(function()
 		InfKaliyah:Clean(RunService.Heartbeat:Connect(function()
 			if InfKaliyah.Enabled then
 				if abilityCooldownUpdateRemote then
-					abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", 0)
+					abilityCooldownUpdateRemote:FireServer("dragon_slayer_punch", CooldownSlider.Value)
 				end
 			end
 		end))
@@ -21916,7 +21917,7 @@ run(function()
 				initRemotes()
 				hookRemotes()
 				
-				print("InfKaliyah activated - Cooldown locked at 0")
+				print("InfKaliyah activated - Cooldown set to " .. CooldownSlider.Value .. "s")
 				
 				repeat
 					task.wait(0.05)
@@ -21925,7 +21926,19 @@ run(function()
 				print("InfKaliyah deactivated")
 			end
 		end,
-		Tooltip = 'Infinite Kaliyah - dragon_slayer_punch has zero cooldown'
+		Tooltip = 'Infinite Kaliyah - custom cooldown on dragon_slayer_punch'
+	})
+	
+	CooldownSlider = InfKaliyah:CreateSlider({
+		Name = 'Cooldown',
+		Min = 0,
+		Max = 6,
+		Default = 0.5,
+		Decimal = 2,
+		Suffix = function(val)
+			return val <= 1 and 'sec' or 'secs'
+		end,
+		Tooltip = 'Custom cooldown for dragon_slayer_punch'
 	})
 	
 	AutoToggle = InfKaliyah:CreateToggle({
