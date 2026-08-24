@@ -5107,6 +5107,226 @@ run(function()
 end)
 
 run(function()
+	local AutoWin
+	local ModeDropdown
+	local DistanceSlider
+	local FastBreakToggle
+	local BuyBlocksToggle
+	local RepeatDelay
+	local BedDistance
+	local AutoForgeToggle
+	
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local LocalPlayer = Players.LocalPlayer
+	
+	local currentTask = nil
+	
+	-- Helper functions to locate game objects
+	local function getRoot()
+		return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+	end
+
+	local function getTeamColor(player)
+		return player:GetAttribute("TeamColor") or (player.Team and player.Team.Name)
+	end
+
+	local function isEnemyBed(bed)
+		if not bed or not bed.Parent then return false end
+		local bedTeam = bed:GetAttribute("Team") or bed.Name
+		local myTeam = getTeamColor(LocalPlayer)
+		
+		-- Check if bed belongs to teammate/self
+		if myTeam and bedTeam then
+			return tostring(bedTeam):lower() ~= tostring(myTeam):lower()
+		end
+		return true
+	end
+
+	local function findNearestEnemyBed()
+		local root = getRoot()
+		if not root then return nil end
+
+		local nearestBed = nil
+		local minDistance = BedDistance.Value
+
+		for _, obj in ipairs(workspace:GetDescendants()) do
+			if obj.Name:lower():find("bed") and obj:IsA("BasePart") then
+				if isEnemyBed(obj) then
+					local dist = (root.Position - obj.Position).Magnitude
+					if dist < minDistance then
+						minDistance = dist
+						nearestBed = obj
+					end
+				end
+			end
+		end
+		return nearestBed
+	end
+
+	local function collectForgeIron()
+		local root = getRoot()
+		if not root then return end
+
+		for _, item in ipairs(workspace:GetChildren()) do
+			if item:IsA("Part") or item:IsA("Model") then
+				if item.Name:lower():find("iron") then
+					local itemPos = item:IsA("Model") and item:GetPivot().Position or item.Position
+					if (root.Position - itemPos).Magnitude <= DistanceSlider.Value then
+						firetouchinterest(root, item:IsA("Model") and item.PrimaryPart or item, 0)
+						firetouchinterest(root, item:IsA("Model") and item.PrimaryPart or item, 1)
+					end
+				end
+			end
+		end
+	end
+
+	local function autoBuyBlocks()
+		pcall(function()
+			if bedwars and bedwars.ClientHandlerStore then
+				-- Trigger block purchase remotes via Bedwars store handlers
+				local shopItem = "wool_white"
+				local net = ReplicatedStorage:FindFirstChild("rbxts_include") and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules")
+				if net then
+					local networks = net:FindFirstChild("@rbxts") and net["@rbxts"]:FindFirstChild("net")
+					if networks then
+						local buyRemote = networks:FindFirstChild("NetRBX") and networks.NetRBX:FindFirstChild("BedwarsItemBuy")
+						if buyRemote then
+							buyRemote:InvokeServer({shopItem = shopItem, amount = 1})
+						end
+					end
+				end
+			end
+		end)
+	end
+
+	local function breakBed(bed)
+		local root = getRoot()
+		if not root or not bed then return end
+
+		-- Teleport/Position adjacent to target bed
+		root.CFrame = bed.CFrame * CFrame.new(0, 3, 0)
+
+		task.wait(0.1)
+
+		-- Trigger block breaking remote or damage sequence
+		pcall(function()
+			local damageRemote = ReplicatedStorage:FindFirstChild("rbxts_include") 
+				and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules")
+				and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts")
+				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"]:FindFirstChild("net")
+				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net:FindFirstChild("DamageBlock")
+
+			if damageRemote then
+				damageRemote:InvokeServer({
+					blockRef = {
+						blockPosition = Vector3.new(math.floor(bed.Position.X/3), math.floor(bed.Position.Y/3), math.floor(bed.Position.Z/3))
+					},
+					hitVector = Vector3.new(0, 1, 0)
+				})
+			end
+		end)
+	end
+
+	-- AutoWin Loop Execution
+	local function autoWinLogic()
+		while AutoWin.Enabled do
+			pcall(function()
+				-- 1. Gather Iron
+				if AutoForgeToggle.Enabled then
+					collectForgeIron()
+				end
+
+				-- 2. Buy Wool/Blocks
+				if BuyBlocksToggle.Enabled then
+					autoBuyBlocks()
+				end
+
+				-- 3. Locate and destroy enemy bed
+				local targetBed = findNearestEnemyBed()
+				if targetBed then
+					breakBed(targetBed)
+				end
+			end)
+
+			task.wait(RepeatDelay.Value)
+		end
+	end
+
+	-- Module Definition under MiniGames / Render category
+	local Category = vape.Categories.Minigames or vape.Categories.World or vape.Categories.Render
+	
+	AutoWin = Category:CreateModule({
+		Name = 'AutoWin',
+		Function = function(callback)
+			if callback then
+				currentTask = task.spawn(autoWinLogic)
+			else
+				if currentTask then
+					task.cancel(currentTask)
+					currentTask = nil
+				end
+			end
+		end,
+		Tooltip = 'Automatically gathers iron, buys blocks, breaks enemy beds, and loops.'
+	})
+
+	-- Dropdowns & Adjustable Config Settings
+	ModeDropdown = AutoWin:CreateDropdown({
+		Name = 'Target Priority',
+		List = {'Nearest Bed', 'Lowest Health Team', 'First Available'},
+		Function = function(val) end,
+		Default = 'Nearest Bed'
+	})
+
+	BedDistance = AutoWin:CreateSlider({
+		Name = 'Max Bed Distance',
+		Function = function() end,
+		Default = 500,
+		Min = 50,
+		Max = 2000,
+		Decimal = 1
+	})
+
+	DistanceSlider = AutoWin:CreateSlider({
+		Name = 'Iron Magnet Range',
+		Function = function() end,
+		Default = 30,
+		Min = 5,
+		Max = 100,
+		Decimal = 1
+	})
+
+	RepeatDelay = AutoWin:CreateSlider({
+		Name = 'Loop Interval (s)',
+		Function = function() end,
+		Default = 0.5,
+		Min = 0.1,
+		Max = 5.0,
+		Decimal = 10
+	})
+
+	AutoForgeToggle = AutoWin:CreateToggle({
+		Name = 'Auto Get Iron',
+		Function = function() end,
+		Default = true
+	})
+
+	BuyBlocksToggle = AutoWin:CreateToggle({
+		Name = 'Auto Buy Blocks',
+		Function = function() end,
+		Default = true
+	})
+
+	FastBreakToggle = AutoWin:CreateToggle({
+		Name = 'Fast Bed Break',
+		Function = function() end,
+		Default = true
+	})
+end)
+
+run(function()
     local InventoryESP
     local Empty
     local Color = {}
