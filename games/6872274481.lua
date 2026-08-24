@@ -15313,10 +15313,7 @@ run(function()
 		end
 	end
 
-	ArmorTrims = vape.Categories:CreateCategory({
-		Name = 'ArmorTrims',
-		Tooltip = 'Customize your armor trim appearance'
-	})
+	ArmorTrims = vape.Categories.World
 
 	local modules = loadArmorTrimModules()
 	local effectOptions = getAvailableOptions(modules, 'effects')
