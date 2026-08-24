@@ -13947,12 +13947,35 @@ run(function()
     local Break
     local Jump
     local LimitItem
+    local BreakDelay
 
     local old, oldAim
 
     local function canBreak()
         if not LimitItem.Enabled then return true end
         return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
+    end
+
+    local function isMyCannon(block)
+        if not block then return false end
+        local lplr = game:GetService("Players").LocalPlayer
+        if not lplr then return false end
+
+        -- Check common attributes and creator tags for cannon ownership
+        local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
+        if placedBy then
+            return placedBy == lplr.Name or placedBy == lplr.UserId
+        end
+
+        -- Fallback: Check if cannon model/block is inside player's placed blocks data
+        if bedwars.BlockController and bedwars.BlockController:getStore() then
+            local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
+            if blockData and blockData.placedBy then
+                return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
+            end
+        end
+
+        return true -- Defaults to true if no ownership metadata is attached
     end
 
     AutoDavey = vape.Categories.Kits:CreateModule({
@@ -13963,9 +13986,10 @@ run(function()
                 bedwars.CannonController.startAiming = function(self, block, ...)
                     local call = oldAim(self, block, ...)
 
-                    if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() then
+                    if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
                         task.spawn(function()
                             if getBlockHits(block, block.Position) > 1 then
+                                task.wait(BreakDelay.Value)
                                 bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
                             end
                         end)
@@ -13978,17 +14002,21 @@ run(function()
                 bedwars.CannonHandController.launchSelf = function(self, block, ...)
                     local call = old(self, block, ...)
 
-                    if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() then
-                        task.delay(0, function()
+                    if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
+                        task.spawn(function()
                             for i = 1, 2 do
-                                task.spawn(bedwars.breakBlock, block, true, true, nil, Switch.Enabled)
-                                task.wait(0.1)
+                                task.wait(BreakDelay.Value)
+                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
                             end
                         end)
                     end
 
                     if Jump.Enabled and entitylib.isAlive then
-                        entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                        task.defer(function()
+                            if entitylib.isAlive and entitylib.character and entitylib.character.Humanoid then
+                                entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                            end
+                        end)
                     end
                     return call
                 end
@@ -13997,7 +14025,16 @@ run(function()
                 bedwars.CannonController.startAiming = oldAim
             end
         end,
-        Tooltip = 'Automatically breaks cannon/jump on launch'
+        Tooltip = 'Smoothly breaks only your own cannon/jump on launch'
+    })
+
+    BreakDelay = AutoDavey:CreateSlider({
+        Name = 'Break Delay',
+        Min = 0,
+        Max = 0.3,
+        Default = 0.05,
+        Decimal = 100,
+        Tooltip = 'Smooths out block breaking execution timing'
     })
 
     Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
