@@ -15309,6 +15309,8 @@ run(function()
 				task.wait(math.max(castTime, 0.5))
 				if isChargingAbility then
 					remote:FireServer(unpack({"summoner_finish_charging"}))
+					
+					-- FIRE AT CURRENT TARGET (already selected by target mode)
 					if currentTarget and currentTarget.RootPart then
 						local myPos = entitylib.character.RootPart.Position
 						local shootDir = CFrame.lookAt(myPos, currentTarget.RootPart.Position).LookVector
