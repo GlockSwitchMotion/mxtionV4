@@ -13951,12 +13951,13 @@ run(function()
     local tweenTeleportRemote = netManaged:FindFirstChild("TweenTeleport")
 
     local oldInvoke
-    local tweenConnection
+    local oldFireSignal
 
     ElektraExtender = vape.Categories.Kits:CreateModule({
         Name = 'ElektraExtender',
         Function = function(callback)
             if callback then
+                -- Hook ElectricDash InvokeServer for range extension
                 if electricDashRemote then
                     oldInvoke = hookmetamethod(game, "__namecall", function(self, ...)
                         local args = {...}
@@ -13977,11 +13978,14 @@ run(function()
                     end)
                 end
 
-                if tweenTeleportRemote then
-                    tweenConnection = tweenTeleportRemote.OnClientEvent:Connect(function(data)
-                        if InstantToggle.Enabled and type(data) == "table" and data.time then
-                            data.time = 0
+                -- Hook firesignal / client event handling to override tween time BEFORE client receives it
+                if firesignal then
+                    oldFireSignal = hookfunction(firesignal, function(signal, ...)
+                        local args = {...}
+                        if InstantToggle.Enabled and signal == tweenTeleportRemote.OnClientEvent and typeof(args[1]) == "table" then
+                            args[1].time = 0.01 -- Forces instant execution
                         end
+                        return oldFireSignal(signal, unpack(args))
                     end)
                 end
             else
@@ -13989,9 +13993,9 @@ run(function()
                     hookmetamethod(game, "__namecall", oldInvoke)
                     oldInvoke = nil
                 end
-                if tweenConnection then
-                    tweenConnection:Disconnect()
-                    tweenConnection = nil
+                if oldFireSignal then
+                    hookfunction(firesignal, oldFireSignal)
+                    oldFireSignal = nil
                 end
             end
         end,
@@ -14012,7 +14016,7 @@ run(function()
     InstantToggle = ElektraExtender:CreateToggle({
         Name = 'Instant Teleport',
         Default = true,
-        Tooltip = 'Forces TweenTeleport duration from 0.3s to 0s'
+        Tooltip = 'Forces TweenTeleport duration from 0.3s to 0.01s'
     })
 end)
 
