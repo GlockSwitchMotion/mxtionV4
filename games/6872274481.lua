@@ -4020,33 +4020,44 @@ run(function()
 end)
 
 run(function()
-	local old
-	
-	vape.Categories.Blatant:CreateModule({
-		Name = 'PreventSlow',
-		Function = function(callback)
-			local modifier = bedwars.SprintController:getMovementStatusModifier()
-			if callback then
-				old = modifier.addModifier
-				modifier.addModifier = function(self, tab)
-					if tab.moveSpeedMultiplier then
-						tab.moveSpeedMultiplier = math.max(tab.moveSpeedMultiplier, 1)
-					end
-					return old(self, tab)
-				end
-	
-				for i in modifier.modifiers do
-					if (i.moveSpeedMultiplier or 1) < 1 then
-						modifier:removeModifier(i)
-					end
-				end
-			else
-				modifier.addModifier = old
-				old = nil
-			end
-		end,
-		Tooltip = 'Prevents slowing down when using items.'
-	})
+    local PreventSlow
+    local SpeedMultiplier
+    local old
+
+    PreventSlow = vape.Categories.Blatant:CreateModule({
+        Name = 'PreventSlow',
+        Function = function(callback)
+            local modifier = bedwars.SprintController:getMovementStatusModifier()
+            if callback then
+                old = modifier.addModifier
+                modifier.addModifier = function(self, tab)
+                    if tab.moveSpeedMultiplier then
+                        tab.moveSpeedMultiplier = math.max(tab.moveSpeedMultiplier, SpeedMultiplier.Value)
+                    end
+                    return old(self, tab)
+                end
+
+                for i in modifier.modifiers do
+                    if (i.moveSpeedMultiplier or 1) < SpeedMultiplier.Value then
+                        modifier:removeModifier(i)
+                    end
+                end
+            else
+                modifier.addModifier = old
+                old = nil
+            end
+        end,
+        Tooltip = 'Prevents slowing down when using items.'
+    })
+
+    SpeedMultiplier = PreventSlow:CreateSlider({
+        Name = 'Speed Multiplier',
+        Min = 0.1,
+        Max = 1,
+        Default = 1,
+        Decimal = 100,
+        Tooltip = 'Minimum movement speed multiplier allowed when slowed'
+    })
 end)
 
 run(function()
