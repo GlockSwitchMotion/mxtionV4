@@ -5107,224 +5107,410 @@ run(function()
 end)
 
 run(function()
-	local AutoWin
-	local TargetMode
-	local AutoIron
-	local AutoBlocks
-	local AutoBreak
-	local TeleportMode
-	local ScanRadius
-	local LoopDelay
-	local BlockType
-	local AutoWinLoop
-
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local Players = game:GetService("Players")
-	local LocalPlayer = Players.LocalPlayer
-
-	local function getRoot()
-		return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	end
-
-	local function getMyTeam()
-		if LocalPlayer:GetAttribute("TeamColor") then
-			return LocalPlayer:GetAttribute("TeamColor")
-		end
-		if LocalPlayer.Team then
-			return LocalPlayer.Team.Name
-		end
-		return nil
-	end
-
-	local function isEnemyBed(bed)
-		if not bed or not bed.Parent then return false end
-		local myTeam = getMyTeam()
-		local bedTeam = bed:GetAttribute("Team") or bed.Parent.Name or bed.Name
+	local AutoPilot
+	local State = 'Idle'
+	local IronWaiting = 0
+	local LastEnemyPos = nil
+	local PathCache = {}
+	
+	-- Configuration
+	local IronTarget = 16
+	local StraddleDistance = 16
+	local JumpThreshold = 3.5
+	local ObstacleCheckDistance = 5
+	local UpdateRate = 0.1
+	local LastUpdate = 0
+	
+	-- Detect generators and team info
+	local function getNearestGenerator()
+		local nearestDist = math.huge
+		local nearest = nil
 		
-		if myTeam and bedTeam then
-			return tostring(bedTeam):lower() ~= tostring(myTeam):lower()
-		end
-		return true
-	end
-
-	local function getTargetBed()
-		local root = getRoot()
-		if not root then return nil end
-
-		local closestBed = nil
-		local shortestDist = ScanRadius.Value
-
-		for _, v in ipairs(workspace:GetDescendants()) do
-			if v:IsA("BasePart") and v.Name:lower():find("bed") and isEnemyBed(v) then
-				local dist = (root.Position - v.Position).Magnitude
-				if dist < shortestDist then
-					shortestDist = dist
-					closestBed = v
-				end
-			end
-		end
-		return closestBed
-	end
-
-	local function collectForgeResources()
-		local root = getRoot()
-		if not root then return end
-
-		for _, item in ipairs(workspace:GetChildren()) do
-			if (item:IsA("Part") or item:IsA("Model")) and item.Name:lower():find("iron") then
-				local pos = item:IsA("Model") and item:GetPivot().Position or item.Position
-				if (root.Position - pos).Magnitude <= 40 then
-					local part = item:IsA("Model") and item.PrimaryPart or item
-					if part then
-						firetouchinterest(root, part, 0)
-						firetouchinterest(root, part, 1)
+		pcall(function()
+			-- Try to find generators in the workspace
+			local generatorFolder = workspace:FindFirstChild('Generators')
+			if generatorFolder then
+				for _, gen in generatorFolder:GetChildren() do
+					if gen:FindFirstChild('Detector') then
+						local pos = gen.Detector.Position
+						local dist = (entitylib.character.RootPart.Position - pos).Magnitude
+						if dist < nearestDist then
+							nearestDist = dist
+							nearest = pos
+						end
 					end
 				end
 			end
+		end)
+		
+		return nearest
+	end
+	
+	local function getTeamColor()
+		local team = entitylib.player and entitylib.player.Team
+		return team and team.TeamColor.Color or Color3.new(0, 0, 1)
+	end
+	
+	-- Navigation and pathfinding
+	local function raycastToPoint(start, direction, maxDistance)
+		local rayOrigin = start
+		local rayDirection = direction.Unit * maxDistance
+		
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+		raycastParams.FilterDescendantsInstances = {entitylib.character}
+		
+		local result = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+		return result
+	end
+	
+	local function canMoveTo(targetPos)
+		local startPos = entitylib.character.RootPart.Position
+		local direction = (targetPos - startPos)
+		local hit = raycastToPoint(startPos + Vector3.new(0, 3, 0), direction, math.min(direction.Magnitude, 50))
+		
+		return not hit or hit.Distance > 10
+	end
+	
+	local function getHeightDifference(targetPos)
+		return targetPos.Y - entitylib.character.RootPart.Position.Y
+	end
+	
+	local function shouldJump(targetPos)
+		local diff = getHeightDifference(targetPos)
+		return diff > 0 and diff < JumpThreshold
+	end
+	
+	local function moveTowardsPoint(targetPos, speed)
+		if not entitylib.isAlive then return false end
+		
+		local character = entitylib.character
+		local currentPos = character.RootPart.Position
+		local direction = (targetPos - currentPos)
+		
+		if direction.Magnitude < 2 then return true end
+		
+		local humanoid = character:FindFirstChild('Humanoid')
+		if not humanoid then return false end
+		
+		-- Check for obstacles
+		local ahead = currentPos + (direction.Unit * ObstacleCheckDistance) + Vector3.new(0, 3, 0)
+		local obstacleHit = raycastToPoint(ahead, Vector3.new(0, -1, 0), 10)
+		
+		-- Smart jumping on obstacles
+		if shouldJump(targetPos) or (obstacleHit and obstacleHit.Distance < 2) then
+			pcall(function()
+				humanoid:MoveTo(targetPos)
+			end)
+		else
+			pcall(function()
+				humanoid:MoveTo(targetPos)
+			end)
+		end
+		
+		return false
+	end
+	
+	local function getFloorBeneathCharacter()
+		local pos = entitylib.character.RootPart.Position
+		local rayOrigin = pos + Vector3.new(0, 1, 0)
+		local result = raycastToPoint(rayOrigin, Vector3.new(0, -1, 0), 50)
+		
+		return result and result.Instance or nil
+	end
+	
+	-- Navigation state machine
+	local function navigateToPoint(targetPos, callback)
+		local character = entitylib.character
+		if not character then return end
+		
+		local startPos = character.RootPart.Position
+		local direction = (targetPos - startPos)
+		
+		-- Try direct path first
+		if canMoveTo(targetPos) then
+			moveTowardsPoint(targetPos, 1)
+		else
+			-- Try strafe around obstacle
+			local perpendicular = Vector3.new(-direction.Z, 0, direction.X).Unit * 5
+			local leftPos = startPos + perpendicular
+			local rightPos = startPos - perpendicular
+			
+			if canMoveTo(leftPos) then
+				moveTowardsPoint(leftPos, 1)
+			elseif canMoveTo(rightPos) then
+				moveTowardsPoint(rightPos, 1)
+			else
+				-- Try going around vertically
+				moveTowardsPoint(targetPos + Vector3.new(0, 3, 0), 1)
+			end
+		end
+		
+		if (character.RootPart.Position - targetPos).Magnitude < 3 and callback then
+			callback()
 		end
 	end
-
-	local function purchaseBlocks()
+	
+	-- Get nearest enemy base
+	local function getNearestEnemyBase()
+		local nearestDist = math.huge
+		local nearestBase = nil
+		local myTeam = getTeamColor()
+		
 		pcall(function()
-			local net = ReplicatedStorage:FindFirstChild("rbxts_include") 
-				and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules")
-				and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts")
-				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"]:FindFirstChild("net")
-
-			local buyRemote = net and net:FindFirstChild("NetRBX") and net.NetRBX:FindFirstChild("BedwarsItemBuy")
-			if buyRemote then
-				local chosenBlock = BlockType.Value:lower():gsub(" ", "_")
-				buyRemote:InvokeServer({
-					shopItem = chosenBlock,
-					amount = 1
-				})
-			end
-		end)
-	end
-
-	local function executeBedBreak(bed)
-		local root = getRoot()
-		if not root or not bed then return end
-
-		if TeleportMode.Value == 'Teleport' then
-			root.CFrame = bed.CFrame * CFrame.new(0, 3, 0)
-		end
-
-		pcall(function()
-			local net = ReplicatedStorage:FindFirstChild("rbxts_include") 
-				and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules")
-				and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts")
-				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"]:FindFirstChild("net")
-
-			local damageRemote = net and net:FindFirstChild("DamageBlock")
-			if damageRemote then
-				damageRemote:InvokeServer({
-					blockRef = {
-						blockPosition = Vector3.new(math.floor(bed.Position.X / 3), math.floor(bed.Position.Y / 3), math.floor(bed.Position.Z / 3))
-					},
-					hitVector = Vector3.new(0, 1, 0)
-				})
-			end
-		end)
-	end
-
-	local Category = vape.Categories.Minigames or vape.Categories.World or vape.Categories.Render
-
-	AutoWin = Category:CreateModule({
-		Name = 'AutoWin',
-		Function = function(callback)
-			if callback then
-				AutoWinLoop = task.spawn(function()
-					while AutoWin.Enabled do
-						pcall(function()
-							-- Stage 1: Auto Collect Iron
-							if AutoIron.Enabled then
-								collectForgeResources()
-							end
-
-							-- Stage 2: Auto Purchase Blocks
-							if AutoBlocks.Enabled then
-								purchaseBlocks()
-							end
-
-							-- Stage 3: Auto Target & Destroy Enemy Beds
-							if AutoBreak.Enabled then
-								local targetBed = getTargetBed()
-								if targetBed then
-									executeBedBreak(targetBed)
-								end
-							end
-						end)
-						task.wait(LoopDelay.Value)
+			local bedsFolder = workspace:FindFirstChild('Beds')
+			if bedsFolder then
+				for _, bed in bedsFolder:GetChildren() do
+					-- Check if bed belongs to enemy
+					local bedColor = bed.BrickColor and bed.BrickColor.Color
+					if bedColor and bedColor ~= myTeam then
+						local dist = (entitylib.character.RootPart.Position - bed.Position).Magnitude
+						if dist < nearestDist then
+							nearestDist = dist
+							nearestBase = bed
+						end
 					end
+				end
+			end
+		end)
+		
+		return nearestBase
+	end
+	
+	local function getEnemiesNear(position, radius)
+		local enemies = {}
+		
+		for _, ent in entitylib.List do
+			if ent.Player and ent.Targetable and not ent.Friend then
+				local dist = (ent.RootPart.Position - position).Magnitude
+				if dist < radius then
+					table.insert(enemies, {entity = ent, distance = dist})
+				end
+			end
+		end
+		
+		table.sort(enemies, function(a, b) return a.distance < b.distance end)
+		return enemies
+	end
+	
+	-- Combat AI - strafe around enemy
+	local function strafeAroundEnemy(enemy)
+		if not enemy or not entitylib.isAlive then return end
+		
+		local myPos = entitylib.character.RootPart.Position
+		local enemyPos = enemy.RootPart.Position
+		local distance = (myPos - enemyPos).Magnitude
+		
+		-- If too close, back away
+		if distance < StraddleDistance * 0.5 then
+			local backAwayDir = (myPos - enemyPos).Unit
+			local backAwayPos = myPos + backAwayDir * StraddleDistance
+			moveTowardsPoint(backAwayPos, 1)
+		elseif distance > StraddleDistance then
+			-- If too far, move closer but at angle
+			local angleOffset = math.rad(45)
+			local direction = (enemyPos - myPos)
+			local perpendicular = Vector3.new(-direction.Z, 0, direction.X).Unit
+			local circlePos = enemyPos + perpendicular * (StraddleDistance * 0.8)
+			moveTowardsPoint(circlePos, 1)
+		else
+			-- Strafe left or right
+			local direction = (enemyPos - myPos)
+			local perpendicular = Vector3.new(-direction.Z, 0, direction.X).Unit
+			
+			-- Alternate strafe direction every second
+			local strafeDir = (math.floor(tick() * 2) % 2 == 0) and perpendicular or -perpendicular
+			local strafePos = myPos + strafeDir * (StraddleDistance * 0.7)
+			
+			moveTowardsPoint(strafePos, 1)
+		end
+		
+		LastEnemyPos = enemyPos
+	end
+	
+	-- Main state machine
+	local function updateAutoPilot()
+		if not entitylib.isAlive then
+			State = 'Idle'
+			return
+		end
+		
+		if State == 'Idle' then
+			State = 'MoveToGenerator'
+		
+		elseif State == 'MoveToGenerator' then
+			local genPos = getNearestGenerator()
+			if genPos then
+				navigateToPoint(genPos, function()
+					State = 'WaitForIron'
+					IronWaiting = 0
 				end)
 			else
-				if AutoWinLoop then
-					task.cancel(AutoWinLoop)
-					AutoWinLoop = nil
+				State = 'Idle'
+			end
+		
+		elseif State == 'WaitForIron' then
+			-- Wait at generator for target iron amount
+			local currentIron = bedwars.getIron and bedwars.getIron() or 0
+			
+			if currentIron >= IronTarget.Value then
+				State = 'MoveToShop'
+			else
+				IronWaiting += 1
+			end
+		
+		elseif State == 'MoveToShop' then
+			local shopPos = nil
+			
+			pcall(function()
+				-- Find item shop NPC
+				local shopsFolder = workspace:FindFirstChild('Shops')
+				if shopsFolder then
+					for _, shop in shopsFolder:GetChildren() do
+						if shop.Name:find('ItemShop') or shop.Name:find('Block') then
+							shopPos = shop.Position
+							break
+						end
+					end
 				end
+			end)
+			
+			if shopPos then
+				navigateToPoint(shopPos, function()
+					State = 'BuyBlocks'
+				end)
+			else
+				State = 'RushBed'
+			end
+		
+		elseif State == 'BuyBlocks' then
+			-- Buy blocks with iron (auto-buy via bedwars system)
+			pcall(function()
+				if bedwars.buyBlock then
+					local blockType = 'Wood'
+					bedwars.buyBlock(blockType)
+					task.wait(0.2)
+					bedwars.buyBlock(blockType)
+					task.wait(0.2)
+				end
+			end)
+			State = 'RushBed'
+		
+		elseif State == 'RushBed' then
+			-- Find nearest enemy bed
+			local enemyBed = getNearestEnemyBase()
+			
+			if enemyBed then
+				-- Check for enemies near bed
+				local enemiesNearBed = getEnemiesNear(enemyBed.Position, 15)
+				
+				if #enemiesNearBed > 0 then
+					State = 'CombatStrafe'
+				else
+					navigateToPoint(enemyBed.Position + Vector3.new(0, 3, 0), function()
+						State = 'BreakBed'
+					end)
+				end
+			else
+				State = 'Idle'
+			end
+		
+		elseif State == 'BreakBed' then
+			local enemyBed = getNearestEnemyBase()
+			
+			if enemyBed then
+				local distance = (entitylib.character.RootPart.Position - enemyBed.Position).Magnitude
+				
+				if distance < 6 then
+					-- Click to break bed
+					pcall(function()
+						local mouse = entitylib.player:GetMouse()
+						mouse.Target = enemyBed
+						mouse:TriggerButton1Down()
+						task.wait(0.1)
+						mouse:TriggerButton1Up()
+					end)
+					
+					if enemyBed.Parent == nil then
+						State = 'Idle'
+					end
+				else
+					navigateToPoint(enemyBed.Position, function() end)
+				end
+			else
+				State = 'Idle'
+			end
+		
+		elseif State == 'CombatStrafe' then
+			local enemyBed = getNearestEnemyBase()
+			local enemies = getEnemiesNear(enemyBed and enemyBed.Position or entitylib.character.RootPart.Position, 20)
+			
+			if #enemies > 0 then
+				strafeAroundEnemy(enemies[1].entity)
+				
+				-- Attack
+				pcall(function()
+					local mouse = entitylib.player:GetMouse()
+					mouse:TriggerButton1Down()
+					task.wait(0.05)
+					mouse:TriggerButton1Up()
+				end)
+			else
+				State = 'RushBed'
+			end
+		end
+	end
+	
+	-- Main module creation
+	AutoPilot = vape.Categories.Minigames:CreateModule({
+		Name = 'AutoPilot',
+		Function = function(callback)
+			if callback then
+				State = 'Idle'
+				
+				AutoPilot:Clean(runService.Heartbeat:Connect(function()
+					LastUpdate += 1/60
+					if LastUpdate >= UpdateRate then
+						updateAutoPilot()
+						LastUpdate = 0
+					end
+				end))
+			else
+				State = 'Idle'
 			end
 		end,
-		Tooltip = 'CatVape style automated match loop for Bedwars.'
+		Tooltip = 'Automatically farms iron, buys blocks, and rushes enemy beds with combat AI'
 	})
-
-	-- Configurable Settings & Dropdowns
-	TargetMode = AutoWin:CreateDropdown({
-		Name = 'Target Priority',
-		List = {'Nearest Bed', 'Lowest Team', 'Closest Distance'},
+	
+	-- Iron target slider
+	IronTarget = AutoPilot:CreateSlider({
+		Name = 'Iron Target',
 		Function = function() end,
-		Default = 'Nearest Bed'
-	})
-
-	TeleportMode = AutoWin:CreateDropdown({
-		Name = 'Movement Mode',
-		List = {'Teleport', 'Legit Path', 'Hover'},
-		Function = function() end,
-		Default = 'Teleport'
-	})
-
-	BlockType = AutoWin:CreateDropdown({
-		Name = 'Block Item',
-		List = {'Wool White', 'Oak Planks', 'Blastproof Ceramic'},
-		Function = function() end,
-		Default = 'Wool White'
-	})
-
-	ScanRadius = AutoWin:CreateSlider({
-		Name = 'Bed Scan Range',
-		Function = function() end,
-		Default = 1000,
-		Min = 100,
-		Max = 3000,
+		Default = 16,
+		Min = 0,
+		Max = 50,
 		Decimal = 1
 	})
-
-	LoopDelay = AutoWin:CreateSlider({
-		Name = 'Action Speed',
-		Function = function() end,
-		Default = 0.3,
-		Min = 0.05,
-		Max = 2.0,
-		Decimal = 100
+	
+	-- Strafe distance slider
+	local StratfeDist = AutoPilot:CreateSlider({
+		Name = 'Combat Strafe Distance',
+		Function = function(val)
+			StraddleDistance = val
+		end,
+		Default = 16,
+		Min = 5,
+		Max = 25,
+		Decimal = 1
 	})
-
-	AutoIron = AutoWin:CreateToggle({
-		Name = 'Auto Iron Magnet',
-		Function = function() end,
-		Default = true
+	
+	-- State display (optional debug)
+	local StateDisplay = AutoPilot:CreateToggle({
+		Name = 'Show State',
+		Default = false,
+		Function = function() end
 	})
-
-	AutoBlocks = AutoWin:CreateToggle({
-		Name = 'Auto Buy Blocks',
-		Function = function() end,
-		Default = true
-	})
-
-	AutoBreak = AutoWin:CreateToggle({
-		Name = 'Auto Break Enemy Bed',
-		Function = function() end,
-		Default = true
-	})
+	
 end)
 
 run(function()
