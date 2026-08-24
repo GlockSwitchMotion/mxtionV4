@@ -13936,9 +13936,8 @@ run(function()
     local Break
     local Jump
     local LimitItem
-    local InstantAim
 
-    local old, oldAim, oldUpdateAim
+    local old, oldAim
 
     local function canBreak()
         if not LimitItem.Enabled then return true end
@@ -13953,16 +13952,6 @@ run(function()
                 bedwars.CannonController.startAiming = function(self, block, ...)
                     local call = oldAim(self, block, ...)
 
-                    if InstantAim.Enabled then
-                        -- Snap camera angle and cannon instantly without lerp delay
-                        if self.aimCFrame then
-                            workspace.CurrentCamera.CFrame = self.aimCFrame
-                        end
-                        if self.aimTween then
-                            self.aimTween:Cancel()
-                        end
-                    end
-
                     if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() then
                         task.spawn(function()
                             if getBlockHits(block, block.Position) > 1 then
@@ -13972,18 +13961,6 @@ run(function()
                     end
 
                     return call
-                end
-
-                -- Hook camera/aim update to eliminate smooth damping/delay frame-by-frame
-                oldUpdateAim = bedwars.CannonController.updateAim
-                if oldUpdateAim then
-                    bedwars.CannonController.updateAim = function(self, ...)
-                        if InstantAim.Enabled and self.aimCFrame then
-                            workspace.CurrentCamera.CFrame = self.aimCFrame
-                            return
-                        end
-                        return oldUpdateAim(self, ...)
-                    end
                 end
 
                 old = bedwars.CannonHandController.launchSelf
@@ -14007,18 +13984,9 @@ run(function()
             else
                 bedwars.CannonHandController.launchSelf = old
                 bedwars.CannonController.startAiming = oldAim
-                if oldUpdateAim then
-                    bedwars.CannonController.updateAim = oldUpdateAim
-                end
             end
         end,
-        Tooltip = 'Instantly snaps camera on cannon aim and handles break/jump features'
-    })
-
-    InstantAim = AutoDavey:CreateToggle({
-        Name = 'Instant Aim',
-        Default = true,
-        Tooltip = 'Removes camera interpolation delay when aiming the cannon'
+        Tooltip = 'Automatically breaks cannon/jump on launch'
     })
 
     Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
@@ -17509,25 +17477,41 @@ run(function()
 end)
 
 run(function()
-	local old, overcharge
-	
-	vape.Categories.Kits:CreateModule({
-		Name = 'AutoChargeVanessa',
-		Function = function(callback)
-			if callback then
-				old = bedwars.TripleShotProjectileController.getChargeTime
-				overcharge = bedwars.TripleShotProjectileController.overchargeStartTime
-				bedwars.TripleShotProjectileController.getChargeTime = function()
-					return 0
-				end
-				bedwars.TripleShotProjectileController.overchargeStartTime = tick()
-			else
-				bedwars.TripleShotProjectileController.getChargeTime = old
-				bedwars.TripleShotProjectileController.overchargeStartTime = overcharge
-			end
-		end,
-		Tooltip = 'Fully charges your bow instantly and enables triple shot as Vanessa'
-	})
+    local AutoChargeVanessa
+    local ChargeDelay
+    local old, overcharge
+    
+    AutoChargeVanessa = vape.Categories.Kits:CreateModule({
+        Name = 'AutoChargeVanessa',
+        Function = function(callback)
+            if callback then
+                old = bedwars.TripleShotProjectileController.getChargeTime
+                overcharge = bedwars.TripleShotProjectileController.overchargeStartTime
+                
+                bedwars.TripleShotProjectileController.getChargeTime = function()
+                    return ChargeDelay.Value
+                end
+                
+                bedwars.TripleShotProjectileController.overchargeStartTime = tick()
+            else
+                bedwars.TripleShotProjectileController.getChargeTime = old
+                bedwars.TripleShotProjectileController.overchargeStartTime = overcharge
+            end
+        end,
+        Tooltip = 'Charges your bow with custom delay and enables triple shot as Vanessa'
+    })
+
+    ChargeDelay = AutoChargeVanessa:CreateSlider({
+        Name = 'Charge Delay',
+        Min = 0,
+        Max = 1,
+        Default = 0,
+        Decimal = 100,
+        Suffix = function(val)
+            return val == 1 and 'sec' or 'secs'
+        end,
+        Tooltip = 'Delay required before achieving full bow charge'
+    })
 end)
 
 run(function()
