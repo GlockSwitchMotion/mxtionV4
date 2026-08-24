@@ -15313,15 +15313,13 @@ run(function()
 		end
 	end
 
-	ArmorTrims = vape.Categories.World
-
 	local modules = loadArmorTrimModules()
 	local effectOptions = getAvailableOptions(modules, 'effects')
 	local colorOptions = getAvailableOptions(modules, 'colors')
 	local packOptions = getAvailableOptions(modules, 'packs')
 	local rankOptions = getAvailableOptions(modules, 'ranks')
 
-	AutoTrim = ArmorTrims:CreateModule({
+	AutoTrim = vape.Categories.Kits:CreateModule({
 		Name = 'AutoTrim',
 		Function = function(callback)
 			if callback then
@@ -15348,6 +15346,8 @@ run(function()
 		end,
 		Tooltip = 'Automatically load and apply armor trims with effects'
 	})
+
+	ArmorTrims = AutoTrim
 
 	SelectedEffect = AutoTrim:CreateDropdown({
 		Name = 'Effect',
