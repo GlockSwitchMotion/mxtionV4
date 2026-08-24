@@ -13947,7 +13947,7 @@ run(function()
     local Break
     local Jump
     local LimitItem
-    local BreakDelay
+    local LaunchDelay
 
     local old, oldAim
 
@@ -13961,21 +13961,21 @@ run(function()
         local lplr = game:GetService("Players").LocalPlayer
         if not lplr then return false end
 
-        -- Check common attributes and creator tags for cannon ownership
+        -- Strictly check the Bedwars block data store for ownership
+        if bedwars.BlockController and bedwars.BlockController:getStore() then
+            local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
+            if blockData then
+                return blockData.placedBy == lplr.UserId
+            end
+        end
+
+        -- Secondary fallback check on model attributes
         local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
         if placedBy then
             return placedBy == lplr.Name or placedBy == lplr.UserId
         end
 
-        -- Fallback: Check if cannon model/block is inside player's placed blocks data
-        if bedwars.BlockController and bedwars.BlockController:getStore() then
-            local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
-            if blockData and blockData.placedBy then
-                return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
-            end
-        end
-
-        return true -- Defaults to true if no ownership metadata is attached
+        return false
     end
 
     AutoDavey = vape.Categories.Kits:CreateModule({
@@ -13988,8 +13988,10 @@ run(function()
 
                     if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
                         task.spawn(function()
+                            if LaunchDelay.Value > 0 then
+                                task.wait(LaunchDelay.Value)
+                            end
                             if getBlockHits(block, block.Position) > 1 then
-                                task.wait(BreakDelay.Value)
                                 bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
                             end
                         end)
@@ -14000,13 +14002,17 @@ run(function()
 
                 old = bedwars.CannonHandController.launchSelf
                 bedwars.CannonHandController.launchSelf = function(self, block, ...)
+                    if LaunchDelay.Value > 0 then
+                        task.wait(LaunchDelay.Value)
+                    end
+
                     local call = old(self, block, ...)
 
                     if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
                         task.spawn(function()
                             for i = 1, 2 do
-                                task.wait(BreakDelay.Value)
                                 bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+                                task.wait(0.05)
                             end
                         end)
                     end
@@ -14025,16 +14031,19 @@ run(function()
                 bedwars.CannonController.startAiming = oldAim
             end
         end,
-        Tooltip = 'Smoothly breaks only your own cannon/jump on launch'
+        Tooltip = 'Breaks ONLY your own cannon on launch'
     })
 
-    BreakDelay = AutoDavey:CreateSlider({
-        Name = 'Break Delay',
+    LaunchDelay = AutoDavey:CreateSlider({
+        Name = 'Launch Delay',
         Min = 0,
-        Max = 0.3,
-        Default = 0.05,
+        Max = 1,
+        Default = 0,
         Decimal = 100,
-        Tooltip = 'Smooths out block breaking execution timing'
+        Suffix = function(val)
+            return val == 1 and 'sec' or 'secs'
+        end,
+        Tooltip = 'Delay before executing launch and breaking actions'
     })
 
     Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
