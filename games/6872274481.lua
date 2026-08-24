@@ -13942,6 +13942,97 @@ run(function()
 end)
 
 run(function()
+    local ElektraExtender
+    local ExtensionSlider
+    local MultiplierSlider
+    local InstantToggle
+
+    local netManaged = game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged")
+    local electricDashRemote = netManaged:FindFirstChild("ElectricDash")
+    local tweenTeleportRemote = netManaged:FindFirstChild("TweenTeleport")
+
+    local oldInvoke
+    local tweenConnection
+
+    ElektraExtender = vape.Categories.Kits:CreateModule({
+        Name = 'ElektraExtender',
+        Function = function(callback)
+            if callback then
+                if electricDashRemote then
+                    oldInvoke = hookmetamethod(game, "__namecall", function(self, ...)
+                        local args = {...}
+                        local method = getnamecallmethod()
+
+                        if self == electricDashRemote and (method == "InvokeServer" or method == "invokeServer") and args[1] then
+                            local data = args[1]
+                            if data.startCFrame and data.destCFrame then
+                                local direction = (data.destCFrame.Position - data.startCFrame.Position).Unit
+                                local baseDistance = (data.destCFrame.Position - data.startCFrame.Position).Magnitude
+                                
+                                -- Apply multiplier and additional stud extension
+                                local newDistance = (baseDistance * MultiplierSlider.Value) + ExtensionSlider.Value
+                                
+                                local newDestPos = data.startCFrame.Position + (direction * newDistance)
+                                data.destCFrame = CFrame.new(newDestPos) * (data.destCFrame - data.destCFrame.Position)
+                            end
+                        end
+
+                        return oldInvoke(self, ...)
+                    end)
+                end
+
+                if tweenTeleportRemote then
+                    tweenConnection = tweenTeleportRemote.OnClientEvent:Connect(function(data)
+                        if InstantToggle.Enabled and type(data) == "table" and data.time then
+                            data.time = 0
+                        end
+                    end)
+                end
+            else
+                if oldInvoke then
+                    hookmetamethod(game, "__namecall", oldInvoke)
+                    oldInvoke = nil
+                end
+                if tweenConnection then
+                    tweenConnection:Disconnect()
+                    tweenConnection = nil
+                end
+            end
+        end,
+        Tooltip = 'Extends Elektra dash distance/speed and removes teleport delay'
+    })
+
+    MultiplierSlider = ElektraExtender:CreateSlider({
+        Name = 'Dash Multiplier',
+        Min = 1,
+        Max = 5,
+        Default = 1.5,
+        Decimal = 100,
+        Suffix = function(val)
+            return 'x'
+        end,
+        Tooltip = 'Multiplies the default dash distance'
+    })
+
+    ExtensionSlider = ElektraExtender:CreateSlider({
+        Name = 'Extra Studs',
+        Min = 0,
+        Max = 30,
+        Default = 0,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end,
+        Tooltip = 'Additional fixed stud distance added on top of multiplier'
+    })
+
+    InstantToggle = ElektraExtender:CreateToggle({
+        Name = 'Instant Teleport',
+        Default = true,
+        Tooltip = 'Forces TweenTeleport duration from 0.3s to 0s'
+    })
+end)
+
+run(function()
     local AutoDavey
     local Switch
     local Break
