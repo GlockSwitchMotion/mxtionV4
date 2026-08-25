@@ -14244,13 +14244,17 @@ run(function()
 	local Targets
 	local JumpRange
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local Players = game:GetService("Players")
-	local LocalPlayer = Players.LocalPlayer
 
-	-- Safely locate the Void Axe remote
+	-- Safely locate the UseVoidAxeSlash remote
 	local function getRegentRemote()
 		local success, remote = pcall(function()
-			return ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):FindFirstChild("useAbility")
+			return ReplicatedStorage:WaitForChild("rbxts_include")
+				:WaitForChild("node_modules")
+				:WaitForChild("@rbxts")
+				:WaitForChild("net")
+				:WaitForChild("out")
+				:WaitForChild("_NetManaged")
+				:FindFirstChild("UseVoidAxeSlash")
 		end)
 		return success and remote or nil
 	end
@@ -14298,14 +14302,14 @@ run(function()
 						local remote = getRegentRemote()
 						if remote then
 							pcall(function()
-								remote:FireServer("void_axe_jump")
+								remote:FireServer()
 							end)
 						end
 					end
 				end))
 			end
 		end,
-		Tooltip = 'Automatically uses Void Axe ability when targets enter range.'
+		Tooltip = 'Automatically fires UseVoidAxeSlash when targets enter range.'
 	})
 
 	-- Configurable Targets & Range Sliders
