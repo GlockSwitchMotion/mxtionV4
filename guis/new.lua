@@ -335,11 +335,12 @@ getcustomasset = assetfunction and function(path)
 	if isfile(path) then
 		return assetfunction(path)
 	end
-	task.spawn(function()
-		pcall(function()
-			downloadFile(path)
-		end)
+	pcall(function()
+		downloadFile(path)
 	end)
+	if isfile(path) then
+		return assetfunction(path)
+	end
 	return getcustomassets[path] or ''
 end or function(path)
 	return getcustomassets[path] or ''
@@ -2552,7 +2553,7 @@ function mainapi:CreateGUI()
 	makeDraggable(window)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
-	logo.Size = UDim2.fromOffset(200, 40)
+	logo.Size = UDim2.fromOffset(155, 40)
 	logo.Position = UDim2.fromOffset(-16, 2)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
@@ -2562,7 +2563,7 @@ function mainapi:CreateGUI()
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
 	logov4.Size = UDim2.fromOffset(36, 20)
-	logov4.Position = UDim2.fromOffset(158, 10)
+	logov4.Position = UDim2.new(1, 4, 0, 2)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ScaleType = Enum.ScaleType.Fit
@@ -7206,8 +7207,8 @@ textguicolorcustom = textgui:CreateColorSlider({
 local VapeLabels = {}
 local VapeLogo = Instance.new('ImageLabel')
 VapeLogo.Name = 'Logo'
-VapeLogo.Size = UDim2.fromOffset(130, 21)
-VapeLogo.Position = UDim2.new(1, -180, 0, 3)
+VapeLogo.Size = UDim2.fromOffset(80, 21)
+VapeLogo.Position = UDim2.new(1, -142, 0, 3)
 VapeLogo.BackgroundTransparency = 1
 VapeLogo.BorderSizePixel = 0
 VapeLogo.Visible = false
@@ -7230,7 +7231,7 @@ end))
 local VapeLogoV4 = Instance.new('ImageLabel')
 VapeLogoV4.Name = 'Logo2'
 VapeLogoV4.Size = UDim2.fromOffset(33, 18)
-VapeLogoV4.Position = UDim2.fromOffset(78, 2)
+VapeLogoV4.Position = UDim2.new(1, 1, 0, 1)
 VapeLogoV4.BackgroundColor3 = Color3.new()
 VapeLogoV4.BackgroundTransparency = 1
 VapeLogoV4.BorderSizePixel = 0
