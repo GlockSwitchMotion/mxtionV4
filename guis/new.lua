@@ -335,12 +335,11 @@ getcustomasset = assetfunction and function(path)
 	if isfile(path) then
 		return assetfunction(path)
 	end
-	pcall(function()
-		downloadFile(path)
+	task.spawn(function()
+		pcall(function()
+			downloadFile(path)
+		end)
 	end)
-	if isfile(path) then
-		return assetfunction(path)
-	end
 	return getcustomassets[path] or ''
 end or function(path)
 	return getcustomassets[path] or ''
