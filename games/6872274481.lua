@@ -8842,8 +8842,8 @@ run(function()
 		Name = 'Fire Rate',
 		Min = 0,
 		Max = 1,
-		DefaultMin = 0.05,
-		DefaultMax = 0.12,
+		DefaultMin = 1,
+		DefaultMax = 8,
 		Decimal = 100
 	})
 	SwitchDelay = AutoShoot:CreateSlider({
@@ -9065,8 +9065,8 @@ run(function()
 		Name = 'Fire Rate',
 		Min = 0,
 		Max = 1,
-		DefaultMin = 1,
-		DefaultMax = 8,
+		DefaultMin = 0.05,
+		DefaultMax = 0.12,
 		Decimal = 100
 	})
 	SwitchDelay = AutoShoot:CreateSlider({
