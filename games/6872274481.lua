@@ -14503,7 +14503,6 @@ run(function()
 	local LimitItem
 	local BreakDelay
 	local DrawTrajectory
-	local TrajectoryMode
 
 	local RunService = game:GetService("RunService")
 	local Workspace = game:GetService("Workspace")
@@ -14550,13 +14549,31 @@ run(function()
 		createTrajectoryVisuals()
 
 		local gravity = Workspace.Gravity
+		local t = 0
+		local dt = 0.03
+		local currentPos = origin
+		local hitPos = origin
+		local trajectoryPoints = {}
+
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 		if entitylib.isAlive and entitylib.character.Character then
 			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 		end
 
-		local hitPos = origin
+		-- Calculate trajectory
+		for _ = 1, 150 do
+			t = t + dt
+			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
+			local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
+
+			if ray then
+				hitPos = ray.Position
+				break
+			end
+			table.insert(trajectoryPoints, nextPos)
+			currentPos = nextPos
+		end
 
 		-- Clear old visuals
 		if trajectoryBeam and trajectoryBeam.Parent then
@@ -14567,70 +14584,24 @@ run(function()
 		trajectoryBeam.Name = "TrajectoryArc"
 		trajectoryBeam.Parent = Workspace.Terrain
 
-		if TrajectoryMode.Value == 'Curve Line' then
-			-- Parabolic arc mode
-			local t = 0
-			local dt = 0.03
-			local currentPos = origin
-			local trajectoryPoints = {}
-
-			for _ = 1, 150 do
-				t = t + dt
-				local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
-				local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
-
-				if ray then
-					hitPos = ray.Position
-					break
-				end
-				table.insert(trajectoryPoints, nextPos)
-				currentPos = nextPos
-			end
-
-			-- Draw arc with beams
-			for i = 1, #trajectoryPoints - 1 do
-				local p1 = trajectoryPoints[i]
-				local p2 = trajectoryPoints[i + 1]
-				
-				local a1 = Instance.new("Attachment", trajectoryBeam)
-				a1.WorldPosition = p1
-				
-				local a2 = Instance.new("Attachment", trajectoryBeam)
-				a2.WorldPosition = p2
-				
-				local beam = Instance.new("Beam")
-				beam.Attachment0 = a1
-				beam.Attachment1 = a2
-				beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
-				beam.Width0 = 0.4
-				beam.Width1 = 0.4
-				beam.Transparency = NumberSequence.new(0.1)
-				beam.FaceCamera = true
-				beam.Parent = trajectoryBeam
-			end
-		else
-			-- Straight line mode
-			local ray = Workspace:Raycast(origin, velocity, raycastParams)
-			if ray then
-				hitPos = ray.Position
-			else
-				hitPos = origin + velocity
-			end
-
-			-- Draw straight beam
+		-- Draw arc with beams
+		for i = 1, #trajectoryPoints - 1 do
+			local p1 = trajectoryPoints[i]
+			local p2 = trajectoryPoints[i + 1]
+			
 			local a1 = Instance.new("Attachment", trajectoryBeam)
-			a1.WorldPosition = origin
+			a1.WorldPosition = p1
 			
 			local a2 = Instance.new("Attachment", trajectoryBeam)
-			a2.WorldPosition = hitPos
+			a2.WorldPosition = p2
 			
 			local beam = Instance.new("Beam")
 			beam.Attachment0 = a1
 			beam.Attachment1 = a2
-			beam.Color = ColorSequence.new(Color3.fromRGB(255, 255, 0)) -- Yellow for straight line
-			beam.Width0 = 0.6
-			beam.Width1 = 0.6
-			beam.Transparency = NumberSequence.new(0.15)
+			beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
+			beam.Width0 = 0.4
+			beam.Width1 = 0.4
+			beam.Transparency = NumberSequence.new(0.1)
 			beam.FaceCamera = true
 			beam.Parent = trajectoryBeam
 		end
@@ -14748,13 +14719,6 @@ run(function()
 		Name = 'Show Trajectory',
 		Default = true,
 		Tooltip = 'Displays trajectory line and landing target indicator'
-	})
-
-	TrajectoryMode = AutoDavey:CreateDropdown({
-		Name = 'Trajectory Mode',
-		Options = {'Curve Line', 'Straight Line'},
-		Default = 'Curve Line',
-		Tooltip = 'Choose between parabolic arc or straight beam'
 	})
 
 	Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
