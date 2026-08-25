@@ -14563,12 +14563,13 @@ run(function()
 		end
 
 		if TrajectoryMode.Value == 'Straight' then
-			-- Straight raycast directly along camera view (laser style)
 			local camera = Workspace.CurrentCamera
 			if not camera then return end
 
 			local lookVector = camera.CFrame.LookVector
-			local startPos = origin + (lookVector * 2)
+			
+			-- Offset origin out of character model so the start point is distinct from the end point
+			local startPos = block.Position + Vector3.new(0, 2.5, 0) + (lookVector * 4)
 			local maxDist = 160
 			local hitPos = startPos + (lookVector * maxDist)
 
@@ -14577,7 +14578,7 @@ run(function()
 				hitPos = ray.Position
 			end
 
-			-- Clear multi-segment folder if switching modes
+			-- Clear arc folder if switching from Curve mode
 			if trajectoryBeam and not trajectoryBeam:IsA("Beam") then
 				trajectoryBeam:Destroy()
 				trajectoryBeam = nil
@@ -14599,6 +14600,7 @@ run(function()
 				trajectoryBeam.Parent = Workspace.Terrain
 			end
 
+			-- Force world position separation to render a full beam line rather than collapsing to a dot
 			attach0.WorldPosition = startPos
 			attach1.WorldPosition = hitPos
 
@@ -14668,7 +14670,7 @@ run(function()
 	local function isMyCannon(block)
 		if not block then return false end
 		local lplr = game:GetService("Players").LocalPlayer
-		if not lplr then return false end
+		if not lplr me then return false end
 
 		local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
 		if placedBy then
