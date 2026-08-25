@@ -14503,6 +14503,7 @@ run(function()
 	local LimitItem
 	local BreakDelay
 	local DrawTrajectory
+	local TrajectoryMode
 
 	local RunService = game:GetService("RunService")
 	local Workspace = game:GetService("Workspace")
@@ -14511,7 +14512,6 @@ run(function()
 	local trajectoryBeam, landingMarker, attach0, attach1
 	local aimConnection
 
-	-- Setup trajectory visualization elements
 	local function createTrajectoryVisuals()
 		if landingMarker then return end
 
@@ -14541,77 +14541,123 @@ run(function()
 			landingMarker:Destroy() 
 			landingMarker = nil 
 		end
+		if attach0 then
+			attach0:Destroy()
+			attach0 = nil
+		end
+		if attach1 then
+			attach1:Destroy()
+			attach1 = nil
+		end
 	end
 
-	-- Simulates parabolic physics path and returns landing point with arc visualization
-	local function updateTrajectory(origin, velocity)
+	-- Simulates trajectory with options for Curve or Straight visual modes
+	local function updateTrajectory(origin, velocity, block)
 		if not DrawTrajectory.Enabled then return end
 		createTrajectoryVisuals()
-
-		local gravity = Workspace.Gravity
-		local t = 0
-		local dt = 0.03
-		local currentPos = origin
-		local hitPos = origin
-		local trajectoryPoints = {}
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 		if entitylib.isAlive and entitylib.character.Character then
-			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
+			raycastParams.FilterDescendantsInstances = {entitylib.character.Character, block}
 		end
 
-		-- Calculate trajectory
-		for _ = 1, 150 do
-			t = t + dt
-			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
-			local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
+		if TrajectoryMode.Value == 'Straight' then
+			-- Straight raycast directly along camera view (laser style)
+			local camera = Workspace.CurrentCamera
+			if not camera then return end
 
+			local lookVector = camera.CFrame.LookVector
+			local startPos = origin + (lookVector * 2)
+			local maxDist = 160
+			local hitPos = startPos + (lookVector * maxDist)
+
+			local ray = Workspace:Raycast(startPos, lookVector * maxDist, raycastParams)
 			if ray then
 				hitPos = ray.Position
-				break
 			end
-			table.insert(trajectoryPoints, nextPos)
-			currentPos = nextPos
-		end
 
-		-- Clear old visuals
-		if trajectoryBeam and trajectoryBeam.Parent then
-			trajectoryBeam:Destroy()
-		end
-		
-		trajectoryBeam = Instance.new("Folder")
-		trajectoryBeam.Name = "TrajectoryArc"
-		trajectoryBeam.Parent = Workspace.Terrain
+			-- Clear multi-segment folder if switching modes
+			if trajectoryBeam and not trajectoryBeam:IsA("Beam") then
+				trajectoryBeam:Destroy()
+				trajectoryBeam = nil
+			end
 
-		-- Draw arc with beams
-		for i = 1, #trajectoryPoints - 1 do
-			local p1 = trajectoryPoints[i]
-			local p2 = trajectoryPoints[i + 1]
-			
-			local a1 = Instance.new("Attachment", trajectoryBeam)
-			a1.WorldPosition = p1
-			
-			local a2 = Instance.new("Attachment", trajectoryBeam)
-			a2.WorldPosition = p2
-			
-			local beam = Instance.new("Beam")
-			beam.Attachment0 = a1
-			beam.Attachment1 = a2
-			beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
-			beam.Width0 = 0.4
-			beam.Width1 = 0.4
-			beam.Transparency = NumberSequence.new(0.1)
-			beam.FaceCamera = true
-			beam.Parent = trajectoryBeam
-		end
+			if not trajectoryBeam then
+				attach0 = Instance.new("Attachment", Workspace.Terrain)
+				attach1 = Instance.new("Attachment", Workspace.Terrain)
 
-		-- Landing marker
-		landingMarker.Position = hitPos + Vector3.new(0, 2, 0)
-		landingMarker.Visible = true
-		landingMarker.Color = Color3.fromRGB(0, 255, 150)
-		landingMarker.Size = Vector3.new(0.4, 4, 4)
-		landingMarker.Transparency = 0.3
+				trajectoryBeam = Instance.new("Beam")
+				trajectoryBeam.Attachment0 = attach0
+				trajectoryBeam.Attachment1 = attach1
+				trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
+				trajectoryBeam.Width0 = 0.35
+				trajectoryBeam.Width1 = 0.35
+				trajectoryBeam.Transparency = NumberSequence.new(0.1)
+				trajectoryBeam.FaceCamera = true
+				trajectoryBeam.AlwaysOnTop = true
+				trajectoryBeam.Parent = Workspace.Terrain
+			end
+
+			attach0.WorldPosition = startPos
+			attach1.WorldPosition = hitPos
+
+			landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
+			landingMarker.Visible = true
+		else
+			-- Parabolic Arc Curve Calculation
+			local gravity = Workspace.Gravity
+			local t = 0
+			local dt = 0.03
+			local currentPos = origin
+			local hitPos = origin
+			local trajectoryPoints = {}
+
+			for _ = 1, 150 do
+				t = t + dt
+				local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
+				local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
+
+				if ray then
+					hitPos = ray.Position
+					break
+				end
+				table.insert(trajectoryPoints, nextPos)
+				currentPos = nextPos
+			end
+
+			if trajectoryBeam and trajectoryBeam.Parent then
+				trajectoryBeam:Destroy()
+			end
+
+			trajectoryBeam = Instance.new("Folder")
+			trajectoryBeam.Name = "TrajectoryArc"
+			trajectoryBeam.Parent = Workspace.Terrain
+
+			for i = 1, #trajectoryPoints - 1 do
+				local p1 = trajectoryPoints[i]
+				local p2 = trajectoryPoints[i + 1]
+
+				local a1 = Instance.new("Attachment", trajectoryBeam)
+				a1.WorldPosition = p1
+
+				local a2 = Instance.new("Attachment", trajectoryBeam)
+				a2.WorldPosition = p2
+
+				local beam = Instance.new("Beam")
+				beam.Attachment0 = a1
+				beam.Attachment1 = a2
+				beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
+				beam.Width0 = 0.4
+				beam.Width1 = 0.4
+				beam.Transparency = NumberSequence.new(0.1)
+				beam.FaceCamera = true
+				beam.Parent = trajectoryBeam
+			end
+
+			landingMarker.Position = hitPos + Vector3.new(0, 2, 0)
+			landingMarker.Visible = true
+		end
 	end
 
 	local function canBreak()
@@ -14654,8 +14700,8 @@ run(function()
 								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
 								local angleHeight = math.max(-1.5, math.min(3, lookVector.Y * 8))
 								local origin = block.Position + Vector3.new(0, 2.8 + angleHeight, 0)
-								local launchVelocity = lookVector * 120 -- Estimated launch velocity magnitude
-								updateTrajectory(origin, launchVelocity)
+								local launchVelocity = lookVector * 120
+								updateTrajectory(origin, launchVelocity, block)
 							else
 								clearTrajectoryVisuals()
 							end
@@ -14706,6 +14752,20 @@ run(function()
 		Tooltip = 'Smoothly breaks only your own cannon/jump on launch and displays landing trajectory.'
 	})
 
+	-- Settings
+	DrawTrajectory = AutoDavey:CreateToggle({
+		Name = 'Show Trajectory',
+		Default = true,
+		Tooltip = 'Displays trajectory line and landing target indicator'
+	})
+
+	TrajectoryMode = AutoDavey:CreateDropdown({
+		Name = 'Trajectory Mode',
+		List = {'Curve', 'Straight'},
+		Default = 'Curve',
+		Tooltip = 'Choose between parabolic curve or straight laser line aiming'
+	})
+
 	BreakDelay = AutoDavey:CreateSlider({
 		Name = 'Break Delay',
 		Min = 0,
@@ -14713,12 +14773,6 @@ run(function()
 		Default = 0.05,
 		Decimal = 100,
 		Tooltip = 'Smooths out block breaking execution timing'
-	})
-
-	DrawTrajectory = AutoDavey:CreateToggle({
-		Name = 'Show Trajectory',
-		Default = true,
-		Tooltip = 'Displays trajectory line and landing target indicator'
 	})
 
 	Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
