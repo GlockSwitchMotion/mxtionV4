@@ -14241,11 +14241,12 @@ end)
 
 run(function()
 	local RegentAura
-	local Targets
-	local JumpRange
+	local HealthThreshold
 	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Players = game:GetService("Players")
+	local LocalPlayer = Players.LocalPlayer
 
-	-- Safely locate the UseVoidAxeSlash remote
+	-- Locate the UseVoidAxeSlash remote
 	local function getRegentRemote()
 		local success, remote = pcall(function()
 			return ReplicatedStorage:WaitForChild("rbxts_include")
@@ -14259,37 +14260,36 @@ run(function()
 		return success and remote or nil
 	end
 
-	-- Check if target is valid based on selected Targets options
-	local function isValidTarget(ent)
-		if not ent or ent == entitylib.character then return false end
-		if ent.Player and not Targets.Players.Enabled then return false end
-		if ent.NPC and not Targets.NPCs.Enabled then return false end
-		if ent.Targetable == false then return false end
-		return true
-	end
+	-- Auto-equip Void Axe from character or inventory
+	local function equipVoidAxe()
+		local char = LocalPlayer.Character
+		if not char then return false end
 
-	-- Find the closest valid target within Jump Range
-	local function getTargetInRange()
-		if not entitylib.isAlive then return nil end
+		-- Check if already holding it
+		for _, item in ipairs(char:GetChildren()) do
+			if item:IsA("Tool") and item.Name:lower():find("void") then
+				return true
+			end
+		end
 
-		local myPos = entitylib.character.RootPart.Position
-		local closestEnt = nil
-		local shortestDist = JumpRange.Value
-
-		for _, ent in ipairs(entitylib.List) do
-			if isValidTarget(ent) and ent.RootPart then
-				local dist = (myPos - ent.RootPart.Position).Magnitude
-				if dist <= shortestDist then
-					shortestDist = dist
-					closestEnt = ent
+		-- Check backpack and equip
+		local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+		if backpack then
+			for _, item in ipairs(backpack:GetChildren()) do
+				if item:IsA("Tool") and item.Name:lower():find("void") then
+					local humanoid = char:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						humanoid:EquipTool(item)
+						return true
+					end
 				end
 			end
 		end
 
-		return closestEnt
+		return false
 	end
 
-	-- Create module in Blatant category
+	-- Module definition
 	local Category = vape.Categories.Blatant
 
 	RegentAura = Category:CreateModule({
@@ -14297,8 +14297,15 @@ run(function()
 		Function = function(callback)
 			if callback then
 				RegentAura:Clean(runService.Heartbeat:Connect(function()
-					local target = getTargetInRange()
-					if target then
+					if not entitylib.isAlive then return end
+
+					local myEnt = entitylib.character
+					if not myEnt or not myEnt.Humanoid then return end
+
+					-- Check if current health is at or below threshold
+					if myEnt.Humanoid.Health <= HealthThreshold.Value and myEnt.Humanoid.Health > 0 then
+						equipVoidAxe()
+
 						local remote = getRegentRemote()
 						if remote then
 							pcall(function()
@@ -14309,23 +14316,17 @@ run(function()
 				end))
 			end
 		end,
-		Tooltip = 'Automatically fires UseVoidAxeSlash when targets enter range.'
+		Tooltip = 'Equips Void Axe and triggers dash/slash automatically when health drops below set threshold.'
 	})
 
-	-- Configurable Targets & Range Sliders
-	Targets = RegentAura:CreateTargets({
-		Players = true,
-		NPCs = false,
-		Function = function() end
-	})
-
-	JumpRange = RegentAura:CreateSlider({
-		Name = 'Jump Range',
+	-- Health trigger threshold slider
+	HealthThreshold = RegentAura:CreateSlider({
+		Name = 'Health Trigger',
 		Function = function() end,
-		Default = 18,
+		Default = 30,
 		Min = 0,
-		Max = 22,
-		Decimal = 10
+		Max = 100,
+		Decimal = 1
 	})
 end)
 
