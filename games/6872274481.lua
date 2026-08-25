@@ -1,4 +1,4 @@
-\local run = function(func)
+local run = function(func)
 	xpcall(func, warn)
 end
 local cloneref = cloneref or function(obj)
@@ -8853,70 +8853,6 @@ run(function()
 		Decimal = 100,
 		Suffix = 'seconds',
 		Default = 0.02
-	})
-end)
-
-run(function()
-	local FpsUnlocker
-	local FpsTarget
-	
-	FpsUnlocker = vape.Categories.Utility:CreateModule({
-		Name = 'FpsUnlocker',
-		Function = function(callback)
-			if callback then
-				-- Unlock FPS by modifying render settings
-				pcall(function()
-					-- Method 1: Set TargetFPS to maximum
-					game:GetService('RunService'):Set('TargetFramerate', FpsTarget.Value)
-					
-					-- Method 2: Disable frame throttling
-					if game:GetService('UserGameSettings') then
-						local ugs = game:GetService('UserGameSettings')
-						pcall(function()
-							ugs.FrameRateManager = Enum.FramerateManagerMode.Off
-						end)
-					end
-					
-					-- Method 3: Direct property override
-					pcall(function()
-						RunService.Heartbeat:Connect(function()
-							if FpsUnlocker.Enabled then
-								game:GetService('RunService'):Set('TargetFramerate', FpsTarget.Value)
-							end
-						end)
-					end)
-				end)
-				
-				-- Keep updating FPS limit when slider changes
-				FpsUnlocker:Clean(FpsTarget.Object.Changed:Connect(function()
-					pcall(function()
-						game:GetService('RunService'):Set('TargetFramerate', FpsTarget.Value)
-					end)
-				end))
-			else
-				-- Reset to default (240 FPS) when disabled
-				pcall(function()
-					game:GetService('RunService'):Set('TargetFramerate', 240)
-				end)
-			end
-		end,
-		Tooltip = 'Unlocks your game FPS from 240 to custom limit'
-	})
-	
-	FpsTarget = FpsUnlocker:CreateSlider({
-		Name = 'FPS Limit',
-		Min = 240,
-		Max = 9999,
-		Default = 9999,
-		Decimal = 1,
-		Suffix = ' FPS',
-		Function = function(val)
-			if FpsUnlocker.Enabled then
-				pcall(function()
-					game:GetService('RunService'):Set('TargetFramerate', val)
-				end)
-			end
-		end
 	})
 end)
 
