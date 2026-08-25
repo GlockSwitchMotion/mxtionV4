@@ -14554,14 +14554,14 @@ run(function()
 		end
 	end
 
-	-- Simulates parabolic physics path with highly visible arc visualization
+	-- Simulates parabolic physics path with smooth flowing arc visualization
 	local function updateTrajectory(origin, velocity)
 		if not DrawTrajectory.Enabled then return end
 		createTrajectoryVisuals()
 
 		local gravity = Workspace.Gravity
 		local t = 0
-		local dt = 0.04
+		local dt = 0.035
 		local currentPos = origin
 		local hitPos = origin
 		local trajectoryPoints = {}
@@ -14602,43 +14602,65 @@ run(function()
 		arcContainer.Name = "TrajectoryArc"
 		arcContainer.Parent = Workspace.Terrain
 		
-		-- Draw large bright dots showing arc path
-		for i, point in ipairs(trajectoryPoints) do
-			if i % 2 == 0 then -- Draw every 2nd point for dense visibility
-				local dot = Instance.new("Part")
-				dot.Shape = Enum.PartType.Ball
-				dot.Size = Vector3.new(0.6, 0.6, 0.6) -- Much larger
-				dot.Color = Color3.fromRGB(0, 255, 100) -- Bright lime green
-				dot.Material = Enum.Material.Neon
-				dot.CanCollide = false
-				dot.CFrame = CFrame.new(point)
-				dot.Transparency = 0.1 -- Very visible
-				dot.Parent = arcContainer
-			end
+		-- Create smooth connected path with beams between points
+		for i = 1, #trajectoryPoints - 1, 2 do
+			local point1 = trajectoryPoints[i]
+			local point2 = trajectoryPoints[i + 1]
+			
+			-- Create attachment points for beam
+			local attach1 = Instance.new("Attachment")
+			attach1.Parent = arcContainer
+			attach1.Position = point1
+			
+			local attach2 = Instance.new("Attachment")
+			attach2.Parent = arcContainer
+			attach2.Position = point2
+			
+			-- Create glowing beam segment
+			local beam = Instance.new("Beam")
+			beam.Attachment0 = attach1
+			beam.Attachment1 = attach2
+			beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 200)) -- Bright cyan
+			beam.Width0 = 0.5
+			beam.Width1 = 0.5
+			beam.Transparency = NumberSequence.new(0.2)
+			beam.FaceCamera = true
+			beam.Parent = arcContainer
+			
+			-- Add glow dots at segments
+			local dot = Instance.new("Part")
+			dot.Shape = Enum.PartType.Ball
+			dot.Size = Vector3.new(0.5, 0.5, 0.5)
+			dot.Color = Color3.fromRGB(0, 255, 150)
+			dot.Material = Enum.Material.Neon
+			dot.CanCollide = false
+			dot.CFrame = CFrame.new(point1)
+			dot.Transparency = 0.15
+			dot.Parent = arcContainer
 		end
 		
 		trajectoryBeam = arcContainer
 
-		-- Large bright landing marker
+		-- Landing marker with glow
 		landingMarker.Position = hitPos + Vector3.new(0, 3, 0)
 		landingMarker.Visible = true
-		landingMarker.Size = Vector3.new(0.5, 5, 5) -- Bigger
-		landingMarker.Color = Color3.fromRGB(255, 50, 50) -- Bright red
+		landingMarker.Size = Vector3.new(0.5, 5, 5)
+		landingMarker.Color = Color3.fromRGB(0, 255, 200) -- Cyan to match arc
 		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.3 -- Very visible
+		landingMarker.Transparency = 0.3
 		
-		-- Strong pulsing effect
+		-- Pulsing glow
 		if not landingMarker:GetAttribute("IsPulsing") then
 			landingMarker:SetAttribute("IsPulsing", true)
 			task.spawn(function()
 				while landingMarker and landingMarker.Parent and DrawTrajectory.Enabled do
-					for i = 0.2, 0.6, 0.05 do
+					for i = 0.2, 0.5, 0.04 do
 						if landingMarker and DrawTrajectory.Enabled then 
 							landingMarker.Transparency = i 
 						end
 						task.wait(0.02)
 					end
-					for i = 0.6, 0.2, -0.05 do
+					for i = 0.5, 0.2, -0.04 do
 						if landingMarker and DrawTrajectory.Enabled then 
 							landingMarker.Transparency = i 
 						end
@@ -14686,7 +14708,7 @@ run(function()
 						if aimConnection then aimConnection:Disconnect() end
 						aimConnection = RunService.RenderStepped:Connect(function()
 							if self.aiming and entitylib.isAlive then
-								local origin = block.Position + Vector3.new(0, 2, 0)
+								local origin = block.Position + Vector3.new(0, 2.8, 0)
 								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
 								local launchVelocity = lookVector * 120 -- Estimated launch velocity magnitude
 								updateTrajectory(origin, launchVelocity)
