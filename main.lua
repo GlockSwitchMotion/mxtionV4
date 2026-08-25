@@ -1,5 +1,5 @@
 local license = ... or {}
-repeat task.wait() until game:IsLoaded()
+if not game:IsLoaded() then game.Loaded:Wait() end
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
@@ -15,36 +15,42 @@ local function getLatestCommit()
 	return "main"
 end
 
+if not isfolder("mxtionv4") then makefolder("mxtionv4") end
+if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
+if not isfile("mxtionv4/profiles/commit.txt") then writefile("mxtionv4/profiles/commit.txt", "main") end
+
 local function handleUpdates()
-	local latestCommit = getLatestCommit()
-	local currentCommit = ""
-	if isfile("mxtionv4/profiles/commit.txt") then
-		currentCommit = readfile("mxtionv4/profiles/commit.txt")
-	end
-	
-	if latestCommit ~= "main" and latestCommit ~= currentCommit then
-		-- An update was detected! Wipe the old cached files.
-		local function clearFolder(path)
-			if isfolder(path) then
-				for _, file in listfiles(path) do
-					if file:find(".lua") and isfile(file) then
-						delfile(file)
+	task.spawn(function()
+		local latestCommit = getLatestCommit()
+		local currentCommit = ""
+		if isfile("mxtionv4/profiles/commit.txt") then
+			currentCommit = readfile("mxtionv4/profiles/commit.txt")
+		end
+		
+		if latestCommit ~= "main" and latestCommit ~= currentCommit then
+			-- An update was detected! Wipe the old cached files.
+			local function clearFolder(path)
+				if isfolder(path) then
+					for _, file in listfiles(path) do
+						if file:find(".lua") and isfile(file) then
+							delfile(file)
+						end
 					end
 				end
 			end
+			clearFolder("mxtionv4/guis")
+			clearFolder("mxtionv4/games")
+			clearFolder("mxtionv4/libraries")
+			
+			if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
+			writefile("mxtionv4/profiles/commit.txt", latestCommit)
+			
+			-- Trigger the Vape update notification
+			if currentCommit ~= "" and currentCommit ~= "main" then
+				shared.updated = currentCommit:sub(1, 7)
+			end
 		end
-		clearFolder("mxtionv4/guis")
-		clearFolder("mxtionv4/games")
-		clearFolder("mxtionv4/libraries")
-		
-		if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
-		writefile("mxtionv4/profiles/commit.txt", latestCommit)
-		
-		-- Trigger the Vape update notification
-		if currentCommit ~= "" and currentCommit ~= "main" then
-			shared.updated = currentCommit:sub(1, 7)
-		end
-	end
+	end)
 end
 handleUpdates()
 
