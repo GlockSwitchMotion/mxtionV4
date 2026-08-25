@@ -14551,14 +14551,14 @@ run(function()
 		if attach1 then attach1:Destroy() attach1 = nil end
 	end
 
-	-- Simulates parabolic physics path and returns landing point
+	-- Simulates parabolic physics path with improved accuracy and returns landing point
 	local function updateTrajectory(origin, velocity)
 		if not DrawTrajectory.Enabled then return end
 		createTrajectoryVisuals()
 
 		local gravity = Workspace.Gravity
 		local t = 0
-		local dt = 0.03
+		local dt = 0.013 -- Ultra smooth 77fps equivalent
 		local currentPos = origin
 		local hitPos = origin
 
@@ -14568,22 +14568,62 @@ run(function()
 			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 		end
 
-		for _ = 1, 100 do
+		-- Improved trajectory simulation with more iterations for accuracy
+		for _ = 1, 300 do
 			t = t + dt
+			-- More precise parabolic calculation
 			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
-			local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
-
-			if ray then
-				hitPos = ray.Position
-				break
+			
+			-- Smooth raycast with proper direction
+			local direction = nextPos - currentPos
+			if direction.Magnitude > 0 then
+				local ray = Workspace:Raycast(currentPos, direction, raycastParams)
+				if ray then
+					hitPos = ray.Position
+					break
+				end
 			end
+			
 			currentPos = nextPos
+			
+			-- Safety check - stop if trajectory goes too far
+			if t > 15 then break end
 		end
 
+		-- Clean straight line from cannon to landing position
 		attach0.Position = origin
 		attach1.Position = hitPos
-		landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
+		trajectoryBeam.Enabled = true
+		trajectoryBeam.Thickness = 0.15
+
+		-- Enhanced landing marker with glow and pulsing highlight
+		landingMarker.Position = hitPos + Vector3.new(0, 2.5, 0)
 		landingMarker.Visible = true
+		landingMarker.Size = Vector3.new(0.3, 4, 4)
+		landingMarker.Color = Color3.fromRGB(0, 255, 150) -- Bright cyan for player highlight
+		landingMarker.Material = Enum.Material.Neon
+		landingMarker.Transparency = 0.5
+		
+		-- Pulsing glow effect on landing position
+		if not landingMarker:GetAttribute("IsPulsing") then
+			landingMarker:SetAttribute("IsPulsing", true)
+			task.spawn(function()
+				while landingMarker and landingMarker.Parent and DrawTrajectory.Enabled do
+					for i = 0.35, 0.65, 0.03 do
+						if landingMarker and DrawTrajectory.Enabled then 
+							landingMarker.Transparency = i 
+						end
+						task.wait(0.02)
+					end
+					for i = 0.65, 0.35, -0.03 do
+						if landingMarker and DrawTrajectory.Enabled then 
+							landingMarker.Transparency = i 
+						end
+						task.wait(0.02)
+					end
+				end
+			end)
+		end
 	end
 
 	local function canBreak()
