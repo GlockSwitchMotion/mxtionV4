@@ -8983,7 +8983,7 @@ run(function()
 		return false
 	end
 	
-	AutoShoot = vape.Categories.Inventory:CreateModule({
+	AutoShoot = vape.Categories.Combat:CreateModule({
 		Name = 'AutoGloop',
 		Function = function(callback)
 			if callback then
