@@ -8983,7 +8983,7 @@ run(function()
 		return false
 	end
 	
-	AutoShoot = vape.Categories.Combat:CreateModule({
+	AutoShoot = vape.Categories.Inventory:CreateModule({
 		Name = 'AutoGloop',
 		Function = function(callback)
 			if callback then
@@ -9065,8 +9065,8 @@ run(function()
 		Name = 'Fire Rate',
 		Min = 0,
 		Max = 1,
-		DefaultMin = 0.05,
-		DefaultMax = 0.12,
+		DefaultMin = 1,
+		DefaultMax = 8,
 		Decimal = 100
 	})
 	SwitchDelay = AutoShoot:CreateSlider({
