@@ -9277,12 +9277,39 @@ end)
 run(function()
 	local AutoVoidDrop
 	local OwlCheck
+	local PearlCheck
 	local Delay
+
+	local function hasPearl()
+		if not store.inventories or not entitylib.player then return false end
+		local inv = store.inventories[entitylib.player]
+		if not inv then return false end
+		
+		-- Check if pearl is in hand
+		if inv.hand and inv.hand.itemType == 'telepearl' then
+			return true
+		end
+		
+		-- Check in hotbar/inventory
+		for i, item in ipairs(inv.items or {}) do
+			if item and item.itemType == 'telepearl' then
+				return true
+			end
+		end
+		
+		return false
+	end
 
 	local function shouldDrop(lowestpoint)
 		if not entitylib.isAlive then return false end
 
 		local root = entitylib.character.RootPart
+		
+		-- Check pearl if enabled
+		if PearlCheck.Enabled and hasPearl() then
+			return false
+		end
+		
 		return root.Position.Y < lowestpoint
 			and (lplr.Character:GetAttribute('InflatedBalloons') or 0) <= 0
 			and not getItem('balloon')
@@ -9303,25 +9330,43 @@ run(function()
 						lowestpoint = point
 					end
 				end
+				
+				local delayTriggered = false
+				local delayStartTime = 0
 	
 				repeat
 					if shouldDrop(lowestpoint) then
-						task.wait(Delay.Value)
-						if shouldDrop(lowestpoint) then
-							for _, item in {'iron', 'diamond', 'emerald', 'gold'} do
-								item = getItem(item)
-								if item then
-									item = bedwars.Handler:Get('DropItem'):Fire('CallServer', {
-										item = item.tool,
-										amount = item.amount
-									})
-									
+						-- Start delay countdown if not already started
+						if not delayTriggered then
+							delayTriggered = true
+							delayStartTime = tick()
+						end
+						
+						-- Check if delay has passed
+						if (tick() - delayStartTime) >= Delay.Value then
+							-- Final check before dropping
+							if shouldDrop(lowestpoint) then
+								for _, itemType in {'iron', 'diamond', 'emerald', 'gold'} do
+									local item = getItem(itemType)
 									if item then
-										item:SetAttribute('ClientDropTime', tick() + 100)
+										item = bedwars.Handler:Get('DropItem'):Fire('CallServer', {
+											item = item.tool,
+											amount = item.amount
+										})
+										
+										if item then
+											item:SetAttribute('ClientDropTime', tick() + 100)
+										end
 									end
 								end
 							end
+							
+							-- Reset delay trigger
+							delayTriggered = false
 						end
+					else
+						-- Reset delay if no longer in void
+						delayTriggered = false
 					end
 	
 					task.wait(0.1)
@@ -9334,6 +9379,11 @@ run(function()
 		Name = 'Owl check',
 		Default = true,
 		Tooltip = 'Refuses to drop items if being picked up by an owl'
+	})
+	PearlCheck = AutoVoidDrop:CreateToggle({
+		Name = 'Pearl check',
+		Default = true,
+		Tooltip = 'Refuses to drop items if you have a telepearl available'
 	})
 	Delay = AutoVoidDrop:CreateSlider({
 		Name = 'Delay',
