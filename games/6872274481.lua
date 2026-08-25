@@ -14503,6 +14503,8 @@ run(function()
 	local LimitItem
 	local BreakDelay
 	local DrawTrajectory
+	local TrajectoryDistance
+	local LineColor
 
 	local RunService = game:GetService("RunService")
 	local Workspace = game:GetService("Workspace")
@@ -14511,7 +14513,6 @@ run(function()
 	local trajectoryBeam, landingMarker, attach0, attach1
 	local aimConnection
 
-	-- Setup trajectory visualization elements
 	local function createTrajectoryVisuals()
 		if trajectoryBeam then return end
 
@@ -14521,16 +14522,14 @@ run(function()
 		trajectoryBeam = Instance.new("Beam")
 		trajectoryBeam.Attachment0 = attach0
 		trajectoryBeam.Attachment1 = attach1
-		trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(255, 230, 80)) -- Bright yellow
-		trajectoryBeam.Width0 = 0.25
-		trajectoryBeam.Width1 = 0.25
+		trajectoryBeam.Width0 = 0.2
+		trajectoryBeam.Width1 = 0.2
 		trajectoryBeam.FaceCamera = true
 		trajectoryBeam.Parent = Workspace.Terrain
 
 		landingMarker = Instance.new("Part")
 		landingMarker.Shape = Enum.PartType.Cylinder
 		landingMarker.Size = Vector3.new(0.2, 4, 4)
-		landingMarker.Color = Color3.fromRGB(255, 230, 80)
 		landingMarker.Material = Enum.Material.Neon
 		landingMarker.Transparency = 0.4
 		landingMarker.Anchored = true
@@ -14551,38 +14550,38 @@ run(function()
 		if attach1 then attach1:Destroy() attach1 = nil end
 	end
 
-	-- Simulates parabolic physics path and returns landing point
-	local function updateTrajectory(origin, velocity)
+	-- Draws a straight, offset trajectory line using a color picker slider
+	local function updateStraightLine(cannonBlock)
 		if not DrawTrajectory.Enabled then return end
 		createTrajectoryVisuals()
 
-		local gravity = Workspace.Gravity
-		local t = 0
-		local dt = 0.03
-		local currentPos = origin
-		local hitPos = origin
+		local camera = Workspace.CurrentCamera
+		local lookVector = camera.CFrame.LookVector
+		
+		-- Start origin 4 studs ahead of the cannon block so it's not close up / blocking view
+		local startPos = cannonBlock.Position + (lookVector * 4) + Vector3.new(0, 1.5, 0)
+		local targetPos = startPos + (lookVector * TrajectoryDistance.Value)
 
+		-- Raycast forward to stop line at obstacles
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 		if entitylib.isAlive and entitylib.character.Character then
-			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
+			raycastParams.FilterDescendantsInstances = {entitylib.character.Character, cannonBlock}
 		end
 
-		for _ = 1, 100 do
-			t = t + dt
-			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
-			local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
-
-			if ray then
-				hitPos = ray.Position
-				break
-			end
-			currentPos = nextPos
+		local ray = Workspace:Raycast(startPos, lookVector * TrajectoryDistance.Value, raycastParams)
+		if ray then
+			targetPos = ray.Position
 		end
 
-		attach0.Position = origin
-		attach1.Position = hitPos
-		landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
+		-- Apply ColorSlider value to trajectory line and landing cylinder
+		local selectedColor = LineColor.Value or Color3.fromRGB(255, 255, 255)
+		trajectoryBeam.Color = ColorSequence.new(selectedColor)
+		landingMarker.Color = selectedColor
+
+		attach0.Position = startPos
+		attach1.Position = targetPos
+		landingMarker.Position = targetPos + Vector3.new(0, 0.1, 0)
 		landingMarker.Visible = true
 	end
 
@@ -14623,10 +14622,7 @@ run(function()
 						if aimConnection then aimConnection:Disconnect() end
 						aimConnection = RunService.RenderStepped:Connect(function()
 							if self.aiming and entitylib.isAlive then
-								local origin = block.Position + Vector3.new(0, 2, 0)
-								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
-								local launchVelocity = lookVector * 120 -- Estimated launch velocity magnitude
-								updateTrajectory(origin, launchVelocity)
+								updateStraightLine(block)
 							else
 								clearTrajectoryVisuals()
 							end
@@ -14674,7 +14670,31 @@ run(function()
 				bedwars.CannonController.startAiming = oldAim
 			end
 		end,
-		Tooltip = 'Smoothly breaks only your own cannon/jump on launch and displays landing trajectory.'
+		Tooltip = 'Smoothly breaks only your own cannon/jump on launch with customizable straight line aiming.'
+	})
+
+	-- Settings
+	DrawTrajectory = AutoDavey:CreateToggle({
+		Name = 'Show Trajectory',
+		Default = true,
+		Tooltip = 'Displays straight line aiming indicator'
+	})
+
+	LineColor = AutoDavey:CreateColorSlider({
+		Name = 'Line Color',
+		DefaultHue = 0.16, -- Default yellow hue
+		DefaultSat = 1,
+		DefaultValue = 1,
+		Function = function() end
+	})
+
+	TrajectoryDistance = AutoDavey:CreateSlider({
+		Name = 'Line Distance',
+		Min = 20,
+		Max = 200,
+		Default = 100,
+		Decimal = 1,
+		Tooltip = 'How far out the straight line projects'
 	})
 
 	BreakDelay = AutoDavey:CreateSlider({
@@ -14684,12 +14704,6 @@ run(function()
 		Default = 0.05,
 		Decimal = 100,
 		Tooltip = 'Smooths out block breaking execution timing'
-	})
-
-	DrawTrajectory = AutoDavey:CreateToggle({
-		Name = 'Show Trajectory',
-		Default = true,
-		Tooltip = 'Displays trajectory line and landing target indicator'
 	})
 
 	Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
