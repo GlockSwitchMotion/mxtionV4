@@ -14513,25 +14513,49 @@ run(function()
 	local trajectoryBeam, landingMarker, attach0, attach1
 	local aimConnection
 
-	local function createTrajectoryVisuals()
-		if trajectoryBeam then return end
+	local function getColorFromSlider()
+		if not LineColor then return Color3.fromRGB(255, 255, 255) end
+		
+		-- Handle Vape ColorSlider table format (Hue, Sat, Val)
+		if type(LineColor.Value) == "table" then
+			local h = LineColor.Value.Hue or LineColor.Hue or 0.16
+			local s = LineColor.Value.Sat or LineColor.Sat or 1
+			local v = LineColor.Value.Val or LineColor.Val or 1
+			return Color3.fromHSV(h, s, v)
+		elseif typeof(LineColor.Value) == "Color3" then
+			return LineColor.Value
+		end
+		
+		return Color3.fromRGB(255, 230, 80)
+	end
 
-		attach0 = Instance.new("Attachment", Workspace.Terrain)
-		attach1 = Instance.new("Attachment", Workspace.Terrain)
+	local function createTrajectoryVisuals()
+		if trajectoryBeam and trajectoryBeam.Parent then return end
+
+		attach0 = Instance.new("Attachment")
+		attach0.Name = "DaveyAttach0"
+		attach0.Parent = Workspace.Terrain
+
+		attach1 = Instance.new("Attachment")
+		attach1.Name = "DaveyAttach1"
+		attach1.Parent = Workspace.Terrain
 
 		trajectoryBeam = Instance.new("Beam")
+		trajectoryBeam.Name = "DaveyTrajectoryBeam"
 		trajectoryBeam.Attachment0 = attach0
 		trajectoryBeam.Attachment1 = attach1
-		trajectoryBeam.Width0 = 0.2
-		trajectoryBeam.Width1 = 0.2
+		trajectoryBeam.Width0 = 0.3
+		trajectoryBeam.Width1 = 0.3
 		trajectoryBeam.FaceCamera = true
+		trajectoryBeam.AlwaysOnTop = true
 		trajectoryBeam.Parent = Workspace.Terrain
 
 		landingMarker = Instance.new("Part")
+		landingMarker.Name = "DaveyLandingMarker"
 		landingMarker.Shape = Enum.PartType.Cylinder
-		landingMarker.Size = Vector3.new(0.2, 4, 4)
+		landingMarker.Size = Vector3.new(0.2, 3, 3)
 		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.4
+		landingMarker.Transparency = 0.3
 		landingMarker.Anchored = true
 		landingMarker.CanCollide = false
 		landingMarker.Orientation = Vector3.new(0, 0, 90)
@@ -14550,38 +14574,44 @@ run(function()
 		if attach1 then attach1:Destroy() attach1 = nil end
 	end
 
-	-- Draws a straight, offset trajectory line using a color picker slider
 	local function updateStraightLine(cannonBlock)
-		if not DrawTrajectory.Enabled then return end
+		if not DrawTrajectory.Enabled then 
+			if trajectoryBeam then trajectoryBeam.Enabled = false end
+			if landingMarker then landingMarker.Visible = false end
+			return 
+		end
+
 		createTrajectoryVisuals()
 
 		local camera = Workspace.CurrentCamera
+		if not camera then return end
+
 		local lookVector = camera.CFrame.LookVector
-		
-		-- Start origin 4 studs ahead of the cannon block so it's not close up / blocking view
 		local startPos = cannonBlock.Position + (lookVector * 4) + Vector3.new(0, 1.5, 0)
 		local targetPos = startPos + (lookVector * TrajectoryDistance.Value)
 
-		-- Raycast forward to stop line at obstacles
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-		if entitylib.isAlive and entitylib.character.Character then
-			raycastParams.FilterDescendantsInstances = {entitylib.character.Character, cannonBlock}
+		local filter = {cannonBlock}
+		if entitylib.isAlive and entitylib.character and entitylib.character.Character then
+			table.insert(filter, entitylib.character.Character)
 		end
+		raycastParams.FilterDescendantsInstances = filter
 
 		local ray = Workspace:Raycast(startPos, lookVector * TrajectoryDistance.Value, raycastParams)
 		if ray then
 			targetPos = ray.Position
 		end
 
-		-- Apply ColorSlider value to trajectory line and landing cylinder
-		local selectedColor = LineColor.Value or Color3.fromRGB(255, 255, 255)
-		trajectoryBeam.Color = ColorSequence.new(selectedColor)
-		landingMarker.Color = selectedColor
+		local currentColor = getColorFromSlider()
+		trajectoryBeam.Color = ColorSequence.new(currentColor)
+		landingMarker.Color = currentColor
 
 		attach0.Position = startPos
 		attach1.Position = targetPos
 		landingMarker.Position = targetPos + Vector3.new(0, 0.1, 0)
+		
+		trajectoryBeam.Enabled = true
 		landingMarker.Visible = true
 	end
 
@@ -14620,8 +14650,9 @@ run(function()
 
 					if DrawTrajectory.Enabled and block and entitylib.isAlive then
 						if aimConnection then aimConnection:Disconnect() end
+						
 						aimConnection = RunService.RenderStepped:Connect(function()
-							if self.aiming and entitylib.isAlive then
+							if self.aiming and entitylib.isAlive and block and block.Parent then
 								updateStraightLine(block)
 							else
 								clearTrajectoryVisuals()
@@ -14682,7 +14713,7 @@ run(function()
 
 	LineColor = AutoDavey:CreateColorSlider({
 		Name = 'Line Color',
-		DefaultHue = 0.16, -- Default yellow hue
+		DefaultHue = 0.16,
 		DefaultSat = 1,
 		DefaultValue = 1,
 		Function = function() end
