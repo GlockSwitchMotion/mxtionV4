@@ -14240,6 +14240,92 @@ run(function()
 end)
 
 run(function()
+	local RegentAura
+	local Targets
+	local JumpRange
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Players = game:GetService("Players")
+	local LocalPlayer = Players.LocalPlayer
+
+	-- Safely locate the Void Axe remote
+	local function getRegentRemote()
+		local success, remote = pcall(function()
+			return ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):FindFirstChild("useAbility")
+		end)
+		return success and remote or nil
+	end
+
+	-- Check if target is valid based on selected Targets options
+	local function isValidTarget(ent)
+		if not ent or ent == entitylib.character then return false end
+		if ent.Player and not Targets.Players.Enabled then return false end
+		if ent.NPC and not Targets.NPCs.Enabled then return false end
+		if ent.Targetable == false then return false end
+		return true
+	end
+
+	-- Find the closest valid target within Jump Range
+	local function getTargetInRange()
+		if not entitylib.isAlive then return nil end
+
+		local myPos = entitylib.character.RootPart.Position
+		local closestEnt = nil
+		local shortestDist = JumpRange.Value
+
+		for _, ent in ipairs(entitylib.List) do
+			if isValidTarget(ent) and ent.RootPart then
+				local dist = (myPos - ent.RootPart.Position).Magnitude
+				if dist <= shortestDist then
+					shortestDist = dist
+					closestEnt = ent
+				end
+			end
+		end
+
+		return closestEnt
+	end
+
+	-- Create module in Blatant category
+	local Category = vape.Categories.Blatant
+
+	RegentAura = Category:CreateModule({
+		Name = 'RegentAura',
+		Function = function(callback)
+			if callback then
+				RegentAura:Clean(runService.Heartbeat:Connect(function()
+					local target = getTargetInRange()
+					if target then
+						local remote = getRegentRemote()
+						if remote then
+							pcall(function()
+								remote:FireServer("void_axe_jump")
+							end)
+						end
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Automatically uses Void Axe ability when targets enter range.'
+	})
+
+	-- Configurable Targets & Range Sliders
+	Targets = RegentAura:CreateTargets({
+		Players = true,
+		NPCs = false,
+		Function = function() end
+	})
+
+	JumpRange = RegentAura:CreateSlider({
+		Name = 'Jump Range',
+		Function = function() end,
+		Default = 18,
+		Min = 0,
+		Max = 22,
+		Decimal = 10
+	})
+end)
+
+run(function()
 	local JadeAura
 	local Targets
 	local SlamRange
