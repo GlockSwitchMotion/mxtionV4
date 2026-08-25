@@ -8857,10 +8857,10 @@ run(function()
 end)
 
 run(function()
-	local AutoShoot
+	local AutoGloop
 	local Targets
 	local Check
-	local Projectiles
+	local Whitelist
 	local FireRate
 	local SwitchDelay
 	
@@ -8908,8 +8908,6 @@ run(function()
 		GloopedPlayers[playerId] = true -- Permanently mark as glooped
 	end
 	
-
-	
 	local function throwGloop(targetEntity)
 		if not targetEntity or not targetEntity.Player then return false end
 		
@@ -8951,18 +8949,18 @@ run(function()
 						'gloop',
 						shootPosition,
 						shootPosition,
-										dir * 90, -- gloop velocity
-										id,
-										{
-											drawDurationSeconds = 1,
-											shotId = httpService:GenerateGUID(false),
-										},
-										workspace:GetServerTimeNow() - 0.045
-									):andThen(function(res)
-										if res then
-											res.Parent = replicatedStorage
-										end
-									end)
+						dir * 90, -- gloop velocity
+						id,
+						{
+							drawDurationSeconds = 1,
+							shotId = httpService:GenerateGUID(false),
+						},
+						workspace:GetServerTimeNow() - 0.045
+					):andThen(function(res)
+						if res then
+							res.Parent = replicatedStorage
+						end
+					end)
 				end
 				
 				-- Mark this player as glooped
@@ -8983,14 +8981,14 @@ run(function()
 		return false
 	end
 	
-	AutoShoot = vape.Categories.Inventory:CreateModule({
+	AutoGloop = vape.Categories.Inventory:CreateModule({
 		Name = 'AutoGloop',
 		Function = function(callback)
 			if callback then
 				repeat
 					if entitylib.isAlive and store.hand.toolType == 'sword' and (tick() - bedwars.SwordController.lastSwing) < 0.2 then
 						local hotbar = store.hand.tool and getHotbar(store.hand.tool) or nil
-						for _, data in getProjectiles(Projectiles.ListEnabled, UseSophia.Enabled, UseWhim.Enabled) do
+						for _, data in getProjectiles(Whitelist.ListEnabled, false, false) do
 							local item, ammo, projectile, itemMeta = unpack(data)
 							if (FireDelays[item.itemType] or 0) < tick() then
 								local ent = getEntity()
@@ -9039,15 +9037,15 @@ run(function()
 						hotbarSwitch(hotbar)
 					end
 					task.wait(0.1)
-				until not AutoShoot.Enabled
+				until not AutoGloop.Enabled
 			else
 				bedwars.ProjectileController.createLocalProjectile = old
 			end
 		end,
-		Tooltip = 'Auto throws gloop at targets. One gloop per player, then repeats'
+		Tooltip = 'Auto throws gloop at targets. One gloop per player'
 	})
-	Targets = AutoShoot:CreateTargets({Players = true})
-	Check = AutoShoot:CreateToggle({
+	Targets = AutoGloop:CreateTargets({Players = true})
+	Check = AutoGloop:CreateToggle({
 		Name = 'Target check',
 		Default = true,
 		Function = function(callback)
@@ -9056,20 +9054,19 @@ run(function()
 			end
 		end
 	})
-	Projectiles = AutoShoot:CreateTextList({
-		Name = 'Projectiles',
+	Whitelist = AutoGloop:CreateTextList({
+		Name = 'Whitelist',
 		Default = {'gloop'}
 	})
-
-	FireRate = AutoShoot:CreateTwoSlider({
+	FireRate = AutoGloop:CreateTwoSlider({
 		Name = 'Fire Rate',
-		Min = 0,
-		Max = 1,
-		DefaultMin = 0.05,
-		DefaultMax = 0.12,
-		Decimal = 100
+		Min = 1,
+		Max = 8,
+		DefaultMin = 1,
+		DefaultMax = 8,
+		Decimal = 1
 	})
-	SwitchDelay = AutoShoot:CreateSlider({
+	SwitchDelay = AutoGloop:CreateSlider({
 		Name = 'Switch Delay',
 		Min = 0,
 		Max = 1,
