@@ -19692,7 +19692,9 @@ run(function()
 	local Position
 	local Range
 	local ShowTarget
-	local AutoBreak
+	local Break
+	local Switch
+	local LimitItem
 	local BreakDelay
 	
 	local rayCheck = RaycastParams.new()
@@ -19718,6 +19720,13 @@ run(function()
 		return cannons[1] or nil
 	end
 
+	-- AutoDavey block-breaking pre-requisite check
+	local function canBreak()
+		if not LimitItem.Enabled then return true end
+		return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
+	end
+
+	-- AutoDavey ownership verification check
 	local function isMyCannon(block)
 		if not block then return false end
 		local lplr = game:GetService("Players").LocalPlayer
@@ -19738,12 +19747,16 @@ run(function()
 		return true
 	end
 
-	-- Adopts AutoDavey's breaking logic directly
-	local function breakCannon(cannon)
-		if not AutoBreak.Enabled or not cannon or not isMyCannon(cannon) then return end
+	-- AutoDavey exact breaking implementation
+	local function breakCannon(block)
+		if not Break.Enabled or not block or not block.Parent or not entitylib.isAlive then return end
+		if not canBreak() or not isMyCannon(block) then return end
+
 		task.spawn(function()
-			task.wait(BreakDelay.Value)
-			bedwars.breakBlock(cannon, true, true)
+			for i = 1, 2 do
+				task.wait(BreakDelay.Value)
+				bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+			end
 		end)
 	end
 	
@@ -19928,7 +19941,7 @@ run(function()
 					bedwars.CannonHandController:launchSelf(cannon)
 				end
 
-				-- Executes break packet right after launch request
+				-- Runs the exact AutoDavey breaking loop upon launch
 				breakCannon(cannon)
 	
 				local landing = tick() + time
@@ -19954,6 +19967,7 @@ run(function()
 		end,
 		Tooltip = 'Aims a nearby cannon at your cursor and launches you onto it'
 	})
+
 	Mode = DaveyAim:CreateDropdown({
 		Name = 'Aim Mode',
 		List = {'Aim And Launch (Blatant)', 'Aim And Launch (Legit)', 'Only Aim (Blatant)', 'Only Aim (Legit)'},
@@ -19978,10 +19992,18 @@ run(function()
 		Default = true,
 		Tooltip = 'Highlights the block you are landing on until you land'
 	})
-	AutoBreak = DaveyAim:CreateToggle({
-		Name = 'Auto Break Cannon',
+	Break = DaveyAim:CreateToggle({
+		Name = 'Break on impact',
 		Default = true,
-		Tooltip = 'Automatically breaks your cannon right as you launch'
+		Tooltip = 'Breaks the cannon upon launching'
+	})
+	Switch = DaveyAim:CreateToggle({
+		Name = 'Legit switch',
+		Tooltip = 'Switches back to held item smoothly'
+	})
+	LimitItem = DaveyAim:CreateToggle({
+		Name = 'Limit to items',
+		Tooltip = 'Only breaks when tools are held'
 	})
 	BreakDelay = DaveyAim:CreateSlider({
 		Name = 'Break Delay',
@@ -19989,7 +20011,7 @@ run(function()
 		Max = 0.3,
 		Default = 0.05,
 		Decimal = 100,
-		Tooltip = 'Delay before sending break packet after launch'
+		Tooltip = 'Smooths out block breaking execution timing'
 	})
 end)
 
