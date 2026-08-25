@@ -14734,23 +14734,43 @@ run(function()
 		Name = 'AutoDavey',
 		Function = function(callback)
 			if callback then
+				local aimCannonEvent = game:GetService("ReplicatedStorage"):FindFirstChild("rbxts_include")
+				if aimCannonEvent then
+					local netPath = aimCannonEvent:FindFirstChild("node_modules")
+					if netPath then
+						local rbxts = netPath:FindFirstChild("@rbxts")
+						if rbxts then
+							local net = rbxts:FindFirstChild("net")
+							if net then
+								local out = net:FindFirstChild("out")
+								if out then
+									local netManaged = out:FindFirstChild("_NetManaged")
+									if netManaged then
+										local aimCannonRemote = netManaged:FindFirstChild("AimCannon")
+										if aimCannonRemote then
+											local oldAimCannonFire = aimCannonRemote.FireServer
+											aimCannonRemote.FireServer = function(self, data, ...)
+												-- Use actual lookVector from the remote
+												if DrawTrajectory.Enabled and data and data.lookVector and entitylib.isAlive then
+													local origin = data.cannonBlockPos + Vector3.new(0, 2.8, 0)
+													local angleHeight = math.max(-1.5, math.min(3, data.lookVector.Y * 8))
+													origin = origin + Vector3.new(0, angleHeight, 0)
+													local launchVelocity = data.lookVector * 120
+													updateTrajectory(origin, launchVelocity)
+												end
+												return oldAimCannonFire(self, data, ...)
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+				
 				oldAim = bedwars.CannonController.startAiming
 				bedwars.CannonController.startAiming = function(self, block, ...)
 					local call = oldAim(self, block, ...)
-
-					if DrawTrajectory.Enabled and block and entitylib.isAlive then
-						if aimConnection then aimConnection:Disconnect() end
-						aimConnection = RunService.RenderStepped:Connect(function()
-							if self.aiming and entitylib.isAlive then
-								local origin = block.Position + Vector3.new(0, 2.8, 0)
-								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
-								local launchVelocity = lookVector * 120 -- Estimated launch velocity magnitude
-								updateTrajectory(origin, launchVelocity)
-							else
-								clearTrajectoryVisuals()
-							end
-						end)
-					end
 
 					if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
 						task.spawn(function()
