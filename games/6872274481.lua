@@ -14513,14 +14513,14 @@ run(function()
 
 	-- Setup trajectory visualization elements
 	local function createTrajectoryVisuals()
-		if trajectoryBeam then return end
+		if landingMarker then return end
 
 		landingMarker = Instance.new("Part")
 		landingMarker.Shape = Enum.PartType.Cylinder
-		landingMarker.Size = Vector3.new(0.5, 5, 5)
-		landingMarker.Color = Color3.fromRGB(0, 255, 200)
+		landingMarker.Size = Vector3.new(0.4, 4, 4)
+		landingMarker.Color = Color3.fromRGB(0, 255, 150)
 		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.25
+		landingMarker.Transparency = 0.3
 		landingMarker.Anchored = true
 		landingMarker.CanCollide = false
 		landingMarker.Orientation = Vector3.new(0, 0, 90)
@@ -14543,21 +14543,17 @@ run(function()
 		end
 	end
 
-	-- Simulates parabolic physics path with smooth flowing arc visualization
+	-- Simulates parabolic physics path and returns landing point with arc visualization
 	local function updateTrajectory(origin, velocity)
 		if not DrawTrajectory.Enabled then return end
 		createTrajectoryVisuals()
 
 		local gravity = Workspace.Gravity
 		local t = 0
-		local dt = 0.035
+		local dt = 0.03
 		local currentPos = origin
 		local hitPos = origin
 		local trajectoryPoints = {}
-		
-		-- Calculate velocity magnitude to determine aim distance
-		local velocityMagnitude = velocity.Magnitude
-		local maxIterations = math.min(300, math.floor(200 + (velocityMagnitude / 120) * 100))
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -14565,129 +14561,57 @@ run(function()
 			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 		end
 
-		-- Calculate arc path
-		for i = 1, maxIterations do
+		-- Calculate trajectory
+		for _ = 1, 150 do
 			t = t + dt
 			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
-			
-			local direction = nextPos - currentPos
-			if direction.Magnitude > 0 then
-				local ray = Workspace:Raycast(currentPos, direction, raycastParams)
-				if ray then
-					hitPos = ray.Position
-					table.insert(trajectoryPoints, hitPos)
-					break
-				end
+			local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
+
+			if ray then
+				hitPos = ray.Position
+				break
 			end
-			
 			table.insert(trajectoryPoints, nextPos)
 			currentPos = nextPos
-			
-			if t > 20 then break end
 		end
 
-		-- Clean up old arc
+		-- Clear old visuals
 		if trajectoryBeam and trajectoryBeam.Parent then
 			trajectoryBeam:Destroy()
 		end
 		
-		local arcContainer = Instance.new("Folder")
-		arcContainer.Name = "TrajectoryArc"
-		arcContainer.Parent = Workspace.Terrain
-		
-		-- Create smooth connected path with beams between points
-		for i = 1, #trajectoryPoints - 1, 2 do
-			local point1 = trajectoryPoints[i]
-			local point2 = trajectoryPoints[i + 1]
+		trajectoryBeam = Instance.new("Folder")
+		trajectoryBeam.Name = "TrajectoryArc"
+		trajectoryBeam.Parent = Workspace.Terrain
+
+		-- Draw arc with beams
+		for i = 1, #trajectoryPoints - 1 do
+			local p1 = trajectoryPoints[i]
+			local p2 = trajectoryPoints[i + 1]
 			
-			local attach1 = Instance.new("Attachment")
-			attach1.Parent = arcContainer
-			attach1.Position = point1
+			local a1 = Instance.new("Attachment", trajectoryBeam)
+			a1.WorldPosition = p1
 			
-			local attach2 = Instance.new("Attachment")
-			attach2.Parent = arcContainer
-			attach2.Position = point2
+			local a2 = Instance.new("Attachment", trajectoryBeam)
+			a2.WorldPosition = p2
 			
 			local beam = Instance.new("Beam")
-			beam.Attachment0 = attach1
-			beam.Attachment1 = attach2
-			beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 200))
-			beam.Width0 = 0.5
-			beam.Width1 = 0.5
-			beam.Transparency = NumberSequence.new(0.2)
+			beam.Attachment0 = a1
+			beam.Attachment1 = a2
+			beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
+			beam.Width0 = 0.4
+			beam.Width1 = 0.4
+			beam.Transparency = NumberSequence.new(0.1)
 			beam.FaceCamera = true
-			beam.Parent = arcContainer
-			
-			local dot = Instance.new("Part")
-			dot.Shape = Enum.PartType.Ball
-			dot.Size = Vector3.new(0.5, 0.5, 0.5)
-			dot.Color = Color3.fromRGB(0, 255, 150)
-			dot.Material = Enum.Material.Neon
-			dot.CanCollide = false
-			dot.CFrame = CFrame.new(point1)
-			dot.Transparency = 0.15
-			dot.Parent = arcContainer
+			beam.Parent = trajectoryBeam
 		end
-		
-		trajectoryBeam = arcContainer
 
-		-- Scale landing marker based on distance
-		local distance = (hitPos - origin).Magnitude
-		local markerSize = 0.5 + (distance / 100) * 0.3
-		
-		landingMarker.Position = hitPos + Vector3.new(0, 3, 0)
+		-- Landing marker
+		landingMarker.Position = hitPos + Vector3.new(0, 2, 0)
 		landingMarker.Visible = true
-		landingMarker.Size = Vector3.new(markerSize, 5 + markerSize, 5 + markerSize)
-		landingMarker.Color = Color3.fromRGB(0, 255, 200)
-		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.25
-		
-		-- Add highlight ring
-		if not landingMarker:GetAttribute("HasRing") then
-			landingMarker:SetAttribute("HasRing", true)
-			
-			local ring = Instance.new("Part")
-			ring.Name = "LandingRing"
-			ring.Shape = Enum.PartType.Cylinder
-			ring.Size = Vector3.new(0.2, 8, 8)
-			ring.Color = Color3.fromRGB(0, 255, 150)
-			ring.Material = Enum.Material.Neon
-			ring.CanCollide = false
-			ring.Anchored = true
-			ring.Transparency = 0.4
-			ring.CFrame = landingMarker.CFrame
-			ring.Parent = Workspace.Terrain
-			
-			task.spawn(function()
-				while landingMarker and landingMarker.Parent and DrawTrajectory.Enabled do
-					ring.Size = Vector3.new(0.2, landingMarker.Size.Y + 2, landingMarker.Size.Z + 2)
-					ring.Position = landingMarker.Position
-					task.wait(0.05)
-				end
-				if ring then ring:Destroy() end
-			end)
-		end
-		
-		-- Pulsing glow
-		if not landingMarker:GetAttribute("IsPulsing") then
-			landingMarker:SetAttribute("IsPulsing", true)
-			task.spawn(function()
-				while landingMarker and landingMarker.Parent and DrawTrajectory.Enabled do
-					for i = 0.15, 0.4, 0.03 do
-						if landingMarker and DrawTrajectory.Enabled then 
-							landingMarker.Transparency = i 
-						end
-						task.wait(0.02)
-					end
-					for i = 0.4, 0.15, -0.03 do
-						if landingMarker and DrawTrajectory.Enabled then 
-							landingMarker.Transparency = i 
-						end
-						task.wait(0.02)
-					end
-				end
-			end)
-		end
+		landingMarker.Color = Color3.fromRGB(0, 255, 150)
+		landingMarker.Size = Vector3.new(0.4, 4, 4)
+		landingMarker.Transparency = 0.3
 	end
 
 	local function canBreak()
@@ -14730,7 +14654,7 @@ run(function()
 								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
 								local angleHeight = math.max(-1.5, math.min(3, lookVector.Y * 8))
 								local origin = block.Position + Vector3.new(0, 2.8 + angleHeight, 0)
-								local launchVelocity = lookVector * 120
+								local launchVelocity = lookVector * 120 -- Estimated launch velocity magnitude
 								updateTrajectory(origin, launchVelocity)
 							else
 								clearTrajectoryVisuals()
