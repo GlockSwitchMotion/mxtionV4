@@ -19692,6 +19692,8 @@ run(function()
 	local Position
 	local Range
 	local ShowTarget
+	local AutoBreak
+	local BreakDelay
 	
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
@@ -19714,6 +19716,34 @@ run(function()
 			end)
 		end
 		return cannons[1] or nil
+	end
+
+	local function isMyCannon(block)
+		if not block then return false end
+		local lplr = game:GetService("Players").LocalPlayer
+		if not lplr then return false end
+
+		local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
+		if placedBy then
+			return placedBy == lplr.Name or placedBy == lplr.UserId
+		end
+
+		if bedwars.BlockController and bedwars.BlockController:getStore() then
+			local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
+			if blockData and blockData.placedBy then
+				return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
+			end
+		end
+
+		return true
+	end
+
+	local function breakCannon(cannon)
+		if not AutoBreak.Enabled or not cannon or not isMyCannon(cannon) then return end
+		task.spawn(function()
+			task.wait(BreakDelay.Value)
+			bedwars.breakBlock(cannon, true, true)
+		end)
 	end
 	
 	local function isPathBlocked(origin, velocity, time)
@@ -19876,7 +19906,6 @@ run(function()
 					return
 				end
 
-				-- If Mode is set to 'Only Aim', stop execution right after setting the aim vector
 				if Mode.Value:find('Only Aim') then
 					if visual then
 						task.delay(2, function()
@@ -19897,6 +19926,9 @@ run(function()
 				else
 					bedwars.CannonHandController:launchSelf(cannon)
 				end
+
+				-- Triggers the auto break check immediately after launch execution
+				breakCannon(cannon)
 	
 				local landing = tick() + time
 				local root
@@ -19944,6 +19976,19 @@ run(function()
 		Name = 'Show Target',
 		Default = true,
 		Tooltip = 'Highlights the block you are landing on until you land'
+	})
+	AutoBreak = DaveyAim:CreateToggle({
+		Name = 'Auto Break Cannon',
+		Default = true,
+		Tooltip = 'Automatically breaks your cannon right as you launch'
+	})
+	BreakDelay = DaveyAim:CreateSlider({
+		Name = 'Break Delay',
+		Min = 0,
+		Max = 0.3,
+		Default = 0.05,
+		Decimal = 100,
+		Tooltip = 'Delay before sending break packet after launch'
 	})
 end)
 
