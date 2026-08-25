@@ -14240,6 +14240,92 @@ run(function()
 end)
 
 run(function()
+	local JadeAura
+	local Targets
+	local SlamRange
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Players = game:GetService("Players")
+	local LocalPlayer = Players.LocalPlayer
+
+	-- Safely locate the Jade Hammer remote
+	local function getJadeRemote()
+		local success, remote = pcall(function()
+			return ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):FindFirstChild("useAbility")
+		end)
+		return success and remote or nil
+	end
+
+	-- Check if target is valid based on selected Targets options
+	local function isValidTarget(ent)
+		if not ent or ent == entitylib.character then return false end
+		if ent.Player and not Targets.Players.Enabled then return false end
+		if ent.NPC and not Targets.NPCs.Enabled then return false end
+		if ent.Targetable == false then return false end
+		return true
+	end
+
+	-- Find the closest valid target within Slam Range
+	local function getTargetInRange()
+		if not entitylib.isAlive then return nil end
+
+		local myPos = entitylib.character.RootPart.Position
+		local closestEnt = nil
+		local shortestDist = SlamRange.Value
+
+		for _, ent in ipairs(entitylib.List) do
+			if isValidTarget(ent) and ent.RootPart then
+				local dist = (myPos - ent.RootPart.Position).Magnitude
+				if dist <= shortestDist then
+					shortestDist = dist
+					closestEnt = ent
+				end
+			end
+		end
+
+		return closestEnt
+	end
+
+	-- Create module in Blatant category
+	local Category = vape.Categories.Blatant
+
+	JadeAura = Category:CreateModule({
+		Name = 'JadeAura',
+		Function = function(callback)
+			if callback then
+				JadeAura:Clean(runService.Heartbeat:Connect(function()
+					local target = getTargetInRange()
+					if target then
+						local remote = getJadeRemote()
+						if remote then
+							pcall(function()
+								remote:FireServer("jade_hammer_jump")
+							end)
+						end
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Automatically uses Jade Hammer ability when targets enter range.'
+	})
+
+	-- Configurable Targets & Range Sliders
+	Targets = JadeAura:CreateTargets({
+		Players = true,
+		NPCs = false,
+		Function = function() end
+	})
+
+	SlamRange = JadeAura:CreateSlider({
+		Name = 'Slam Range',
+		Function = function() end,
+		Default = 18,
+		Min = 0,
+		Max = 22,
+		Decimal = 10
+	})
+end)
+
+run(function()
     local ElektraExtender
     local ExtensionSlider
     local InstantToggle
