@@ -1,6 +1,5 @@
 local license = ... or {}
-local Players = game:GetService("Players")
-while not Players.LocalPlayer do task.wait() end
+repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
@@ -16,42 +15,36 @@ local function getLatestCommit()
 	return "main"
 end
 
-if not isfolder("mxtionv4") then makefolder("mxtionv4") end
-if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
-if not isfile("mxtionv4/profiles/commit.txt") then writefile("mxtionv4/profiles/commit.txt", "main") end
-
 local function handleUpdates()
-	task.spawn(function()
-		local latestCommit = getLatestCommit()
-		local currentCommit = ""
-		if isfile("mxtionv4/profiles/commit.txt") then
-			currentCommit = readfile("mxtionv4/profiles/commit.txt")
-		end
-		
-		if latestCommit ~= "main" and latestCommit ~= currentCommit then
-			-- An update was detected! Wipe the old cached files.
-			local function clearFolder(path)
-				if isfolder(path) then
-					for _, file in listfiles(path) do
-						if file:find(".lua") and isfile(file) then
-							delfile(file)
-						end
+	local latestCommit = getLatestCommit()
+	local currentCommit = ""
+	if isfile("mxtionv4/profiles/commit.txt") then
+		currentCommit = readfile("mxtionv4/profiles/commit.txt")
+	end
+	
+	if latestCommit ~= "main" and latestCommit ~= currentCommit then
+		-- An update was detected! Wipe the old cached files.
+		local function clearFolder(path)
+			if isfolder(path) then
+				for _, file in listfiles(path) do
+					if file:find(".lua") and isfile(file) then
+						delfile(file)
 					end
 				end
 			end
-			clearFolder("mxtionv4/guis")
-			clearFolder("mxtionv4/games")
-			clearFolder("mxtionv4/libraries")
-			
-			if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
-			writefile("mxtionv4/profiles/commit.txt", latestCommit)
-			
-			-- Trigger the Vape update notification
-			if currentCommit ~= "" and currentCommit ~= "main" then
-				shared.updated = currentCommit:sub(1, 7)
-			end
 		end
-	end)
+		clearFolder("mxtionv4/guis")
+		clearFolder("mxtionv4/games")
+		clearFolder("mxtionv4/libraries")
+		
+		if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
+		writefile("mxtionv4/profiles/commit.txt", latestCommit)
+		
+		-- Trigger the Vape update notification
+		if currentCommit ~= "" and currentCommit ~= "main" then
+			shared.updated = currentCommit:sub(1, 7)
+		end
+	end
 end
 handleUpdates()
 
@@ -105,7 +98,7 @@ local function finishLoading()
 				if shared.VapeDeveloper then
 					loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
 				else
-					loadstring(readfile('mxtionv4/init.lua') or game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
+					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
 				end
 			]]
 			local teleportConfig = httpService:JSONEncode(license)
@@ -152,7 +145,7 @@ if not isfolder('mxtionv4/assets/'..gui) then
 end
 vape = loadstring(downloadFile('mxtionv4/guis/'..gui..'.lua'), 'gui')(license)
 shared.vape = vape
-shared.vapesmooth = false
+shared.vapesmooth = true
 _G.vape = vape
 getgenv().used_init = true
 
@@ -173,16 +166,14 @@ if not shared.VapeIndependent then
 	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
 		loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
 	else
-		task.spawn(function()
-			if not shared.VapeDeveloper then
-				local suc, res = pcall(function()
-					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
-				end)
-				if suc and res ~= '404: Not Found' then
-					loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
-				end
+		if not shared.VapeDeveloper then
+			local suc, res = pcall(function()
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+			end)
+			if suc and res ~= '404: Not Found' then
+				loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
 			end
-		end)
+		end
 	end
 	loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
 	finishLoading()
