@@ -2562,8 +2562,8 @@ function mainapi:CreateGUI()
 	logo.Parent = window
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(36, 20)
-	logov4.Position = UDim2.new(1, 4, 0, 2)
+	logov4.Size = UDim2.fromOffset(25, 15)
+	logov4.Position = UDim2.new(0, 120, 0, 12)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ScaleType = Enum.ScaleType.Fit
