@@ -14515,23 +14515,12 @@ run(function()
 	local function createTrajectoryVisuals()
 		if trajectoryBeam then return end
 
-		trajectoryBeam = Instance.new("Part")
-		trajectoryBeam.Name = "TrajectoryArc"
-		trajectoryBeam.Shape = Enum.PartType.Ball
-		trajectoryBeam.Size = Vector3.new(0.2, 0.2, 0.2)
-		trajectoryBeam.Color = Color3.fromRGB(255, 230, 80) -- Bright yellow
-		trajectoryBeam.Material = Enum.Material.Neon
-		trajectoryBeam.CanCollide = false
-		trajectoryBeam.CFrame = CFrame.new(0, 0, 0)
-		trajectoryBeam.Parent = Workspace.Terrain
-		trajectoryBeam.Transparency = 0.3
-
 		landingMarker = Instance.new("Part")
 		landingMarker.Shape = Enum.PartType.Cylinder
-		landingMarker.Size = Vector3.new(0.3, 4, 4)
-		landingMarker.Color = Color3.fromRGB(0, 255, 150)
+		landingMarker.Size = Vector3.new(0.5, 5, 5)
+		landingMarker.Color = Color3.fromRGB(0, 255, 200)
 		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.5
+		landingMarker.Transparency = 0.25
 		landingMarker.Anchored = true
 		landingMarker.CanCollide = false
 		landingMarker.Orientation = Vector3.new(0, 0, 90)
@@ -14568,7 +14557,7 @@ run(function()
 		
 		-- Calculate velocity magnitude to determine aim distance
 		local velocityMagnitude = velocity.Magnitude
-		local maxIterations = math.min(300, math.floor(200 + (velocityMagnitude / 120) * 100)) -- More iterations for farther aim
+		local maxIterations = math.min(300, math.floor(200 + (velocityMagnitude / 120) * 100))
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -14576,7 +14565,7 @@ run(function()
 			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 		end
 
-		-- Calculate arc path - extends based on velocity
+		-- Calculate arc path
 		for i = 1, maxIterations do
 			t = t + dt
 			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
@@ -14611,7 +14600,6 @@ run(function()
 			local point1 = trajectoryPoints[i]
 			local point2 = trajectoryPoints[i + 1]
 			
-			-- Create attachment points for beam
 			local attach1 = Instance.new("Attachment")
 			attach1.Parent = arcContainer
 			attach1.Position = point1
@@ -14620,18 +14608,16 @@ run(function()
 			attach2.Parent = arcContainer
 			attach2.Position = point2
 			
-			-- Create glowing beam segment
 			local beam = Instance.new("Beam")
 			beam.Attachment0 = attach1
 			beam.Attachment1 = attach2
-			beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 200)) -- Bright cyan
+			beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 200))
 			beam.Width0 = 0.5
 			beam.Width1 = 0.5
 			beam.Transparency = NumberSequence.new(0.2)
 			beam.FaceCamera = true
 			beam.Parent = arcContainer
 			
-			-- Add glow dots at segments
 			local dot = Instance.new("Part")
 			dot.Shape = Enum.PartType.Ball
 			dot.Size = Vector3.new(0.5, 0.5, 0.5)
@@ -14645,18 +14631,18 @@ run(function()
 		
 		trajectoryBeam = arcContainer
 
-		-- Scale landing marker and effects based on distance aimed
+		-- Scale landing marker based on distance
 		local distance = (hitPos - origin).Magnitude
-		local markerSize = 0.5 + (distance / 100) * 0.3 -- Larger the farther aimed
+		local markerSize = 0.5 + (distance / 100) * 0.3
 		
 		landingMarker.Position = hitPos + Vector3.new(0, 3, 0)
 		landingMarker.Visible = true
-		landingMarker.Size = Vector3.new(markerSize, 5 + markerSize, 5 + markerSize) -- Scale up with distance
-		landingMarker.Color = Color3.fromRGB(0, 255, 200) -- Cyan to match arc
+		landingMarker.Size = Vector3.new(markerSize, 5 + markerSize, 5 + markerSize)
+		landingMarker.Color = Color3.fromRGB(0, 255, 200)
 		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.25 -- More visible
+		landingMarker.Transparency = 0.25
 		
-		-- Add highlight ring around landing area
+		-- Add highlight ring
 		if not landingMarker:GetAttribute("HasRing") then
 			landingMarker:SetAttribute("HasRing", true)
 			
@@ -14672,7 +14658,6 @@ run(function()
 			ring.CFrame = landingMarker.CFrame
 			ring.Parent = Workspace.Terrain
 			
-			-- Update ring size with landing marker
 			task.spawn(function()
 				while landingMarker and landingMarker.Parent and DrawTrajectory.Enabled do
 					ring.Size = Vector3.new(0.2, landingMarker.Size.Y + 2, landingMarker.Size.Z + 2)
@@ -14683,7 +14668,7 @@ run(function()
 			end)
 		end
 		
-		-- Strong pulsing glow
+		-- Pulsing glow
 		if not landingMarker:GetAttribute("IsPulsing") then
 			landingMarker:SetAttribute("IsPulsing", true)
 			task.spawn(function()
@@ -14734,43 +14719,24 @@ run(function()
 		Name = 'AutoDavey',
 		Function = function(callback)
 			if callback then
-				local aimCannonEvent = game:GetService("ReplicatedStorage"):FindFirstChild("rbxts_include")
-				if aimCannonEvent then
-					local netPath = aimCannonEvent:FindFirstChild("node_modules")
-					if netPath then
-						local rbxts = netPath:FindFirstChild("@rbxts")
-						if rbxts then
-							local net = rbxts:FindFirstChild("net")
-							if net then
-								local out = net:FindFirstChild("out")
-								if out then
-									local netManaged = out:FindFirstChild("_NetManaged")
-									if netManaged then
-										local aimCannonRemote = netManaged:FindFirstChild("AimCannon")
-										if aimCannonRemote then
-											local oldAimCannonFire = aimCannonRemote.FireServer
-											aimCannonRemote.FireServer = function(self, data, ...)
-												-- Use actual lookVector from the remote
-												if DrawTrajectory.Enabled and data and data.lookVector and entitylib.isAlive then
-													local origin = data.cannonBlockPos + Vector3.new(0, 2.8, 0)
-													local angleHeight = math.max(-1.5, math.min(3, data.lookVector.Y * 8))
-													origin = origin + Vector3.new(0, angleHeight, 0)
-													local launchVelocity = data.lookVector * 120
-													updateTrajectory(origin, launchVelocity)
-												end
-												return oldAimCannonFire(self, data, ...)
-											end
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-				
 				oldAim = bedwars.CannonController.startAiming
 				bedwars.CannonController.startAiming = function(self, block, ...)
 					local call = oldAim(self, block, ...)
+
+					if DrawTrajectory.Enabled and block and entitylib.isAlive then
+						if aimConnection then aimConnection:Disconnect() end
+						aimConnection = RunService.RenderStepped:Connect(function()
+							if self.aiming and entitylib.isAlive then
+								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
+								local angleHeight = math.max(-1.5, math.min(3, lookVector.Y * 8))
+								local origin = block.Position + Vector3.new(0, 2.8 + angleHeight, 0)
+								local launchVelocity = lookVector * 120
+								updateTrajectory(origin, launchVelocity)
+							else
+								clearTrajectoryVisuals()
+							end
+						end)
+					end
 
 					if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
 						task.spawn(function()
