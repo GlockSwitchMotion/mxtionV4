@@ -8565,3 +8565,15 @@ run(function()
         end
     })
 end)
+
+local UnlockFPS = vape.Categories.World:CreateModule({
+	Name = 'UnlockFPS',
+	Function = function(callback)
+		if callback then
+			setfpscap(9999)
+		else
+			setfpscap(999)
+		end
+	end,
+	Tooltip = 'Uncaps your FPS to its maximum limits.'
+})
