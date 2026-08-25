@@ -9007,7 +9007,7 @@ run(function()
 		return false
 	end
 	
-	AutoShoot = vape.Categories.Utility:CreateModule({
+	AutoShoot = vape.Categories.Combat:CreateModule({
 		Name = 'FastHits',
 		Function = function(callback)
 			if callback then
