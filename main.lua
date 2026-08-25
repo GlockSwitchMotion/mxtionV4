@@ -1,5 +1,6 @@
 local license = ... or {}
-if not game:IsLoaded() then game.Loaded:Wait() end
+local Players = game:GetService("Players")
+while not Players.LocalPlayer do task.wait() end
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
@@ -104,7 +105,7 @@ local function finishLoading()
 				if shared.VapeDeveloper then
 					loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
 				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
+					loadstring(readfile('mxtionv4/init.lua') or game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
 				end
 			]]
 			local teleportConfig = httpService:JSONEncode(license)
@@ -175,18 +176,20 @@ if not shared.VapeIndependent then
 			loadstring(fileContent, tostring(game.PlaceId))(license)
 		end
 	else
-		if not shared.VapeDeveloper then
-			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
-			end)
-			if suc and res ~= '404: Not Found' then
-				downloadFile('mxtionv4/games/'..game.PlaceId..'.lua')
-				loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
-			else
-				-- Cache a blank file so it doesn't waste time doing HTTP Get every injection
-				writefile('mxtionv4/games/'..game.PlaceId..'.lua', '')
+		task.spawn(function()
+			if not shared.VapeDeveloper then
+				local suc, res = pcall(function()
+					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+				end)
+				if suc and res ~= '404: Not Found' then
+					downloadFile('mxtionv4/games/'..game.PlaceId..'.lua')
+					loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+				else
+					-- Cache a blank file so it doesn't waste time doing HTTP Get every injection
+					writefile('mxtionv4/games/'..game.PlaceId..'.lua', '')
+				end
 			end
-		end
+		end)
 	end
 	loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
 	finishLoading()
