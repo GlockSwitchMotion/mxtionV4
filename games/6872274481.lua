@@ -14503,7 +14503,6 @@ run(function()
 	local LimitItem
 	local BreakDelay
 	local DrawTrajectory
-	local TrajectoryDistance
 	local LineColor
 
 	local RunService = game:GetService("RunService")
@@ -14514,9 +14513,8 @@ run(function()
 	local aimConnection
 
 	local function getColorFromSlider()
-		if not LineColor then return Color3.fromRGB(255, 255, 255) end
+		if not LineColor then return Color3.fromRGB(255, 230, 80) end
 		
-		-- Handle Vape ColorSlider table format (Hue, Sat, Val)
 		if type(LineColor.Value) == "table" then
 			local h = LineColor.Value.Hue or LineColor.Hue or 0.16
 			local s = LineColor.Value.Sat or LineColor.Sat or 1
@@ -14553,7 +14551,7 @@ run(function()
 		landingMarker = Instance.new("Part")
 		landingMarker.Name = "DaveyLandingMarker"
 		landingMarker.Shape = Enum.PartType.Cylinder
-		landingMarker.Size = Vector3.new(0.2, 3, 3)
+		landingMarker.Size = Vector3.new(0.2, 4, 4)
 		landingMarker.Material = Enum.Material.Neon
 		landingMarker.Transparency = 0.3
 		landingMarker.Anchored = true
@@ -14574,7 +14572,8 @@ run(function()
 		if attach1 then attach1:Destroy() attach1 = nil end
 	end
 
-	local function updateStraightLine(cannonBlock)
+	-- Direct linear launch raycast prediction
+	local function updateLaunchPrediction(cannonBlock)
 		if not DrawTrajectory.Enabled then 
 			if trajectoryBeam then trajectoryBeam.Enabled = false end
 			if landingMarker then landingMarker.Visible = false end
@@ -14586,9 +14585,13 @@ run(function()
 		local camera = Workspace.CurrentCamera
 		if not camera then return end
 
+		-- Align vector directly with camera aim angle
 		local lookVector = camera.CFrame.LookVector
-		local startPos = cannonBlock.Position + (lookVector * 4) + Vector3.new(0, 1.5, 0)
-		local targetPos = startPos + (lookVector * TrajectoryDistance.Value)
+		
+		-- Offset launch origin slightly out of the player model to avoid self-clipping
+		local launchOrigin = cannonBlock.Position + Vector3.new(0, 2, 0)
+		local maxLaunchDistance = 160 -- Exact Bedwars Davey cannon impulse vector range
+		local targetPos = launchOrigin + (lookVector * maxLaunchDistance)
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -14598,7 +14601,8 @@ run(function()
 		end
 		raycastParams.FilterDescendantsInstances = filter
 
-		local ray = Workspace:Raycast(startPos, lookVector * TrajectoryDistance.Value, raycastParams)
+		-- Raycast forward along launch trajectory to locate landing surface point
+		local ray = Workspace:Raycast(launchOrigin, lookVector * maxLaunchDistance, raycastParams)
 		if ray then
 			targetPos = ray.Position
 		end
@@ -14607,7 +14611,7 @@ run(function()
 		trajectoryBeam.Color = ColorSequence.new(currentColor)
 		landingMarker.Color = currentColor
 
-		attach0.Position = startPos
+		attach0.Position = launchOrigin
 		attach1.Position = targetPos
 		landingMarker.Position = targetPos + Vector3.new(0, 0.1, 0)
 		
@@ -14653,7 +14657,7 @@ run(function()
 						
 						aimConnection = RunService.RenderStepped:Connect(function()
 							if self.aiming and entitylib.isAlive and block and block.Parent then
-								updateStraightLine(block)
+								updateLaunchPrediction(block)
 							else
 								clearTrajectoryVisuals()
 							end
@@ -14701,14 +14705,14 @@ run(function()
 				bedwars.CannonController.startAiming = oldAim
 			end
 		end,
-		Tooltip = 'Smoothly breaks only your own cannon/jump on launch with customizable straight line aiming.'
+		Tooltip = 'Smoothly breaks only your own cannon/jump on launch and displays exact linear launch spot.'
 	})
 
 	-- Settings
 	DrawTrajectory = AutoDavey:CreateToggle({
 		Name = 'Show Trajectory',
 		Default = true,
-		Tooltip = 'Displays straight line aiming indicator'
+		Tooltip = 'Displays launch prediction line'
 	})
 
 	LineColor = AutoDavey:CreateColorSlider({
@@ -14717,15 +14721,6 @@ run(function()
 		DefaultSat = 1,
 		DefaultValue = 1,
 		Function = function() end
-	})
-
-	TrajectoryDistance = AutoDavey:CreateSlider({
-		Name = 'Line Distance',
-		Min = 20,
-		Max = 200,
-		Default = 100,
-		Decimal = 1,
-		Tooltip = 'How far out the straight line projects'
 	})
 
 	BreakDelay = AutoDavey:CreateSlider({
