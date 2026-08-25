@@ -19720,13 +19720,11 @@ run(function()
 		return cannons[1] or nil
 	end
 
-	-- AutoDavey block-breaking pre-requisite check
 	local function canBreak()
 		if not LimitItem.Enabled then return true end
 		return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
 	end
 
-	-- AutoDavey ownership verification check
 	local function isMyCannon(block)
 		if not block then return false end
 		local lplr = game:GetService("Players").LocalPlayer
@@ -19747,16 +19745,25 @@ run(function()
 		return true
 	end
 
-	-- AutoDavey exact breaking implementation
-	local function breakCannon(block)
+	-- Hits the cannon once (used when aimed or placed)
+	local function hitCannonOnce(block)
 		if not Break.Enabled or not block or not block.Parent or not entitylib.isAlive then return end
 		if not canBreak() or not isMyCannon(block) then return end
 
 		task.spawn(function()
-			for i = 1, 2 do
-				task.wait(BreakDelay.Value)
-				bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-			end
+			task.wait(BreakDelay.Value)
+			bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+		end)
+	end
+
+	-- Hits the cannon a second time to break it completely on launch
+	local function breakCannonOnLaunch(block)
+		if not Break.Enabled or not block or not block.Parent or not entitylib.isAlive then return end
+		if not canBreak() or not isMyCannon(block) then return end
+
+		task.spawn(function()
+			task.wait(BreakDelay.Value)
+			bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
 		end)
 	end
 	
@@ -19871,6 +19878,9 @@ run(function()
 					notif('DaveyAim', 'No cannon in range.', 5, 'warning')
 					return
 				end
+
+				-- Hit 1: Pre-damages cannon when aimed
+				hitCannonOnce(cannon)
 	
 				local mouseRay = cloneref(lplr:GetMouse()).UnitRay
 				local origin = Position.Value == 'Camera' and gameCamera.CFrame.Position or mouseRay.Origin
@@ -19941,8 +19951,8 @@ run(function()
 					bedwars.CannonHandController:launchSelf(cannon)
 				end
 
-				-- Runs the exact AutoDavey breaking loop upon launch
-				breakCannon(cannon)
+				-- Hit 2: Destroys the cannon immediately upon launch
+				breakCannonOnLaunch(cannon)
 	
 				local landing = tick() + time
 				local root
@@ -19995,7 +20005,7 @@ run(function()
 	Break = DaveyAim:CreateToggle({
 		Name = 'Break on impact',
 		Default = true,
-		Tooltip = 'Breaks the cannon upon launching'
+		Tooltip = 'Pre-hits cannon when aiming and breaks it on launch'
 	})
 	Switch = DaveyAim:CreateToggle({
 		Name = 'Legit switch',
