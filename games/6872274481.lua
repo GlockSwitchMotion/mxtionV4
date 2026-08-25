@@ -14281,7 +14281,7 @@ run(function()
                     oldFireSignal = hookfunction(firesignal, function(signal, ...)
                         local args = {...}
                         if InstantToggle.Enabled and signal == tweenTeleportRemote.OnClientEvent and typeof(args[1]) == "table" then
-                            args[1].time = 0.01 -- Forces instant execution
+                            args[1].time = 0.1 -- Forces instant execution
                         end
                         return oldFireSignal(signal, unpack(args))
                     end)
