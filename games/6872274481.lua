@@ -14496,111 +14496,209 @@ run(function()
 end)
 
 run(function()
-    local AutoDavey
-    local Switch
-    local Break
-    local Jump
-    local LimitItem
-    local BreakDelay
+	local AutoDavey
+	local Switch
+	local Break
+	local Jump
+	local LimitItem
+	local BreakDelay
+	local DrawTrajectory
 
-    local old, oldAim
+	local RunService = game:GetService("RunService")
+	local Workspace = game:GetService("Workspace")
 
-    local function canBreak()
-        if not LimitItem.Enabled then return true end
-        return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
-    end
+	local old, oldAim
+	local trajectoryBeam, landingMarker, attach0, attach1
+	local aimConnection
 
-    local function isMyCannon(block)
-        if not block then return false end
-        local lplr = game:GetService("Players").LocalPlayer
-        if not lplr then return false end
+	-- Setup trajectory visualization elements
+	local function createTrajectoryVisuals()
+		if trajectoryBeam then return end
 
-        -- Check common attributes and creator tags for cannon ownership
-        local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
-        if placedBy then
-            return placedBy == lplr.Name or placedBy == lplr.UserId
-        end
+		attach0 = Instance.new("Attachment", Workspace.Terrain)
+		attach1 = Instance.new("Attachment", Workspace.Terrain)
 
-        -- Fallback: Check if cannon model/block is inside player's placed blocks data
-        if bedwars.BlockController and bedwars.BlockController:getStore() then
-            local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
-            if blockData and blockData.placedBy then
-                return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
-            end
-        end
+		trajectoryBeam = Instance.new("Beam")
+		trajectoryBeam.Attachment0 = attach0
+		trajectoryBeam.Attachment1 = attach1
+		trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(255, 230, 80)) -- Bright yellow
+		trajectoryBeam.Width0 = 0.25
+		trajectoryBeam.Width1 = 0.25
+		trajectoryBeam.FaceCamera = true
+		trajectoryBeam.Parent = Workspace.Terrain
 
-        return true -- Defaults to true if no ownership metadata is attached
-    end
+		landingMarker = Instance.new("Part")
+		landingMarker.Shape = Enum.PartType.Cylinder
+		landingMarker.Size = Vector3.new(0.2, 4, 4)
+		landingMarker.Color = Color3.fromRGB(255, 230, 80)
+		landingMarker.Material = Enum.Material.Neon
+		landingMarker.Transparency = 0.4
+		landingMarker.Anchored = true
+		landingMarker.CanCollide = false
+		landingMarker.Orientation = Vector3.new(0, 0, 90)
+		landingMarker.Parent = Workspace.Terrain
+		landingMarker.Visible = false
+	end
 
-    AutoDavey = vape.Categories.Kits:CreateModule({
-        Name = 'AutoDavey',
-        Function = function(callback)
-            if callback then
-                oldAim = bedwars.CannonController.startAiming
-                bedwars.CannonController.startAiming = function(self, block, ...)
-                    local call = oldAim(self, block, ...)
+	local function clearTrajectoryVisuals()
+		if aimConnection then
+			aimConnection:Disconnect()
+			aimConnection = nil
+		end
+		if trajectoryBeam then trajectoryBeam:Destroy() trajectoryBeam = nil end
+		if landingMarker then landingMarker:Destroy() landingMarker = nil end
+		if attach0 then attach0:Destroy() attach0 = nil end
+		if attach1 then attach1:Destroy() attach1 = nil end
+	end
 
-                    if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
-                        task.spawn(function()
-                            if getBlockHits(block, block.Position) > 1 then
-                                task.wait(BreakDelay.Value)
-                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-                            end
-                        end)
-                    end
+	-- Simulates parabolic physics path and returns landing point
+	local function updateTrajectory(origin, velocity)
+		if not DrawTrajectory.Enabled then return end
+		createTrajectoryVisuals()
 
-                    return call
-                end
+		local gravity = Workspace.Gravity
+		local t = 0
+		local dt = 0.03
+		local currentPos = origin
+		local hitPos = origin
 
-                old = bedwars.CannonHandController.launchSelf
-                bedwars.CannonHandController.launchSelf = function(self, block, ...)
-                    local call = old(self, block, ...)
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		if entitylib.isAlive and entitylib.character.Character then
+			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
+		end
 
-                    if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
-                        task.spawn(function()
-                            for i = 1, 2 do
-                                task.wait(BreakDelay.Value)
-                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-                            end
-                        end)
-                    end
+		for _ = 1, 100 do
+			t = t + dt
+			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
+			local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
 
-                    if Jump.Enabled and entitylib.isAlive then
-                        task.defer(function()
-                            if entitylib.isAlive and entitylib.character and entitylib.character.Humanoid then
-                                entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                            end
-                        end)
-                    end
-                    return call
-                end
-            else
-                bedwars.CannonHandController.launchSelf = old
-                bedwars.CannonController.startAiming = oldAim
-            end
-        end,
-        Tooltip = 'Smoothly breaks only your own cannon/jump on launch'
-    })
+			if ray then
+				hitPos = ray.Position
+				break
+			end
+			currentPos = nextPos
+		end
 
-    BreakDelay = AutoDavey:CreateSlider({
-        Name = 'Break Delay',
-        Min = 0,
-        Max = 0.3,
-        Default = 0.05,
-        Decimal = 100,
-        Tooltip = 'Smooths out block breaking execution timing'
-    })
+		attach0.Position = origin
+		attach1.Position = hitPos
+		landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
+		landingMarker.Visible = true
+	end
 
-    Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
+	local function canBreak()
+		if not LimitItem.Enabled then return true end
+		return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
+	end
 
-    Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
+	local function isMyCannon(block)
+		if not block then return false end
+		local lplr = game:GetService("Players").LocalPlayer
+		if not lplr then return false end
 
-    Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
+		local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
+		if placedBy then
+			return placedBy == lplr.Name or placedBy == lplr.UserId
+		end
 
-    LimitItem = AutoDavey:CreateToggle({
-        Name = 'Limit to items',
-        Tooltip = 'Only breaks when tools are held'
-    })
+		if bedwars.BlockController and bedwars.BlockController:getStore() then
+			local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
+			if blockData and blockData.placedBy then
+				return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
+			end
+		end
+
+		return true
+	end
+
+	AutoDavey = vape.Categories.Kits:CreateModule({
+		Name = 'AutoDavey',
+		Function = function(callback)
+			if callback then
+				oldAim = bedwars.CannonController.startAiming
+				bedwars.CannonController.startAiming = function(self, block, ...)
+					local call = oldAim(self, block, ...)
+
+					if DrawTrajectory.Enabled and block and entitylib.isAlive then
+						if aimConnection then aimConnection:Disconnect() end
+						aimConnection = RunService.RenderStepped:Connect(function()
+							if self.aiming and entitylib.isAlive then
+								local origin = block.Position + Vector3.new(0, 2, 0)
+								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
+								local launchVelocity = lookVector * 120 -- Estimated launch velocity magnitude
+								updateTrajectory(origin, launchVelocity)
+							else
+								clearTrajectoryVisuals()
+							end
+						end)
+					end
+
+					if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
+						task.spawn(function()
+							if getBlockHits(block, block.Position) > 1 then
+								task.wait(BreakDelay.Value)
+								bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+							end
+						end)
+					end
+
+					return call
+				end
+
+				old = bedwars.CannonHandController.launchSelf
+				bedwars.CannonHandController.launchSelf = function(self, block, ...)
+					clearTrajectoryVisuals()
+					local call = old(self, block, ...)
+
+					if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
+						task.spawn(function()
+							for i = 1, 2 do
+								task.wait(BreakDelay.Value)
+								bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+							end
+						end)
+					end
+
+					if Jump.Enabled and entitylib.isAlive then
+						task.defer(function()
+							if entitylib.isAlive and entitylib.character and entitylib.character.Humanoid then
+								entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+							end
+						end)
+					end
+					return call
+				end
+			else
+				clearTrajectoryVisuals()
+				bedwars.CannonHandController.launchSelf = old
+				bedwars.CannonController.startAiming = oldAim
+			end
+		end,
+		Tooltip = 'Smoothly breaks only your own cannon/jump on launch and displays landing trajectory.'
+	})
+
+	BreakDelay = AutoDavey:CreateSlider({
+		Name = 'Break Delay',
+		Min = 0,
+		Max = 0.3,
+		Default = 0.05,
+		Decimal = 100,
+		Tooltip = 'Smooths out block breaking execution timing'
+	})
+
+	DrawTrajectory = AutoDavey:CreateToggle({
+		Name = 'Show Trajectory',
+		Default = true,
+		Tooltip = 'Displays trajectory line and landing target indicator'
+	})
+
+	Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
+	Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
+	Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
+	LimitItem = AutoDavey:CreateToggle({
+		Name = 'Limit to items',
+		Tooltip = 'Only breaks when tools are held'
+	})
 end)
 
 run(function()
