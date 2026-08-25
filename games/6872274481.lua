@@ -8868,9 +8868,7 @@ run(function()
 	local UseGloop
 	
 	local FireDelays = {}
-	local GloopedPlayers = {} -- {playerId = timestamp_when_glooped}
-	local CurrentTargetId = nil
-	local GLOOP_COOLDOWN = 30 -- 30 seconds before same player can be glooped again
+	local GloopedPlayers = {} -- {playerId = true} - permanently mark players as glooped
 	
 	local function getEntity()
 		local selfpos = entitylib.character.RootPart.Position
@@ -8905,31 +8903,15 @@ run(function()
 	end
 	
 	local function canGloopPlayer(playerId)
-		local now = tick()
-		
-		-- If player was never glooped, they can be glooped
-		if not GloopedPlayers[playerId] then
-			return true
-		end
-		
-		-- If cooldown has expired (30 seconds), they can be glooped again
-		local timeSinceGloop = now - GloopedPlayers[playerId]
-		return timeSinceGloop >= GLOOP_COOLDOWN
+		-- Only allow glooping if player hasn't been glooped yet
+		return not GloopedPlayers[playerId]
 	end
 	
 	local function markPlayerGlooped(playerId)
-		GloopedPlayers[playerId] = tick()
+		GloopedPlayers[playerId] = true -- Permanently mark as glooped
 	end
 	
-	local function switchTargetLogic(newTargetId)
-		-- Clear gloop cooldown for previous target if switching
-		if CurrentTargetId and CurrentTargetId ~= newTargetId then
-			-- When switching targets, we don't clear the timer - just track it
-			CurrentTargetId = newTargetId
-		elseif not CurrentTargetId then
-			CurrentTargetId = newTargetId
-		end
-	end
+
 	
 	local function throwGloop(targetEntity)
 		if not targetEntity or not targetEntity.Player then return false end
@@ -8940,9 +8922,6 @@ run(function()
 		if not canGloopPlayer(playerId) then
 			return false
 		end
-		
-		-- Update target tracking
-		switchTargetLogic(playerId)
 		
 		-- Check if we have gloop item
 		if not hasGloopItem() then
@@ -9070,7 +9049,7 @@ run(function()
 				bedwars.ProjectileController.createLocalProjectile = old
 			end
 		end,
-		Tooltip = 'Automatically shoots projectiles and throws gloop during combat'
+		Tooltip = 'Auto shoots projectiles (arrows, snowballs) and throws gloop once per target'
 	})
 	Targets = AutoShoot:CreateTargets({Players = true})
 	Check = AutoShoot:CreateToggle({
@@ -9083,7 +9062,7 @@ run(function()
 		end
 	})
 	Projectiles = AutoShoot:CreateTextList({
-		Name = 'WhiteList',
+		Name = 'Projectiles',
 		Default = {'arrow', 'snowball'}
 	})
 	UseSophia = AutoShoot:CreateToggle({
@@ -9096,7 +9075,8 @@ run(function()
 	})
 	UseGloop = AutoShoot:CreateToggle({
 		Name = 'Use Gloop',
-		Tooltip = 'Auto throws gloop at targets. Only throws once per player, 30s cooldown before re-throwing'
+		Tooltip = 'Auto throws gloop at targets. Throws once per player, separate from projectiles',
+		Default = true
 	})
 	FireRate = AutoShoot:CreateTwoSlider({
 		Name = 'Fire Rate',
