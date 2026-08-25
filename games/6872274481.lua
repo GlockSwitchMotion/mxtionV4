@@ -19854,7 +19854,7 @@ run(function()
 					visual.Tag.TextLabel.Text = `Landing ({math.floor((target - localPosition).Magnitude)} studs)`
 				end
 	
-				if Mode.Value == 'Legit' then
+				if Mode.Value:find('Legit') then
 					cannon.AimPrompt:InputHoldBegin()
 					task.wait(cannon.AimPrompt.HoldDuration)
 	
@@ -19875,13 +19875,23 @@ run(function()
 					end
 					return
 				end
-	
-				if Mode.Value == 'Legit' then
+
+				-- If Mode is set to 'Only Aim', stop execution right after setting the aim vector
+				if Mode.Value:find('Only Aim') then
+					if visual then
+						task.delay(2, function()
+							if visual then visual:Destroy() end
+						end)
+					end
+					return
+				end
+
+				if Mode.Value:find('Legit') then
 					cannon.StopAimingPrompt:InputHoldBegin()
 				end
 				task.wait((cannon.StopAimingPrompt.HoldDuration + 0.2) + runService.PostSimulation:Wait())
 	
-				if Mode.Value == 'Legit' then
+				if Mode.Value:find('Legit') then
 					cannon.LaunchSelfPrompt:InputHoldBegin()
 					task.wait(cannon.LaunchSelfPrompt.HoldDuration + runService.PostSimulation:Wait())
 				else
@@ -19913,8 +19923,8 @@ run(function()
 	})
 	Mode = DaveyAim:CreateDropdown({
 		Name = 'Aim Mode',
-		List = {'Blatant', 'Legit'},
-		Default = 'Blatant'
+		List = {'Aim And Launch (Blatant)', 'Aim And Launch (Legit)', 'Only Aim (Blatant)', 'Only Aim (Legit)'},
+		Default = 'Aim And Launch (Blatant)'
 	})
 	Position = DaveyAim:CreateDropdown({
 		Name = 'Position Mode',
