@@ -14538,22 +14538,25 @@ run(function()
 		attach1.Name = "DaveyAttach1"
 		attach1.Parent = Workspace.Terrain
 
+		-- Smooth, high-visibility beam configuration
 		trajectoryBeam = Instance.new("Beam")
 		trajectoryBeam.Name = "DaveyTrajectoryBeam"
 		trajectoryBeam.Attachment0 = attach0
 		trajectoryBeam.Attachment1 = attach1
-		trajectoryBeam.Width0 = 0.3
-		trajectoryBeam.Width1 = 0.3
+		trajectoryBeam.Width0 = 0.4
+		trajectoryBeam.Width1 = 0.4
+		trajectoryBeam.TextureMode = Enum.TextureMode.Wrap
 		trajectoryBeam.FaceCamera = true
 		trajectoryBeam.AlwaysOnTop = true
+		trajectoryBeam.Transparency = NumberSequence.new(0.1)
 		trajectoryBeam.Parent = Workspace.Terrain
 
 		landingMarker = Instance.new("Part")
 		landingMarker.Name = "DaveyLandingMarker"
 		landingMarker.Shape = Enum.PartType.Cylinder
-		landingMarker.Size = Vector3.new(0.2, 4, 4)
+		landingMarker.Size = Vector3.new(0.2, 4.5, 4.5)
 		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.3
+		landingMarker.Transparency = 0.2
 		landingMarker.Anchored = true
 		landingMarker.CanCollide = false
 		landingMarker.Orientation = Vector3.new(0, 0, 90)
@@ -14572,8 +14575,8 @@ run(function()
 		if attach1 then attach1:Destroy() attach1 = nil end
 	end
 
-	-- Direct linear launch raycast prediction
-	local function updateLaunchPrediction(cannonBlock)
+	-- Direct straight line vector calculation with obstacle raycasting
+	local function updateStraightTrajectory(cannonBlock)
 		if not DrawTrajectory.Enabled then 
 			if trajectoryBeam then trajectoryBeam.Enabled = false end
 			if landingMarker then landingMarker.Visible = false end
@@ -14585,12 +14588,12 @@ run(function()
 		local camera = Workspace.CurrentCamera
 		if not camera then return end
 
-		-- Align vector directly with camera aim angle
+		-- Lock lookVector to camera direction for a perfectly straight ray
 		local lookVector = camera.CFrame.LookVector
 		
-		-- Offset launch origin slightly out of the player model to avoid self-clipping
-		local launchOrigin = cannonBlock.Position + Vector3.new(0, 2, 0)
-		local maxLaunchDistance = 160 -- Exact Bedwars Davey cannon impulse vector range
+		-- Start origin 3 studs forward from cannon to keep the screen clear
+		local launchOrigin = cannonBlock.Position + Vector3.new(0, 2, 0) + (lookVector * 3)
+		local maxLaunchDistance = 160
 		local targetPos = launchOrigin + (lookVector * maxLaunchDistance)
 
 		local raycastParams = RaycastParams.new()
@@ -14601,7 +14604,6 @@ run(function()
 		end
 		raycastParams.FilterDescendantsInstances = filter
 
-		-- Raycast forward along launch trajectory to locate landing surface point
 		local ray = Workspace:Raycast(launchOrigin, lookVector * maxLaunchDistance, raycastParams)
 		if ray then
 			targetPos = ray.Position
@@ -14657,7 +14659,7 @@ run(function()
 						
 						aimConnection = RunService.RenderStepped:Connect(function()
 							if self.aiming and entitylib.isAlive and block and block.Parent then
-								updateLaunchPrediction(block)
+								updateStraightTrajectory(block)
 							else
 								clearTrajectoryVisuals()
 							end
@@ -14705,14 +14707,14 @@ run(function()
 				bedwars.CannonController.startAiming = oldAim
 			end
 		end,
-		Tooltip = 'Smoothly breaks only your own cannon/jump on launch and displays exact linear launch spot.'
+		Tooltip = 'Smoothly breaks only your own cannon/jump on launch and displays an ultra-clear linear aim vector.'
 	})
 
 	-- Settings
 	DrawTrajectory = AutoDavey:CreateToggle({
 		Name = 'Show Trajectory',
 		Default = true,
-		Tooltip = 'Displays launch prediction line'
+		Tooltip = 'Displays straight line launch indicator'
 	})
 
 	LineColor = AutoDavey:CreateColorSlider({
