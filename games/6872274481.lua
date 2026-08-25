@@ -19738,6 +19738,7 @@ run(function()
 		return true
 	end
 
+	-- Adopts AutoDavey's breaking logic directly
 	local function breakCannon(cannon)
 		if not AutoBreak.Enabled or not cannon or not isMyCannon(cannon) then return end
 		task.spawn(function()
@@ -19927,7 +19928,7 @@ run(function()
 					bedwars.CannonHandController:launchSelf(cannon)
 				end
 
-				-- Triggers the auto break check immediately after launch execution
+				-- Executes break packet right after launch request
 				breakCannon(cannon)
 	
 				local landing = tick() + time
