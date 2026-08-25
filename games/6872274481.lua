@@ -8760,8 +8760,8 @@ run(function()
 		return nil
 	end
 	
-	AutoShoot = vape.Categories.Utility:CreateModule({
-		Name = 'AutoProjectile',
+	AutoShoot = vape.Categories.Combat:CreateModule({
+		Name = 'FastHits',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -8861,11 +8861,8 @@ run(function()
 	local Targets
 	local Check
 	local Projectiles
-	local UseSophia
-	local UseWhim
 	local FireRate
 	local SwitchDelay
-	local UseGloop
 	
 	local FireDelays = {}
 	local GloopedPlayers = {} -- {playerId = true} - permanently mark players as glooped
@@ -8986,8 +8983,8 @@ run(function()
 		return false
 	end
 	
-	AutoShoot = vape.Categories.Combat:CreateModule({
-		Name = 'FastHits',
+	AutoShoot = vape.Categories.Inventory:CreateModule({
+		Name = 'AutoGloop',
 		Function = function(callback)
 			if callback then
 				repeat
@@ -9033,12 +9030,10 @@ run(function()
 							end
 						end
 						
-						-- Auto Gloop Logic
-						if UseGloop.Enabled then
-							local ent = getEntity()
-							if ent then
-								throwGloop(ent)
-							end
+						-- Auto Gloop Logic (always enabled)
+						local ent = getEntity()
+						if ent then
+							throwGloop(ent)
 						end
 						
 						hotbarSwitch(hotbar)
@@ -9049,7 +9044,7 @@ run(function()
 				bedwars.ProjectileController.createLocalProjectile = old
 			end
 		end,
-		Tooltip = 'Auto shoots projectiles (arrows, snowballs) and throws gloop once per target'
+		Tooltip = 'Auto throws gloop at targets. One gloop per player, then repeats'
 	})
 	Targets = AutoShoot:CreateTargets({Players = true})
 	Check = AutoShoot:CreateToggle({
@@ -9063,21 +9058,9 @@ run(function()
 	})
 	Projectiles = AutoShoot:CreateTextList({
 		Name = 'Projectiles',
-		Default = {'arrow', 'snowball'}
+		Default = {'gloop'}
 	})
-	UseSophia = AutoShoot:CreateToggle({
-		Name = 'Use sophia',
-		Tooltip = 'Also shoots sophia\'s frost staff, swapping it out of mist mode on its own'
-	})
-	UseWhim = AutoShoot:CreateToggle({
-		Name = 'Use whim',
-		Tooltip = 'Also casts whim\'s magic book, follows whatever element you have cycled'
-	})
-	UseGloop = AutoShoot:CreateToggle({
-		Name = 'Use Gloop',
-		Tooltip = 'Auto throws gloop at targets. Throws once per player, separate from projectiles',
-		Default = true
-	})
+
 	FireRate = AutoShoot:CreateTwoSlider({
 		Name = 'Fire Rate',
 		Min = 0,
