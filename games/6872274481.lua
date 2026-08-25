@@ -14565,6 +14565,10 @@ run(function()
 		local currentPos = origin
 		local hitPos = origin
 		local trajectoryPoints = {}
+		
+		-- Calculate velocity magnitude to determine aim distance
+		local velocityMagnitude = velocity.Magnitude
+		local maxIterations = math.min(300, math.floor(200 + (velocityMagnitude / 120) * 100)) -- More iterations for farther aim
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -14572,8 +14576,8 @@ run(function()
 			raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 		end
 
-		-- Calculate arc path
-		for i = 1, 200 do
+		-- Calculate arc path - extends based on velocity
+		for i = 1, maxIterations do
 			t = t + dt
 			local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
 			
@@ -14590,7 +14594,7 @@ run(function()
 			table.insert(trajectoryPoints, nextPos)
 			currentPos = nextPos
 			
-			if t > 15 then break end
+			if t > 20 then break end
 		end
 
 		-- Clean up old arc
@@ -14641,26 +14645,56 @@ run(function()
 		
 		trajectoryBeam = arcContainer
 
-		-- Landing marker with glow
+		-- Scale landing marker and effects based on distance aimed
+		local distance = (hitPos - origin).Magnitude
+		local markerSize = 0.5 + (distance / 100) * 0.3 -- Larger the farther aimed
+		
 		landingMarker.Position = hitPos + Vector3.new(0, 3, 0)
 		landingMarker.Visible = true
-		landingMarker.Size = Vector3.new(0.5, 5, 5)
+		landingMarker.Size = Vector3.new(markerSize, 5 + markerSize, 5 + markerSize) -- Scale up with distance
 		landingMarker.Color = Color3.fromRGB(0, 255, 200) -- Cyan to match arc
 		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.3
+		landingMarker.Transparency = 0.25 -- More visible
 		
-		-- Pulsing glow
+		-- Add highlight ring around landing area
+		if not landingMarker:GetAttribute("HasRing") then
+			landingMarker:SetAttribute("HasRing", true)
+			
+			local ring = Instance.new("Part")
+			ring.Name = "LandingRing"
+			ring.Shape = Enum.PartType.Cylinder
+			ring.Size = Vector3.new(0.2, 8, 8)
+			ring.Color = Color3.fromRGB(0, 255, 150)
+			ring.Material = Enum.Material.Neon
+			ring.CanCollide = false
+			ring.Anchored = true
+			ring.Transparency = 0.4
+			ring.CFrame = landingMarker.CFrame
+			ring.Parent = Workspace.Terrain
+			
+			-- Update ring size with landing marker
+			task.spawn(function()
+				while landingMarker and landingMarker.Parent and DrawTrajectory.Enabled do
+					ring.Size = Vector3.new(0.2, landingMarker.Size.Y + 2, landingMarker.Size.Z + 2)
+					ring.Position = landingMarker.Position
+					task.wait(0.05)
+				end
+				if ring then ring:Destroy() end
+			end)
+		end
+		
+		-- Strong pulsing glow
 		if not landingMarker:GetAttribute("IsPulsing") then
 			landingMarker:SetAttribute("IsPulsing", true)
 			task.spawn(function()
 				while landingMarker and landingMarker.Parent and DrawTrajectory.Enabled do
-					for i = 0.2, 0.5, 0.04 do
+					for i = 0.15, 0.4, 0.03 do
 						if landingMarker and DrawTrajectory.Enabled then 
 							landingMarker.Transparency = i 
 						end
 						task.wait(0.02)
 					end
-					for i = 0.5, 0.2, -0.04 do
+					for i = 0.4, 0.15, -0.03 do
 						if landingMarker and DrawTrajectory.Enabled then 
 							landingMarker.Transparency = i 
 						end
