@@ -19692,10 +19692,6 @@ run(function()
 	local Position
 	local Range
 	local ShowTarget
-	local Break
-	local Switch
-	local LimitItem
-	local BreakDelay
 	
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
@@ -19720,11 +19716,6 @@ run(function()
 		return cannons[1] or nil
 	end
 
-	local function canBreak()
-		if not LimitItem.Enabled then return true end
-		return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
-	end
-
 	local function isMyCannon(block)
 		if not block then return false end
 		local lplr = game:GetService("Players").LocalPlayer
@@ -19745,27 +19736,6 @@ run(function()
 		return true
 	end
 
-	-- Hits the cannon once (used when aimed or placed)
-	local function hitCannonOnce(block)
-		if not Break.Enabled or not block or not block.Parent or not entitylib.isAlive then return end
-		if not canBreak() or not isMyCannon(block) then return end
-
-		task.spawn(function()
-			task.wait(BreakDelay.Value)
-			bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-		end)
-	end
-
-	-- Hits the cannon a second time to break it completely on launch
-	local function breakCannonOnLaunch(block)
-		if not Break.Enabled or not block or not block.Parent or not entitylib.isAlive then return end
-		if not canBreak() or not isMyCannon(block) then return end
-
-		task.spawn(function()
-			task.wait(BreakDelay.Value)
-			bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-		end)
-	end
 	
 	local function isPathBlocked(origin, velocity, time)
 		local previous = origin
@@ -19879,9 +19849,6 @@ run(function()
 					return
 				end
 
-				-- Hit 1: Pre-damages cannon when aimed
-				hitCannonOnce(cannon)
-	
 				local mouseRay = cloneref(lplr:GetMouse()).UnitRay
 				local origin = Position.Value == 'Camera' and gameCamera.CFrame.Position or mouseRay.Origin
 				local direction = Position.Value == 'Camera' and gameCamera.CFrame.LookVector or mouseRay.Direction
@@ -19908,7 +19875,7 @@ run(function()
 					visual.Tag.TextLabel.Text = `Landing ({math.floor((target - localPosition).Magnitude)} studs)`
 				end
 	
-				if Mode.Value:find('Legit') then
+				if Mode.Value == 'Aim And Launch' then
 					cannon.AimPrompt:InputHoldBegin()
 					task.wait(cannon.AimPrompt.HoldDuration)
 	
@@ -19930,7 +19897,7 @@ run(function()
 					return
 				end
 
-				if Mode.Value:find('Only Aim') then
+				if Mode.Value == 'Aim Only' then
 					if visual then
 						task.delay(2, function()
 							if visual then visual:Destroy() end
@@ -19939,21 +19906,18 @@ run(function()
 					return
 				end
 
-				if Mode.Value:find('Legit') then
+				if Mode.Value == 'Aim And Launch' then
 					cannon.StopAimingPrompt:InputHoldBegin()
 				end
 				task.wait((cannon.StopAimingPrompt.HoldDuration + 0.2) + runService.PostSimulation:Wait())
 	
-				if Mode.Value:find('Legit') then
+				if Mode.Value == 'Aim And Launch' then
 					cannon.LaunchSelfPrompt:InputHoldBegin()
 					task.wait(cannon.LaunchSelfPrompt.HoldDuration + runService.PostSimulation:Wait())
 				else
 					bedwars.CannonHandController:launchSelf(cannon)
 				end
 
-				-- Hit 2: Destroys the cannon immediately upon launch
-				breakCannonOnLaunch(cannon)
-	
 				local landing = tick() + time
 				local root
 				repeat
@@ -19980,8 +19944,8 @@ run(function()
 
 	Mode = DaveyAim:CreateDropdown({
 		Name = 'Aim Mode',
-		List = {'Aim And Launch (Blatant)', 'Aim And Launch (Legit)', 'Only Aim (Blatant)', 'Only Aim (Legit)'},
-		Default = 'Aim And Launch (Blatant)'
+		List = {'Aim And Launch', 'Aim Only'},
+		Default = 'Aim And Launch'
 	})
 	Position = DaveyAim:CreateDropdown({
 		Name = 'Position Mode',
@@ -20001,27 +19965,6 @@ run(function()
 		Name = 'Show Target',
 		Default = true,
 		Tooltip = 'Highlights the block you are landing on until you land'
-	})
-	Break = DaveyAim:CreateToggle({
-		Name = 'Break on impact',
-		Default = true,
-		Tooltip = 'Pre-hits cannon when aiming and breaks it on launch'
-	})
-	Switch = DaveyAim:CreateToggle({
-		Name = 'Legit switch',
-		Tooltip = 'Switches back to held item smoothly'
-	})
-	LimitItem = DaveyAim:CreateToggle({
-		Name = 'Limit to items',
-		Tooltip = 'Only breaks when tools are held'
-	})
-	BreakDelay = DaveyAim:CreateSlider({
-		Name = 'Break Delay',
-		Min = 0,
-		Max = 0.3,
-		Default = 0.05,
-		Decimal = 100,
-		Tooltip = 'Smooths out block breaking execution timing'
 	})
 end)
 
