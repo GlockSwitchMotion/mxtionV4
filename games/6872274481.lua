@@ -1,3 +1,4 @@
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local run = function(func)
 	xpcall(func, warn)
 end
@@ -14025,6 +14026,134 @@ run(function()
 		Max = 8,
 		Default = 1,
 		Tooltip = 'Enemies in range before transforming'
+	})
+end)
+
+run(function()
+	local InfFly
+	local Speed
+	local VerticalSpeed
+	local WallCheck
+	local PopBalloons
+	local BlocksDisplay
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	local up, down, old = 0, 0
+	local blocksTraveled = 0
+	local startPos = nil
+
+	InfFly = vape.Categories.Minigames:CreateModule({
+		Name = 'Infinite Fly',
+		ConfigName = 'InfFly',
+		Function = function(callback)
+			frictionTable.InfFly = callback or nil
+			updateVelocity()
+			if callback then
+				up, down, old = 0, 0, bedwars.BalloonController.deflateBalloon
+				bedwars.BalloonController.deflateBalloon = function() end
+				blocksTraveled = 0
+				startPos = entitylib.character and entitylib.character.RootPart.Position or Vector3.zero
+
+				if lplr.Character and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
+					bedwars.BalloonController:inflateBalloon()
+				end
+				InfFly:Clean(vapeEvents.AttributeChanged.Event:Connect(function(changed)
+					if changed == 'InflatedBalloons' and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
+						bedwars.BalloonController:inflateBalloon()
+					end
+				end))
+				InfFly:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive and not (vape.Modules.InfiniteFly or {}).Enabled and isnetworkowner(entitylib.character.RootPart) then
+						local root = entitylib.character.RootPart
+						local moveDirection = entitylib.character.Humanoid.MoveDirection
+						local velo = getSpeed()
+						
+						-- Calculate blocks traveled
+						if startPos then
+							blocksTraveled = math.floor((root.Position - startPos).Magnitude / 3)
+						end
+						
+						local mass = (-0.02 + 6 * (tick() % 0.4 < 0.2 and -1 or 1)) + ((up + down) * VerticalSpeed.Value)
+						local destination = (moveDirection * math.max(Speed.Value - velo, 0) * dt)
+						rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, AntiFallPart}
+						rayCheck.CollisionGroup = root.CollisionGroup
+
+						if WallCheck.Enabled then
+							local ray = workspace:Raycast(root.Position, destination, rayCheck)
+							if ray then
+								destination = ((ray.Position + ray.Normal) - root.Position)
+							end
+						end
+
+						root.CFrame += destination
+						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, mass, 0)
+					end
+				end))
+				InfFly:Clean(inputService.InputBegan:Connect(function(input)
+					if not inputService:GetFocusedTextBox() then
+						if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
+							up = 1
+						elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
+							down = -1
+						end
+					end
+				end))
+				InfFly:Clean(inputService.InputEnded:Connect(function(input)
+					if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
+						up = 0
+					elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
+						down = 0
+					end
+				end))
+				if inputService.TouchEnabled then
+					pcall(function()
+						local jumpButton = lplr.PlayerGui.TouchGui.TouchControlFrame.JumpButton
+						InfFly:Clean(jumpButton:GetPropertyChangedSignal('ImageRectOffset'):Connect(function()
+							up = jumpButton.ImageRectOffset.X == 146 and 1 or 0
+						end))
+					end)
+				end
+			else
+				bedwars.BalloonController.deflateBalloon = old
+				if PopBalloons.Enabled and entitylib.isAlive and (lplr.Character:GetAttribute('InflatedBalloons') or 0) > 0 then
+					for _ = 1, 3 do
+						bedwars.BalloonController:deflateBalloon()
+					end
+				end
+				blocksTraveled = 0
+				startPos = nil
+			end
+		end,
+		ExtraText = function()
+			return blocksTraveled .. ' blocks'
+		end,
+		Tooltip = 'Infinite fly - Space/Shift to move up/down'
+	})
+	Speed = InfFly:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 30,
+		Default = 20,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	VerticalSpeed = InfFly:CreateSlider({
+		Name = 'Vertical Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	WallCheck = InfFly:CreateToggle({
+		Name = 'Wall Check',
+		Default = true
+	})
+	PopBalloons = InfFly:CreateToggle({
+		Name = 'Pop Balloons',
+		Default = true
 	})
 end)
 
