@@ -19597,7 +19597,8 @@ run(function()
 	local mouseParams = RaycastParams.new()
 	mouseParams.FilterType = Enum.RaycastFilterType.Exclude
 	local mouseOrigin, mouseDirection, mouseHit = Vector3.zero, Vector3.zero
-	local lastBreakTime = 0
+	local currentTarget = nil
+	local targetBreakTime = 0
 	
 	local function customHealthbar(self, blockRef, health, maxHealth, changeHealth, block)
 		xpcall(function()
@@ -19711,10 +19712,8 @@ run(function()
 	
 	local hit = 0
 	
-	local function attemptBreak(tab, localPosition, route)
-		if not tab then return end
-		-- Check if enough time has passed since last break
-		if tick() - lastBreakTime < BreakSpeed.Value then return end
+	local function findClosestBlock(tab, localPosition)
+		if not tab then return nil end
 	
 		local block, closest = nil, math.huge
 		for _, v in tab do
@@ -19728,8 +19727,7 @@ run(function()
 			if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
 	
 			if not ClosestBreak.Enabled or v == mouseHit then
-				block = v
-				break
+				return v
 			end
 	
 			local offset = v.Position - mouseOrigin
@@ -19740,10 +19738,16 @@ run(function()
 			end
 		end
 	
-		if not block then return false end
+		return block
+	end
 	
+	local function attemptBreak(block, route)
+		if not block or not block.Parent then return false end
+	
+		currentTarget = block
+		targetBreakTime = tick()
+		
 		hit += 1
-		lastBreakTime = tick()
 		local target, path, endpos = bedwars.breakBlock(block, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, ClosestBreak.Enabled and breakmethods.Distance or breakmethods[Mode.Value], not route)
 		local currentnode = target
 		for _, part in parts do
@@ -19752,6 +19756,12 @@ run(function()
 				part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
 			end
 			currentnode = path and path[currentnode]
+		end
+	
+		task.wait(BreakSpeed.Value)
+		
+		if currentTarget == block then
+			currentTarget = nil
 		end
 	
 		return true
@@ -19825,34 +19835,43 @@ run(function()
 							mouseHit = ray and ray.Instance or nil
 						end
 	
-						-- Priority order: Beds first, then other blocks
-						if attemptBreak(Bed.Enabled and beds, localPosition, true) then
-							for _, v in parts do
-								v.Position = Vector3.zero
-							end
-						elseif attemptBreak(Hive.Enabled and hives, localPosition) then
-							for _, v in parts do
-								v.Position = Vector3.zero
-							end
-						elseif attemptBreak(Tesla.Enabled and teslas, localPosition) then
-							for _, v in parts do
-								v.Position = Vector3.zero
-							end
-						elseif attemptBreak(customlist, localPosition) then
-							for _, v in parts do
-								v.Position = Vector3.zero
-							end
-						elseif attemptBreak(LuckyBlock.Enabled and luckyblock, localPosition) then
-							for _, v in parts do
-								v.Position = Vector3.zero
-							end
-						elseif attemptBreak(IronOre.Enabled and ironores, localPosition) then
-							for _, v in parts do
-								v.Position = Vector3.zero
-							end
+						-- Keep breaking current target until its destroyed
+						if currentTarget and currentTarget.Parent then
+							attemptBreak(currentTarget)
 						else
-							for _, v in parts do
-								v.Position = Vector3.zero
+							-- Only find new target when current is destroyed
+							local bedBlock = findClosestBlock(Bed.Enabled and beds, localPosition)
+							if bedBlock then
+								attemptBreak(bedBlock, true)
+							else
+								local hiveBlock = findClosestBlock(Hive.Enabled and hives, localPosition)
+								if hiveBlock then
+									attemptBreak(hiveBlock)
+								else
+									local teslaBlock = findClosestBlock(Tesla.Enabled and teslas, localPosition)
+									if teslaBlock then
+										attemptBreak(teslaBlock)
+									else
+										local customBlock = findClosestBlock(customlist, localPosition)
+										if customBlock then
+											attemptBreak(customBlock)
+										else
+											local luckyBlock = findClosestBlock(LuckyBlock.Enabled and luckyblock, localPosition)
+											if luckyBlock then
+												attemptBreak(luckyBlock)
+											else
+												local oreBlock = findClosestBlock(IronOre.Enabled and ironores, localPosition)
+												if oreBlock then
+													attemptBreak(oreBlock)
+												else
+													for _, v in parts do
+														v.Position = Vector3.zero
+													end
+												end
+											end
+										end
+									end
+								end
 							end
 						end
 					end
@@ -19863,6 +19882,7 @@ run(function()
 					v:Destroy()
 				end
 				table.clear(parts)
+				currentTarget = nil
 			end
 		end,
 		Tooltip = 'Break blocks around you automatically'
