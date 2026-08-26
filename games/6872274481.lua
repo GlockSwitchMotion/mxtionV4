@@ -19534,6 +19534,7 @@ end)
 run(function()
 	local Breaker
 	local Mode
+	local ClosestBreak
 	local Range
 	local BreakSpeed
 	local UpdateRate
@@ -19547,11 +19548,15 @@ run(function()
 	local CustomHealth = {}
 	local Animation
 	local SelfBreak
-	local InstantBreak
 	local LimitItem
 	local Wallcheck
+	local ViewAngle
 	local AutoTool
 	local customlist, parts = {}, {}
+	local mouse = cloneref(lplr:GetMouse())
+	local mouseParams = RaycastParams.new()
+	mouseParams.FilterType = Enum.RaycastFilterType.Exclude
+	local mouseOrigin, mouseDirection, mouseHit = Vector3.zero, Vector3.zero
 	
 	local function customHealthbar(self, blockRef, health, maxHealth, changeHealth, block)
 		xpcall(function()
@@ -19562,7 +19567,8 @@ run(function()
 				end
 				self.maid:DoCleaning()
 				self.healthbarBlockRef = blockRef
-				local create = bedwars.Roact.createElement
+				local roact = bedwars.Roact
+				local create = roact.createElement
 				local percent = math.clamp(health / maxHealth, 0, 1)
 				local cleanCheck = true
 				local part = Instance.new('Part')
@@ -19575,7 +19581,7 @@ run(function()
 				bedwars.QueryUtil:setQueryIgnored(part, true)
 				self.healthbarPart = part
 	
-				local mounted = bedwars.Roact.mount(create('BillboardGui', {
+				local mounted = roact.mount(create('BillboardGui', {
 					Size = UDim2.fromOffset(249, 102),
 					StudsOffset = Vector3.new(0, 2.5, 0),
 					Adornee = part,
@@ -19593,7 +19599,7 @@ run(function()
 							Size = UDim2.new(1, 89, 1, 52),
 							Position = UDim2.fromOffset(-48, -31),
 							BackgroundTransparency = 1,
-							Image = getcustomasset('catsix/assets/new/blur.png'),
+							Image = getvapeasset('catsix/assets/new/blur.png'),
 							ScaleType = Enum.ScaleType.Slice,
 							SliceCenter = Rect.new(52, 31, 261, 502)
 						}),
@@ -19626,7 +19632,7 @@ run(function()
 						}, {
 							create('UICorner', {CornerRadius = UDim.new(1, 0)}),
 							create('Frame', {
-								[bedwars.Roact.Ref] = self.blockHealthbar.healthbarProgressRef,
+								[roact.Ref] = self.blockHealthbar.healthbarProgressRef,
 								Size = UDim2.fromScale(percent, 1),
 								BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
 							}, {create('UICorner', {CornerRadius = UDim.new(1, 0)})})
@@ -19637,7 +19643,7 @@ run(function()
 				self.maid:GiveTask(function()
 					cleanCheck = false
 					self.healthbarBlockRef = nil
-					bedwars.Roact.unmount(mounted)
+					roact.unmount(mounted)
 					if self.healthbarPart then
 						self.healthbarPart:Destroy()
 					end
@@ -19664,38 +19670,54 @@ run(function()
 	
 	local hit = 0
 	
-	local function attemptBreak(tab, localPosition)
+	local function attemptBreak(tab, localPosition, route)
 		if not tab then return end
+	
+		local block, closest = nil, math.huge
 		for _, v in tab do
-			if (v.Position - localPosition).Magnitude < Range.Value and bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
-				if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
-				if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
-				if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
+			if (v.Position - localPosition).Magnitude >= Range.Value or not bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then continue end
+			if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
+			if Wallcheck.Enabled and not ClosestBreak.Enabled and ViewAngle.Value < 180 then
+				local offset = v.Position - gameCamera.CFrame.Position
+				if offset.Magnitude > 0 and math.deg(math.acos(math.clamp(offset.Unit:Dot(gameCamera.CFrame.LookVector), -1, 1))) > ViewAngle.Value then continue end
+			end
+			if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
+			if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
 	
-				hit += 1
-				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, breakmethods[Mode.Value])
-				if path then
-					local currentnode = target
-					for _, part in parts do
-						part.Position = currentnode or Vector3.zero
-						if currentnode then
-							part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
-						end
-						currentnode = path[currentnode]
-					end
-				end
+			if not ClosestBreak.Enabled or v == mouseHit then
+				block = v
+				break
+			end
 	
-				task.wait(InstantBreak.Enabled and (store.damageBlockFail > tick() and 4.5 or 0) or BreakSpeed.Value)
-	
-				return true
+			local offset = v.Position - mouseOrigin
+			local along = offset:Dot(mouseDirection)
+			local spread = along > 0 and (offset - mouseDirection * along).Magnitude or offset.Magnitude
+			if spread < closest then
+				block, closest = v, spread
 			end
 		end
 	
-		return false
+		if not block then return false end
+	
+		hit += 1
+		local target, path, endpos = bedwars.breakBlock(block, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, ClosestBreak.Enabled and breakmethods.Distance or breakmethods[Mode.Value], not route)
+		local currentnode = target
+		for _, part in parts do
+			part.Position = currentnode or Vector3.zero
+			if currentnode then
+				part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
+			end
+			currentnode = path and path[currentnode]
+		end
+	
+		task.wait(BreakSpeed.Value)
+	
+		return true
 	end
 	
 	Breaker = vape.Categories.Minigames:CreateModule({
 		Name = 'Nuker',
+		ConfigName = 'Breaker',
 		Function = function(callback)
 			if callback then
 				for _ = 1, 30 do
@@ -19748,7 +19770,20 @@ run(function()
 					if entitylib.isAlive then
 						local localPosition = entitylib.character.RootPart.Position
 	
-						if attemptBreak(Bed.Enabled and beds, localPosition) then continue end
+						if ClosestBreak.Enabled then
+							local ignore = {lplr.Character, gameCamera}
+							for _, ent in entitylib.List do
+								if ent.Character then
+									table.insert(ignore, ent.Character)
+								end
+							end
+							mouseParams.FilterDescendantsInstances = ignore
+							mouseOrigin, mouseDirection = mouse.UnitRay.Origin, mouse.UnitRay.Direction
+							local ray = workspace:Raycast(mouseOrigin, mouseDirection * 999, mouseParams)
+							mouseHit = ray and ray.Instance or nil
+						end
+	
+						if attemptBreak(Bed.Enabled and beds, localPosition, true) then continue end
 						if attemptBreak(Hive.Enabled and hives, localPosition) then continue end
 						if attemptBreak(Tesla.Enabled and teslas, localPosition) then continue end
 						if attemptBreak(customlist, localPosition) then continue end
@@ -19774,6 +19809,13 @@ run(function()
 		Name = 'Break mode',
 		List = {'Health', 'Distance'},
 		Default = 'Health'
+	})
+	ClosestBreak = Breaker:CreateToggle({
+		Name = 'Closest break',
+		Function = function(callback)
+			Mode.Object.Visible = not callback
+		end,
+		Tooltip = 'Ignores the break mode and always takes the block nearest your crosshair, seeing straight through players'
 	})
 	Range = Breaker:CreateSlider({
 		Name = 'Break range',
@@ -19847,11 +19889,24 @@ run(function()
 	})
 	Animation = Breaker:CreateToggle({Name = 'Animation'})
 	SelfBreak = Breaker:CreateToggle({Name = 'Self Break'})
-	InstantBreak = Breaker:CreateToggle({Name = 'Instant Break'})
 	Wallcheck = Breaker:CreateToggle({
 		Name = 'Legit mode',
+		Function = function(callback)
+			if ViewAngle then
+				ViewAngle.Object.Visible = callback
+			end
+		end,
 		Default = true,
-		Tooltip = 'Checks for blocks inside the bed instead of directly targetting bed'
+		Tooltip = 'Checks for blocks inside the bed instead of directly targetting bed,\nand only breaks what you are actually looking at'
+	})
+	ViewAngle = Breaker:CreateSlider({
+		Name = 'View angle',
+		Min = 5,
+		Max = 180,
+		Default = 60,
+		Suffix = 'degrees',
+		Darker = true,
+		Tooltip = 'How far off your crosshair a block can sit in legit mode, 180 breaks anything in range'
 	})
 	AutoTool = Breaker:CreateToggle({
 		Name = 'Auto Tool',
@@ -19926,6 +19981,120 @@ run(function()
 			return val <= 1 and 'sec' or 'secs'
 		end
 	})
+end)
+
+run(function()
+	local AutoEvelynn
+	local Range
+	local Delay
+	local EnemyCheck
+	
+	local Legit = getFunctionRange(bedwars.SpiritAssassinController.onKitLocalActivated) or 120
+	
+	AutoEvelynn = vape.Categories.Kits:CreateModule({
+		Name = 'AutoEvelynn',
+		Function = function(callback)
+			if callback then
+				local spirits = collection('EvelynnSoul', AutoEvelynn)
+				local cooldown = 0
+	
+				repeat
+					if entitylib.isAlive and store.equippedKit == 'spirit_assassin' and (Delay.Value <= 0 or tick() - cooldown >= Delay.Value) and not bedwars.StatusEffectUtil:isActive(lplr.Character, 'grounded') and not bedwars.StatusEffectUtil:isActive(lplr.Character, 'frosted') then
+						local localPosition = entitylib.character.RootPart.Position
+						for _, v in spirits do
+							local pos = v:GetPivot().Position
+							if (localPosition - pos).Magnitude <= Range.Value and (not EnemyCheck.Enabled or entitylib.EntityPosition({Origin = pos, Range = 18, Part = 'RootPart', Players = true, NPCs = true})) then
+								bedwars.Handler:Get('UseSpirit'):Fire('CallServer', {
+									secret = v:GetAttribute('SpiritSecret')
+								})
+								cooldown = tick()
+								break
+							end
+						end
+					end
+					task.wait(0.1)
+				until not AutoEvelynn.Enabled
+			end
+		end,
+		Tooltip = 'Eats nearby spirits so you teleport onto whoever you damaged'
+	})
+	Range = AutoEvelynn:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 120,
+		Default = 60,
+		Suffix = function(val)
+			return val <= 1 and 'stud' or 'studs'
+		end
+	})
+	AutoEvelynn:CreateButton({
+		Name = 'Sync to legit range',
+		Function = function()
+			Range:SetValue(Legit)
+		end
+	})
+	Delay = AutoEvelynn:CreateSlider({
+		Name = 'Delay',
+		Min = 0,
+		Max = 2,
+		Default = 0.1,
+		Decimal = 10,
+		Suffix = 'seconds'
+	})
+	EnemyCheck = AutoEvelynn:CreateToggle({
+		Name = 'Enemy check',
+		Tooltip = 'Only uses when someones around it'
+	})
+end)
+
+run(function()
+	local AutoPyro
+	local Delay
+	
+	local list = {'Range', 'Heat', 'Power'}
+	
+	AutoPyro = vape.Categories.Kits:CreateModule({
+		Name = 'AutoPyro',
+		Function = function(callback)
+			if callback then
+				repeat
+					local flamethrower = getItem('flamethrower')
+					if flamethrower then
+						for _, v in list do
+							local upgrade = v:lower()
+							local value = flamethrower.tool:GetAttribute(upgrade) or -1
+							local nextUpgrade = AutoPyro.Options[`Buy {v}`].Enabled and value < 3 and bedwars.PyroUpgradeMeta[upgrade].tiers[value + 2]
+	
+							if nextUpgrade then
+								local currency = getItem(nextUpgrade.currency)
+								if currency and currency.amount >= nextUpgrade.price then
+									bedwars.Handler:Get('UpgradeFlamethrower'):Fire('CallServer', upgrade)
+									task.wait(Delay.Value)
+								end
+							end
+						end
+					end
+					task.wait(0.1)
+				until not AutoPyro.Enabled
+			end
+		end,
+		Tooltip = 'Automatically upgrades flamethrower'
+	})
+	Delay = AutoPyro:CreateSlider({
+		Name = 'Delay',
+		Min = 0,
+		Max = 2,
+		Default = 0.1,
+		Decimal = 100,
+		Suffix = 'seconds',
+		Tooltip = 'Wait between each upgrade it buys'
+	})
+	for _, v in list do
+		AutoPyro:CreateToggle({
+			Name = `Buy {v}`,
+			Default = true
+		})
+	end
 end)
 
 run(function()
