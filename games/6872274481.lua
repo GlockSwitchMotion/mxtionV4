@@ -14035,12 +14035,13 @@ run(function()
 	local VerticalSpeed
 	local WallCheck
 	local PopBalloons
-	local BlocksDisplay
+	local TpSpeed
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
 	local up, down, old = 0, 0
 	local blocksTraveled = 0
 	local startPos = nil
+	local tpTick, tpToggle, oldy = tick(), true, nil
 
 	InfFly = vape.Categories.Minigames:CreateModule({
 		Name = 'Infinite Fly',
@@ -14053,17 +14054,22 @@ run(function()
 				bedwars.BalloonController.deflateBalloon = function() end
 				blocksTraveled = 0
 				startPos = entitylib.character and entitylib.character.RootPart.Position or Vector3.zero
+				tpTick, tpToggle, oldy = tick(), true, nil
 
 				if lplr.Character and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
 					bedwars.BalloonController:inflateBalloon()
 				end
+				
 				InfFly:Clean(vapeEvents.AttributeChanged.Event:Connect(function(changed)
 					if changed == 'InflatedBalloons' and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
 						bedwars.BalloonController:inflateBalloon()
 					end
 				end))
+				
 				InfFly:Clean(runService.PreSimulation:Connect(function(dt)
-					if entitylib.isAlive and not (vape.Modules.InfiniteFly or {}).Enabled and isnetworkowner(entitylib.character.RootPart) then
+					if entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
+						local flyAllowed = (lplr.Character:GetAttribute('InflatedBalloons') and lplr.Character:GetAttribute('InflatedBalloons') > 0) or store.matchState == 2
+						local mass = (-0.02 + (flyAllowed and 6 or 0) * (tick() % 0.4 < 0.2 and -1 or 1)) + ((up + down) * VerticalSpeed.Value)
 						local root = entitylib.character.RootPart
 						local moveDirection = entitylib.character.Humanoid.MoveDirection
 						local velo = getSpeed()
@@ -14073,7 +14079,6 @@ run(function()
 							blocksTraveled = math.floor((root.Position - startPos).Magnitude / 3)
 						end
 						
-						local mass = (-0.02 + 6 * (tick() % 0.4 < 0.2 and -1 or 1)) + ((up + down) * VerticalSpeed.Value)
 						local destination = (moveDirection * math.max(Speed.Value - velo, 0) * dt)
 						rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, AntiFallPart}
 						rayCheck.CollisionGroup = root.CollisionGroup
@@ -14085,10 +14090,43 @@ run(function()
 							end
 						end
 
+						-- Anti-cheat TP cycle: rapid teleport down to avoid void detection
+						if not flyAllowed then
+							if tpToggle then
+								-- Try to teleport down
+								local ray = workspace:Raycast(root.Position, Vector3.new(0, -10000, 0), rayCheck)
+								if ray then
+									tpToggle = false
+									oldy = root.Position.Y
+									tpTick = tick() + (TpSpeed.Value / 1000) -- Speed up TP delay
+									root.CFrame = CFrame.lookAlong(Vector3.new(root.Position.X, ray.Position.Y + entitylib.character.HipHeight, root.Position.Z), root.CFrame.LookVector)
+								else
+									-- Void detected - TP down anyway to avoid anti-cheat
+									tpToggle = false
+									oldy = root.Position.Y
+									tpTick = tick() + (TpSpeed.Value / 1000)
+									root.CFrame = CFrame.lookAlong(Vector3.new(root.Position.X, root.Position.Y - 500, root.Position.Z), root.CFrame.LookVector)
+								end
+							else
+								if oldy then
+									if tpTick < tick() then
+										-- Teleport back up to maintain height
+										local newpos = Vector3.new(root.Position.X, oldy, root.Position.Z)
+										root.CFrame = CFrame.lookAlong(newpos, root.CFrame.LookVector)
+										tpToggle = true
+										oldy = nil
+									else
+										mass = 0
+									end
+								end
+							end
+						end
+
 						root.CFrame += destination
 						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, mass, 0)
 					end
 				end))
+				
 				InfFly:Clean(inputService.InputBegan:Connect(function(input)
 					if not inputService:GetFocusedTextBox() then
 						if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
@@ -14098,6 +14136,7 @@ run(function()
 						end
 					end
 				end))
+				
 				InfFly:Clean(inputService.InputEnded:Connect(function(input)
 					if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
 						up = 0
@@ -14105,6 +14144,7 @@ run(function()
 						down = 0
 					end
 				end))
+				
 				if inputService.TouchEnabled then
 					pcall(function()
 						local jumpButton = lplr.PlayerGui.TouchGui.TouchControlFrame.JumpButton
@@ -14127,17 +14167,19 @@ run(function()
 		ExtraText = function()
 			return blocksTraveled .. ' blocks'
 		end,
-		Tooltip = 'Infinite fly - Space/Shift to move up/down'
+		Tooltip = 'Infinite fly with rapid TP cycles to bypass anti-cheat in void'
 	})
+	
 	Speed = InfFly:CreateSlider({
 		Name = 'Speed',
 		Min = 1,
-		Max = 30,
-		Default = 20,
+		Max = 23,
+		Default = 23,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
 		end
 	})
+	
 	VerticalSpeed = InfFly:CreateSlider({
 		Name = 'Vertical Speed',
 		Min = 1,
@@ -14147,10 +14189,21 @@ run(function()
 			return val == 1 and 'stud' or 'studs'
 		end
 	})
+	
+	TpSpeed = InfFly:CreateSlider({
+		Name = 'TP Cycle Speed',
+		Min = 10,
+		Max = 200,
+		Default = 50,
+		Suffix = 'ms',
+		Tooltip = 'Lower = faster TP cycles (better void bypass)'
+	})
+	
 	WallCheck = InfFly:CreateToggle({
 		Name = 'Wall Check',
 		Default = true
 	})
+	
 	PopBalloons = InfFly:CreateToggle({
 		Name = 'Pop Balloons',
 		Default = true
