@@ -24135,7 +24135,7 @@ run(function()
                                     cycleTimer = 0
                                 end
                                 
-                                local isTouchingGround = cycleTimer <= 0.1
+                                local isTouchingGround = cycleTimer <= 0.23
                                 if isTouchingGround then
                                     currentHeight = 0
                                 end
@@ -24148,7 +24148,6 @@ run(function()
                             local basePos = (targetHead and targetHead.Position or targetRoot.Position) + predictionOffset
                             local targetPos = basePos + Vector3.new(0, currentHeight, 0)
                             
-                            -- Clamp max movement delta per frame to prevent high-speed snap flags from anti-cheats
                             local maxStep = 35 * dt
                             local currentPos = myRoot.Position
                             local clampedPos = currentPos:Lerp(targetPos, math.clamp(dt * 20, 0.1, 0.7))
@@ -24159,7 +24158,6 @@ run(function()
 
                             myRoot.CFrame = CFrame.new(clampedPos, clampedPos + targetRoot.CFrame.LookVector)
                             
-                            -- Smooth velocity matching to prevent rubber-banding
                             local currentVel = myRoot.AssemblyLinearVelocity or myRoot.Velocity
                             myRoot.AssemblyLinearVelocity = currentVel:Lerp(targetVelocity, math.clamp(dt * 12, 0.1, 1))
 
@@ -24248,7 +24246,7 @@ run(function()
     GroundTouchToggle = PlayerAttachModule:CreateToggle({
         Name = 'Ground Touch',
         Default = false,
-        Tooltip = 'Drops down to touch the ground for 0.1s every 1.6s in OverHead mode'
+        Tooltip = 'Drops down to touch the ground for 0.23s every 1.6s in OverHead mode'
     })
 
     StrafeDistSlider = PlayerAttachModule:CreateSlider({
