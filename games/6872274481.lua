@@ -14511,6 +14511,8 @@ run(function()
 
     local RunService = game:GetService("RunService")
     local Workspace = game:GetService("Workspace")
+    local Players = game:GetService("Players")
+    local lplr = Players.LocalPlayer
 
     local old, oldAim
     local trajectoryBeam, landingMarker, attach0, attach1
@@ -14567,7 +14569,7 @@ run(function()
         if not isPathBlocked(origin, getLaunchVelocity(delta, Vector3.zero, middle), middle) then return middle end
         for i = 1, 20 do
             for _, time in ipairs({middle * (1 + i * 0.15), middle * (1 - i * 0.045)}) do
-                if getLaunchVelocity(delta, velocity, time).Magnitude <= ceiling and not isPathBlocked(origin, Vector3.zero, time), time) then
+                if getLaunchVelocity(delta, velocity, time).Magnitude <= ceiling and not isPathBlocked(origin, Vector3.zero, time) then
                     return time
                 end
             end
@@ -14585,6 +14587,7 @@ run(function()
         part.CanTouch = false
         part.CastShadow = false
         part.Transparency = 1
+        
         local selection = Instance.new('SelectionBox')
         selection.Adornee = part
         selection.LineThickness = 0.04
@@ -14592,33 +14595,36 @@ run(function()
         selection.SurfaceColor3 = Color3.new(1, 1, 1)
         selection.SurfaceTransparency = 0.75
         selection.Parent = part
-        local tagSize = getfontsize('Landing (000 studs)', 14, uipallet.Font, Vector2.new(100000, 100000))
+        
+        local tagSize = getfontsize and getfontsize('Landing (000 studs)', 14, uipallet.Font, Vector2.new(100000, 100000)) or Vector2.new(100, 20)
         local billboard = Instance.new('BillboardGui')
         billboard.Name = 'Tag'
         billboard.Size = UDim2.fromOffset(tagSize.X + 8, tagSize.Y + 7)
         billboard.StudsOffsetWorldSpace = (target - blockPosition) + Vector3.new(0, 2, 0)
         billboard.AlwaysOnTop = true
         billboard.Parent = part
+        
         local tag = Instance.new('TextLabel')
         tag.Size = billboard.Size
         tag.BackgroundColor3 = Color3.new()
         tag.BackgroundTransparency = 0.5
         tag.BorderSizePixel = 0
         tag.RichText = true
-        tag.FontFace = uipallet.Font
+        tag.FontFace = uipallet and uipallet.Font or Font.fromEnum(Enum.Font.SourceSans)
         tag.TextSize = 14
         tag.TextColor3 = Color3.new(1, 1, 1)
         tag.Parent = billboard
+        
         if bedwars.QueryUtil then
             bedwars.QueryUtil:setQueryIgnored(part, true)
         end
-        part.Parent = gameCamera
+        part.Parent = gameCamera or Workspace
         return part
     end
 
     local function aimCannon(cannon, direction)
         local blockPosition = bedwars.BlockController:getBlockPosition(cannon.Position)
-        local aimed
+        local aimed = false
         local timeout = tick() + 1
         repeat
             bedwars.Handler:Get('AimCannon'):Fire('SendToServer', {
@@ -14783,7 +14789,6 @@ run(function()
 
     local function isMyCannon(block)
         if not block then return false end
-        local lplr = game:GetService("Players").LocalPlayer
         if not lplr then return false end
 
         local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
@@ -14815,7 +14820,6 @@ run(function()
                             local cannon = getCannon()
                             if not cannon then return end
 
-                            local lplr = game:GetService("Players").LocalPlayer
                             local mouseRay = cloneref(lplr:GetMouse()).UnitRay
                             local origin = PositionMode.Value == 'Camera' and gameCamera.CFrame.Position or mouseRay.Origin
                             local direction = PositionMode.Value == 'Camera' and gameCamera.CFrame.LookVector or mouseRay.Direction
@@ -14833,8 +14837,8 @@ run(function()
                             local launchDirection = getLaunchVelocity(target - localPosition, velocity, time).Unit
                             local blockPosition = bedwars.BlockController:getBlockPosition(cannon.Position)
                             local visual = ShowTarget.Enabled and makeVisual(target, roundPos(ray.Position - ray.Normal * 1.5)) or nil
-                            if visual then
-                                visual.Tag.TextLabel.Text = `Landing ({math.floor((target - localPosition).Magnitude)} studs)`
+                            if visual and visual:FindFirstChild("Tag") then
+                                visual.Tag.TextLabel.Text = string.format("Landing (%d studs)", math.floor((target - localPosition).Magnitude))
                             end
 
                             if AimMode.Value == 'Aim And Launch' then
@@ -14887,8 +14891,8 @@ run(function()
                                     if remaining > 0.1 then
                                         root.AssemblyLinearVelocity = getLaunchVelocity(target - root.Position, Vector3.zero, remaining)
                                     end
-                                    if visual then
-                                        visual.Tag.TextLabel.Text = `Landing ({math.floor((target - root.Position).Magnitude)} studs)`
+                                    if visual and visual:FindFirstChild("Tag") then
+                                        visual.Tag.TextLabel.Text = string.format("Landing (%d studs)", math.floor((target - root.Position).Magnitude))
                                     end
                                 end
                             until not root or tick() > landing
@@ -14951,8 +14955,12 @@ run(function()
                 end
             else
                 clearTrajectoryVisuals()
-                bedwars.CannonHandController.launchSelf = old
-                bedwars.CannonController.startAiming = oldAim
+                if bedwars and bedwars.CannonHandController then
+                    bedwars.CannonHandController.launchSelf = old
+                end
+                if bedwars and bedwars.CannonController then
+                    bedwars.CannonController.startAiming = oldAim
+                end
             end
         end,
         Tooltip = 'Smoothly breaks only your own cannon/jump on launch, displays landing trajectory, and includes auto-aim.'
