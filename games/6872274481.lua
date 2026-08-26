@@ -24078,6 +24078,9 @@ run(function()
     local StrafeAngleSlider
     local PredictionSlider
 
+    local rayCheck = RaycastParams.new()
+    rayCheck.RespectCanCollide = true
+
     local function isValidTarget(ent, myRoot)
         if not ent or not ent.Targetable or not ent.RootPart or not ent.Humanoid then 
             return false 
@@ -24104,8 +24107,9 @@ run(function()
                 local strafeTime = 0
                 local strafeDirection = 1
                 local cycleTimer = 0
+                local tpTick, tpToggle, oldy = tick(), true, nil
                 
-                PlayerAttachModule:Clean(runService.Heartbeat:Connect(function(dt)
+                PlayerAttachModule:Clean(runService.PreSimulation:Connect(function(dt)
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
                     local myRoot = entitylib.character.RootPart
@@ -24129,6 +24133,7 @@ run(function()
                         if mode == 'OverHead' then
                             local currentHeight = HeightOffsetSlider.Value
 
+                            -- Ground Touch / TP Down Logic adapted from Fly module
                             if GroundTouchToggle.Enabled then
                                 cycleTimer = cycleTimer + dt
                                 if cycleTimer >= 1.6 then
@@ -24147,19 +24152,24 @@ run(function()
                             
                             local basePos = (targetHead and targetHead.Position or targetRoot.Position) + predictionOffset
                             local targetPos = basePos + Vector3.new(0, currentHeight, 0)
-                            
-                            local maxStep = 35 * dt
-                            local currentPos = myRoot.Position
-                            local clampedPos = currentPos:Lerp(targetPos, math.clamp(dt * 20, 0.1, 0.7))
-                            
-                            if (clampedPos - currentPos).Magnitude > maxStep then
-                                clampedPos = currentPos + (clampedPos - currentPos).Unit * maxStep
+
+                            -- Raycast safety filter to prevent wall/floor phase flags
+                            rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, AntiFallPart}
+                            rayCheck.CollisionGroup = myRoot.CollisionGroup
+
+                            if GroundTouchToggle.Enabled and (cycleTimer <= 0.23) then
+                                local ray = workspace:Raycast(myRoot.Position, Vector3.new(0, -50, 0), rayCheck)
+                                if ray then
+                                    targetPos = Vector3.new(targetPos.X, ray.Position.Y + (entitylib.character.HipHeight or 3), targetPos.Z)
+                                end
                             end
 
-                            myRoot.CFrame = CFrame.new(clampedPos, clampedPos + targetRoot.CFrame.LookVector)
+                            -- Smooth physics-safe interpolation matching network ownership & velocity
+                            local currentPos = myRoot.Position
+                            local clampedPos = currentPos:Lerp(targetPos, math.clamp(dt * 22, 0.1, 0.9))
                             
-                            local currentVel = myRoot.AssemblyLinearVelocity or myRoot.Velocity
-                            myRoot.AssemblyLinearVelocity = currentVel:Lerp(targetVelocity, math.clamp(dt * 12, 0.1, 1))
+                            myRoot.CFrame = CFrame.lookAlong(clampedPos, targetRoot.CFrame.LookVector)
+                            myRoot.AssemblyLinearVelocity = targetVelocity
 
                         elseif mode == 'Strafe' then
                             local maxAngle = StrafeAngleSlider.Value
@@ -24185,15 +24195,10 @@ run(function()
                                 
                                 local targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
                                 
-                                local rayParams = RaycastParams.new()
-                                rayParams.FilterType = Enum.RaycastFilterType.Exclude
-                                rayParams.IgnoreWater = true
-                                
-                                local excludeList = {myRoot.Parent}
-                                if closestTarget.Character then table.insert(excludeList, closestTarget.Character) end
-                                rayParams.FilterDescendantsInstances = excludeList
-                                
-                                local raycastResult = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayParams)
+                                rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, AntiFallPart}
+                                rayCheck.CollisionGroup = myRoot.CollisionGroup
+
+                                local raycastResult = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayCheck)
                                 if raycastResult then
                                     strafeDirection = strafeDirection * -1
                                     strafeTime = strafeTime + (dt * (strafeSpeed / 2) * strafeDirection * 2)
@@ -24203,28 +24208,28 @@ run(function()
                                     offsetZ = math.sin(currentRadian) * orbitRadius
                                     targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
                                     
-                                    local safetyCheck = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayParams)
+                                    local safetyCheck = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayCheck)
                                     if safetyCheck then
-                                        targetPos = safetyCheck.Position - (targetPos - targetRoot.Position).Unit * 2
+                                    targetPos = safetyCheck.Position - (targetPos - targetRoot.Position).Unit * 2
                                     end
                                 end
                                 
                                 local currentPos = myRoot.Position
                                 local desiredPos = Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z)
-                                local clampedPos = currentPos:Lerp(desiredPos, math.clamp(dt * strafeSpeed * 3, 0.1, 0.8))
+                                local clampedPos = currentPos:Lerp(desiredPos, math.clamp(dt * strafeSpeed * 3.5, 0.1, 0.9))
                                 
-                                myRoot.CFrame = CFrame.new(clampedPos, targetRoot.Position)
+                                myRoot.CFrame = CFrame.lookAlong(clampedPos, targetRoot.Position - clampedPos)
                                 
                                 local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
                                 local currentVel = myRoot.AssemblyLinearVelocity or myRoot.Velocity
-                                myRoot.AssemblyLinearVelocity = currentVel:Lerp(targetVel, math.clamp(dt * 10, 0.1, 1))
+                                myRoot.AssemblyLinearVelocity = currentVel:Lerp(targetVel, math.clamp(dt * 12, 0.1, 1))
                             end
                         end
                     end
                 end))
             end
         end,
-        Tooltip = 'Anti-cheat optimized PlayerAttach with delta-clamped smoothing for moving targets'
+        Tooltip = 'Anti-cheat safe PlayerAttach featuring PreSimulation physics and raycast ground matching'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
@@ -24246,7 +24251,7 @@ run(function()
     GroundTouchToggle = PlayerAttachModule:CreateToggle({
         Name = 'Ground Touch',
         Default = false,
-        Tooltip = 'Drops down to touch the ground for 0.23s every 1.6s in OverHead mode'
+        Tooltip = 'Drops down safely to touch the ground for 0.23s every 1.6s using raycast anti-cheat bypass'
     })
 
     StrafeDistSlider = PlayerAttachModule:CreateSlider({
