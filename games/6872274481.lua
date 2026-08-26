@@ -9438,39 +9438,49 @@ run(function()
 end)
 
 run(function()
-	local DeviceSpoofer
-	local Device
-	local oldDevice, old
-	
-	DeviceSpoofer = vape.Categories.Utility:CreateModule({
-		Name = 'DeviceSpoofer',
-		Function = function(callback)
-			if callback then
-				oldDevice, old = bedwars.UserInputController:getUserInputType(), bedwars.UserInputController.getUserInputType
-				bedwars.UserInputController.getUserInputType = function()
-					return Device.Value:upper()
-				end
-				bedwars.Handler:Get('SendUserInputType'):Fire('SendToServer', {userInputType = Device.Value:upper()})
-			else
-				bedwars.UserInputController.getUserInputType = old
-				bedwars.Handler:Get('SendUserInputType'):Fire('SendToServer', {userInputType = oldDevice})
-				old = nil
-			end
-		end,
-		Tooltip = 'Spoofs the device you show up as to the server',
-		ExtraText = function()
-			return Device.Value
-		end
-	})
-	Device = DeviceSpoofer:CreateDropdown({
-		Name = 'Device',
-		List = {'Mobile', 'PC', 'Gamepad'},
-		Function = function(val)
-			if DeviceSpoofer.Enabled then
-				bedwars.Handler:Get('SendUserInputType'):Fire('SendToServer', {userInputType = val:upper()})
-			end
-		end
-	})
+    local DeviceSpoofer
+    local Device
+    local oldDevice, old
+    
+    DeviceSpoofer = vape.Categories.Utility:CreateModule({
+        Name = 'DeviceSpoofer',
+        Function = function(callback)
+            if callback then
+                oldDevice, old = bedwars.UserInputController:getUserInputType(), bedwars.UserInputController.getUserInputType
+                bedwars.UserInputController.getUserInputType = function()
+                    local val = Device.Value
+                    if val == 'SmartFridge' then
+                        return 'SMART_FRIDGE'
+                    elseif val == 'VR' then
+                        return 'VR'
+                    end
+                    return val:upper()
+                end
+                
+                local sendVal = Device.Value == 'SmartFridge' and 'SMART_FRIDGE' or (Device.Value == 'VR' and 'VR' or Device.Value:upper())
+                bedwars.Handler:Get('SendUserInputType'):Fire('SendToServer', {userInputType = sendVal})
+            else
+                bedwars.UserInputController.getUserInputType = old
+                bedwars.Handler:Get('SendUserInputType'):Fire('SendToServer', {userInputType = oldDevice})
+                old = nil
+            end
+        end,
+        Tooltip = 'Spoofs the device you show up as to the server',
+        ExtraText = function()
+            return Device.Value
+        end
+    })
+    
+    Device = DeviceSpoofer:CreateDropdown({
+        Name = 'Device',
+        List = {'Mobile', 'PC', 'Gamepad', 'VR', 'SmartFridge'},
+        Function = function(val)
+            if DeviceSpoofer.Enabled then
+                local sendVal = val == 'SmartFridge' and 'SMART_FRIDGE' or (val == 'VR' and 'VR' or val:upper())
+                bedwars.Handler:Get('SendUserInputType'):Fire('SendToServer', {userInputType = sendVal})
+            end
+        end
+    })
 end)
 
 run(function()
