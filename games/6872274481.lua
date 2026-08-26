@@ -19597,6 +19597,7 @@ run(function()
 	local mouseParams = RaycastParams.new()
 	mouseParams.FilterType = Enum.RaycastFilterType.Exclude
 	local mouseOrigin, mouseDirection, mouseHit = Vector3.zero, Vector3.zero
+	local lastBreakTime = 0
 	
 	local function customHealthbar(self, blockRef, health, maxHealth, changeHealth, block)
 		xpcall(function()
@@ -19712,6 +19713,8 @@ run(function()
 	
 	local function attemptBreak(tab, localPosition, route)
 		if not tab then return end
+		-- Check if enough time has passed since last break
+		if tick() - lastBreakTime < BreakSpeed.Value then return end
 	
 		local block, closest = nil, math.huge
 		for _, v in tab do
@@ -19740,6 +19743,7 @@ run(function()
 		if not block then return false end
 	
 		hit += 1
+		lastBreakTime = tick()
 		local target, path, endpos = bedwars.breakBlock(block, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, AutoTool.Enabled, Wallcheck.Enabled, ClosestBreak.Enabled and breakmethods.Distance or breakmethods[Mode.Value], not route)
 		local currentnode = target
 		for _, part in parts do
@@ -19749,8 +19753,6 @@ run(function()
 			end
 			currentnode = path and path[currentnode]
 		end
-	
-		task.wait(BreakSpeed.Value)
 	
 		return true
 	end
@@ -19823,15 +19825,35 @@ run(function()
 							mouseHit = ray and ray.Instance or nil
 						end
 	
-						if attemptBreak(Bed.Enabled and beds, localPosition, true) then continue end
-						if attemptBreak(Hive.Enabled and hives, localPosition) then continue end
-						if attemptBreak(Tesla.Enabled and teslas, localPosition) then continue end
-						if attemptBreak(customlist, localPosition) then continue end
-						if attemptBreak(LuckyBlock.Enabled and luckyblock, localPosition) then continue end
-						if attemptBreak(IronOre.Enabled and ironores, localPosition) then continue end
-	
-						for _, v in parts do
-							v.Position = Vector3.zero
+						-- Priority order: Beds first, then other blocks
+						if attemptBreak(Bed.Enabled and beds, localPosition, true) then
+							for _, v in parts do
+								v.Position = Vector3.zero
+							end
+						elseif attemptBreak(Hive.Enabled and hives, localPosition) then
+							for _, v in parts do
+								v.Position = Vector3.zero
+							end
+						elseif attemptBreak(Tesla.Enabled and teslas, localPosition) then
+							for _, v in parts do
+								v.Position = Vector3.zero
+							end
+						elseif attemptBreak(customlist, localPosition) then
+							for _, v in parts do
+								v.Position = Vector3.zero
+							end
+						elseif attemptBreak(LuckyBlock.Enabled and luckyblock, localPosition) then
+							for _, v in parts do
+								v.Position = Vector3.zero
+							end
+						elseif attemptBreak(IronOre.Enabled and ironores, localPosition) then
+							for _, v in parts do
+								v.Position = Vector3.zero
+							end
+						else
+							for _, v in parts do
+								v.Position = Vector3.zero
+							end
 						end
 					end
 				until not Breaker.Enabled
