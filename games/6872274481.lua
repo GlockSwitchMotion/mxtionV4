@@ -14496,293 +14496,527 @@ run(function()
 end)
 
 run(function()
-	local AutoDavey
-	local Switch
-	local Break
-	local Jump
-	local LimitItem
-	local BreakDelay
-	local DrawTrajectory
-	local TrajectoryMode
+    local AutoDavey
+    local Switch
+    local Break
+    local Jump
+    local LimitItem
+    local BreakDelay
+    local DrawTrajectory
+    local TrajectoryMode
+    local AimMode
+    local PositionMode
+    local SearchRange
+    local ShowTarget
 
-	local RunService = game:GetService("RunService")
-	local Workspace = game:GetService("Workspace")
+    local RunService = game:GetService("RunService")
+    local Workspace = game:GetService("Workspace")
 
-	local old, oldAim
-	local trajectoryBeam, landingMarker, attach0, attach1
-	local aimConnection
+    local old, oldAim
+    local trajectoryBeam, landingMarker, attach0, attach1
+    local aimConnection
+    local rayCheck = RaycastParams.new()
+    rayCheck.RespectCanCollide = true
 
-	local function createTrajectoryVisuals()
-		if landingMarker then return end
+    local function getLaunchVelocity(delta, velocity, time)
+        return (delta + Vector3.new(0, Workspace.Gravity * time * time * 0.5, 0)) / time - velocity
+    end
 
-		landingMarker = Instance.new("Part")
-		landingMarker.Shape = Enum.PartType.Cylinder
-		landingMarker.Size = Vector3.new(0.4, 4, 4)
-		landingMarker.Color = Color3.fromRGB(0, 255, 150)
-		landingMarker.Material = Enum.Material.Neon
-		landingMarker.Transparency = 0.3
-		landingMarker.Anchored = true
-		landingMarker.CanCollide = false
-		landingMarker.Orientation = Vector3.new(0, 0, 90)
-		landingMarker.Parent = Workspace.Terrain
-		landingMarker.Visible = false
-	end
+    local function getCannon()
+        if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
+        local cannons = {}
+        local localPosition = entitylib.character.RootPart.Position
+        for _, v in pairs(store.blocks or {}) do
+            if v.Name == 'cannon' and (localPosition - v.Position).Magnitude <= SearchRange.Value then
+                table.insert(cannons, v)
+            end
+        end
+        if #cannons > 1 then
+            table.sort(cannons, function(a, b)
+                return (localPosition - a.Position).Magnitude < (localPosition - b.Position).Magnitude
+            end)
+        end
+        return cannons[1] or nil
+    end
 
-	local function clearTrajectoryVisuals()
-		if aimConnection then
-			aimConnection:Disconnect()
-			aimConnection = nil
-		end
-		if trajectoryBeam then 
-			trajectoryBeam:Destroy() 
-			trajectoryBeam = nil 
-		end
-		if landingMarker then 
-			landingMarker:Destroy() 
-			landingMarker = nil 
-		end
-		if attach0 then
-			attach0:Destroy()
-			attach0 = nil
-		end
-		if attach1 then
-			attach1:Destroy()
-			attach1 = nil
-		end
-	end
+    local function isPathBlocked(origin, velocity, time)
+        local previous = origin
+        for i = 1, 11 do
+            local elapsed = time * i / 12
+            local point = origin + velocity * elapsed - Vector3.new(0, Workspace.Gravity * elapsed * elapsed * 0.5, 0)
+            if Workspace:Spherecast(previous, 2, point - previous, rayCheck) then
+                return true
+            end
+            previous = point
+        end
+        return false
+    end
 
-	-- Simulates trajectory with options for Curve or Straight visual modes
-	local function updateTrajectory(origin, velocity, block)
-		if not DrawTrajectory.Enabled then return end
-		createTrajectoryVisuals()
+    local function getLaunchTime(origin, delta, velocity, ceiling)
+        local low, up = 0.0001, 20
+        for _ = 1, 50 do
+            local first, second = low + (up - low) / 3, up - (up - low) / 3
+            if getLaunchVelocity(delta, velocity, first).Magnitude < getLaunchVelocity(delta, velocity, second).Magnitude then
+                up = second
+            else
+                low = first
+            end
+        end
+        local middle = (low + up) / 2
+        if getLaunchVelocity(delta, velocity, middle).Magnitude > ceiling then return end
+        if not isPathBlocked(origin, getLaunchVelocity(delta, Vector3.zero, middle), middle) then return middle end
+        for i = 1, 20 do
+            for _, time in ipairs({middle * (1 + i * 0.15), middle * (1 - i * 0.045)}) do
+                if getLaunchVelocity(delta, velocity, time).Magnitude <= ceiling and not isPathBlocked(origin, Vector3.zero, time), time) then
+                    return time
+                end
+            end
+        end
+        return middle
+    end
 
-		local raycastParams = RaycastParams.new()
-		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-		if entitylib.isAlive and entitylib.character.Character then
-			raycastParams.FilterDescendantsInstances = {entitylib.character.Character, block}
-		end
+    local function makeVisual(target, blockPosition)
+        local part = Instance.new('Part')
+        part.Size = Vector3.new(3, 3, 3)
+        part.CFrame = CFrame.new(blockPosition)
+        part.Anchored = true
+        part.CanCollide = false
+        part.CanQuery = false
+        part.CanTouch = false
+        part.CastShadow = false
+        part.Transparency = 1
+        local selection = Instance.new('SelectionBox')
+        selection.Adornee = part
+        selection.LineThickness = 0.04
+        selection.Color3 = Color3.new(1, 1, 1)
+        selection.SurfaceColor3 = Color3.new(1, 1, 1)
+        selection.SurfaceTransparency = 0.75
+        selection.Parent = part
+        local tagSize = getfontsize('Landing (000 studs)', 14, uipallet.Font, Vector2.new(100000, 100000))
+        local billboard = Instance.new('BillboardGui')
+        billboard.Name = 'Tag'
+        billboard.Size = UDim2.fromOffset(tagSize.X + 8, tagSize.Y + 7)
+        billboard.StudsOffsetWorldSpace = (target - blockPosition) + Vector3.new(0, 2, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = part
+        local tag = Instance.new('TextLabel')
+        tag.Size = billboard.Size
+        tag.BackgroundColor3 = Color3.new()
+        tag.BackgroundTransparency = 0.5
+        tag.BorderSizePixel = 0
+        tag.RichText = true
+        tag.FontFace = uipallet.Font
+        tag.TextSize = 14
+        tag.TextColor3 = Color3.new(1, 1, 1)
+        tag.Parent = billboard
+        if bedwars.QueryUtil then
+            bedwars.QueryUtil:setQueryIgnored(part, true)
+        end
+        part.Parent = gameCamera
+        return part
+    end
 
-		if TrajectoryMode.Value == 'Straight' then
-			local camera = Workspace.CurrentCamera
-			if not camera then return end
+    local function aimCannon(cannon, direction)
+        local blockPosition = bedwars.BlockController:getBlockPosition(cannon.Position)
+        local aimed
+        local timeout = tick() + 1
+        repeat
+            bedwars.Handler:Get('AimCannon'):Fire('SendToServer', {
+                cannonBlockPos = blockPosition,
+                lookVector = direction
+            })
+            task.wait(0.15)
+            local look = cannon:GetAttribute('LookVector')
+            aimed = look and (look - direction).Magnitude < 0.0001
+        until aimed or tick() > timeout or not cannon.Parent
+        return aimed
+    end
 
-			local lookVector = camera.CFrame.LookVector
-			
-			-- Origin extended forward from the cannon barrel
-			local startPos = block.Position + Vector3.new(0, 2.5, 0) + (lookVector * 3)
-			local maxDist = 160
-			local hitPos = startPos + (lookVector * maxDist)
+    local function createTrajectoryVisuals()
+        if landingMarker then return end
 
-			local ray = Workspace:Raycast(startPos, lookVector * maxDist, raycastParams)
-			if ray then
-				hitPos = ray.Position
-			end
+        landingMarker = Instance.new("Part")
+        landingMarker.Shape = Enum.PartType.Cylinder
+        landingMarker.Size = Vector3.new(0.4, 4, 4)
+        landingMarker.Color = Color3.fromRGB(0, 255, 150)
+        landingMarker.Material = Enum.Material.Neon
+        landingMarker.Transparency = 0.3
+        landingMarker.Anchored = true
+        landingMarker.CanCollide = false
+        landingMarker.Orientation = Vector3.new(0, 0, 90)
+        landingMarker.Parent = Workspace.Terrain
+        landingMarker.Visible = false
+    end
 
-			-- Clear multi-beam folder when swapping modes
-			if trajectoryBeam and not trajectoryBeam:IsA("Beam") then
-				trajectoryBeam:Destroy()
-				trajectoryBeam = nil
-			end
+    local function clearTrajectoryVisuals()
+        if aimConnection then
+            aimConnection:Disconnect()
+            aimConnection = nil
+        end
+        if trajectoryBeam then 
+            trajectoryBeam:Destroy() 
+            trajectoryBeam = nil 
+        end
+        if landingMarker then 
+            landingMarker:Destroy() 
+            landingMarker = nil 
+        end
+        if attach0 then
+            attach0:Destroy()
+            attach0 = nil
+        end
+        if attach1 then
+            attach1:Destroy()
+            attach1 = nil
+        end
+    end
 
-			if not trajectoryBeam then
-				attach0 = Instance.new("Attachment", Workspace.Terrain)
-				attach1 = Instance.new("Attachment", Workspace.Terrain)
+    local function updateTrajectory(origin, velocity, block)
+        if not DrawTrajectory.Enabled then return end
+        createTrajectoryVisuals()
 
-				trajectoryBeam = Instance.new("Beam")
-				trajectoryBeam.Attachment0 = attach0
-				trajectoryBeam.Attachment1 = attach1
-				trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
-				trajectoryBeam.Width0 = 0.35
-				trajectoryBeam.Width1 = 0.35
-				trajectoryBeam.Transparency = NumberSequence.new(0.1)
-				trajectoryBeam.FaceCamera = true
-				trajectoryBeam.AlwaysOnTop = true
-				trajectoryBeam.Parent = Workspace.Terrain
-			end
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        if entitylib.isAlive and entitylib.character.Character then
+            raycastParams.FilterDescendantsInstances = {entitylib.character.Character, block}
+        end
 
-			attach0.WorldPosition = startPos
-			attach1.WorldPosition = hitPos
+        if TrajectoryMode.Value == 'Straight' then
+            local camera = Workspace.CurrentCamera
+            if not camera then return end
 
-			landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
-			landingMarker.Visible = true
-		else
-			-- Parabolic Arc Curve Calculation
-			local gravity = Workspace.Gravity
-			local t = 0
-			local dt = 0.03
-			local currentPos = origin
-			local hitPos = origin
-			local trajectoryPoints = {}
+            local lookVector = camera.CFrame.LookVector
+            local startPos = block.Position + Vector3.new(0, 2.5, 0) + (lookVector * 3)
+            local maxDist = 160
+            local hitPos = startPos + (lookVector * maxDist)
 
-			for _ = 1, 150 do
-				t = t + dt
-				local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
-				local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
+            local ray = Workspace:Raycast(startPos, lookVector * maxDist, raycastParams)
+            if ray then
+                hitPos = ray.Position
+            end
 
-				if ray then
-					hitPos = ray.Position
-					break
-				end
-				table.insert(trajectoryPoints, nextPos)
-				currentPos = nextPos
-			end
+            if trajectoryBeam and not trajectoryBeam:IsA("Beam") then
+                trajectoryBeam:Destroy()
+                trajectoryBeam = nil
+            end
 
-			if trajectoryBeam and trajectoryBeam.Parent then
-				trajectoryBeam:Destroy()
-			end
+            if not trajectoryBeam then
+                attach0 = Instance.new("Attachment", Workspace.Terrain)
+                attach1 = Instance.new("Attachment", Workspace.Terrain)
 
-			trajectoryBeam = Instance.new("Folder")
-			trajectoryBeam.Name = "TrajectoryArc"
-			trajectoryBeam.Parent = Workspace.Terrain
+                trajectoryBeam = Instance.new("Beam")
+                trajectoryBeam.Attachment0 = attach0
+                trajectoryBeam.Attachment1 = attach1
+                trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
+                trajectoryBeam.Width0 = 0.35
+                trajectoryBeam.Width1 = 0.35
+                trajectoryBeam.Transparency = NumberSequence.new(0.1)
+                trajectoryBeam.FaceCamera = true
+                trajectoryBeam.AlwaysOnTop = true
+                trajectoryBeam.Parent = Workspace.Terrain
+            end
 
-			for i = 1, #trajectoryPoints - 1 do
-				local p1 = trajectoryPoints[i]
-				local p2 = trajectoryPoints[i + 1]
+            attach0.WorldPosition = startPos
+            attach1.WorldPosition = hitPos
 
-				local a1 = Instance.new("Attachment", trajectoryBeam)
-				a1.WorldPosition = p1
+            landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
+            landingMarker.Visible = true
+        else
+            local gravity = Workspace.Gravity
+            local t = 0
+            local dt = 0.03
+            local currentPos = origin
+            local hitPos = origin
+            local trajectoryPoints = {}
 
-				local a2 = Instance.new("Attachment", trajectoryBeam)
-				a2.WorldPosition = p2
+            for _ = 1, 150 do
+                t = t + dt
+                local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
+                local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
 
-				local beam = Instance.new("Beam")
-				beam.Attachment0 = a1
-				beam.Attachment1 = a2
-				beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
-				beam.Width0 = 0.4
-				beam.Width1 = 0.4
-				beam.Transparency = NumberSequence.new(0.1)
-				beam.FaceCamera = true
-				beam.Parent = trajectoryBeam
-			end
+                if ray then
+                    hitPos = ray.Position
+                    break
+                end
+                table.insert(trajectoryPoints, nextPos)
+                currentPos = nextPos
+            end
 
-			landingMarker.Position = hitPos + Vector3.new(0, 2, 0)
-			landingMarker.Visible = true
-		end
-	end
+            if trajectoryBeam and trajectoryBeam.Parent then
+                trajectoryBeam:Destroy()
+            end
 
-	local function canBreak()
-		if not LimitItem.Enabled then return true end
-		return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
-	end
+            trajectoryBeam = Instance.new("Folder")
+            trajectoryBeam.Name = "TrajectoryArc"
+            trajectoryBeam.Parent = Workspace.Terrain
 
-	local function isMyCannon(block)
-		if not block then return false end
-		local lplr = game:GetService("Players").LocalPlayer
-		if not lplr then return false end
+            for i = 1, #trajectoryPoints - 1 do
+                local p1 = trajectoryPoints[i]
+                local p2 = trajectoryPoints[i + 1]
 
-		local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
-		if placedBy then
-			return placedBy == lplr.Name or placedBy == lplr.UserId
-		end
+                local a1 = Instance.new("Attachment", trajectoryBeam)
+                a1.WorldPosition = p1
 
-		if bedwars.BlockController and bedwars.BlockController:getStore() then
-			local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
-			if blockData and blockData.placedBy then
-				return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
-			end
-		end
+                local a2 = Instance.new("Attachment", trajectoryBeam)
+                a2.WorldPosition = p2
 
-		return true
-	end
+                local beam = Instance.new("Beam")
+                beam.Attachment0 = a1
+                beam.Attachment1 = a2
+                beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
+                beam.Width0 = 0.4
+                beam.Width1 = 0.4
+                beam.Transparency = NumberSequence.new(0.1)
+                beam.FaceCamera = true
+                beam.Parent = trajectoryBeam
+            end
 
-	AutoDavey = vape.Categories.Kits:CreateModule({
-		Name = 'AutoDavey',
-		Function = function(callback)
-			if callback then
-				oldAim = bedwars.CannonController.startAiming
-				bedwars.CannonController.startAiming = function(self, block, ...)
-					local call = oldAim(self, block, ...)
+            landingMarker.Position = hitPos + Vector3.new(0, 2, 0)
+            landingMarker.Visible = true
+        end
+    end
 
-					if DrawTrajectory.Enabled and block and entitylib.isAlive then
-						if aimConnection then aimConnection:Disconnect() end
-						aimConnection = RunService.RenderStepped:Connect(function()
-							if self.aiming and entitylib.isAlive then
-								local lookVector = Workspace.CurrentCamera.CFrame.LookVector
-								local angleHeight = math.max(-1.5, math.min(3, lookVector.Y * 8))
-								local origin = block.Position + Vector3.new(0, 2.8 + angleHeight, 0)
-								local launchVelocity = lookVector * 120
-								updateTrajectory(origin, launchVelocity, block)
-							else
-								clearTrajectoryVisuals()
-							end
-						end)
-					end
+    local function canBreak()
+        if not LimitItem.Enabled then return true end
+        return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
+    end
 
-					if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
-						task.spawn(function()
-							if getBlockHits(block, block.Position) > 1 then
-								task.wait(BreakDelay.Value)
-								bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-							end
-						end)
-					end
+    local function isMyCannon(block)
+        if not block then return false end
+        local lplr = game:GetService("Players").LocalPlayer
+        if not lplr then return false end
 
-					return call
-				end
+        local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
+        if placedBy then
+            return placedBy == lplr.Name or placedBy == lplr.UserId
+        end
 
-				old = bedwars.CannonHandController.launchSelf
-				bedwars.CannonHandController.launchSelf = function(self, block, ...)
-					clearTrajectoryVisuals()
-					local call = old(self, block, ...)
+        if bedwars.BlockController and bedwars.BlockController:getStore() then
+            local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
+            if blockData and blockData.placedBy then
+                return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
+            end
+        end
 
-					if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
-						task.spawn(function()
-							for i = 1, 2 do
-								task.wait(BreakDelay.Value)
-								bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-							end
-						end)
-					end
+        return true
+    end
 
-					if Jump.Enabled and entitylib.isAlive then
-						task.defer(function()
-							if entitylib.isAlive and entitylib.character and entitylib.character.Humanoid then
-								entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-							end
-						end)
-					end
-					return call
-				end
-			else
-				clearTrajectoryVisuals()
-				bedwars.CannonHandController.launchSelf = old
-				bedwars.CannonController.startAiming = oldAim
-			end
-		end,
-		Tooltip = 'Smoothly breaks only your own cannon/jump on launch and displays landing trajectory.'
-	})
+    AutoDavey = vape.Categories.Kits:CreateModule({
+        Name = 'AutoDavey',
+        Function = function(callback)
+            if callback then
+                oldAim = bedwars.CannonController.startAiming
+                bedwars.CannonController.startAiming = function(self, block, ...)
+                    local call = oldAim(self, block, ...)
 
-	-- Settings
-	DrawTrajectory = AutoDavey:CreateToggle({
-		Name = 'Show Trajectory',
-		Default = true,
-		Tooltip = 'Displays trajectory line and landing target indicator'
-	})
+                    if AimMode.Value ~= 'Disabled' then
+                        task.spawn(function()
+                            if not entitylib.isAlive then return end
+                            local cannon = getCannon()
+                            if not cannon then return end
 
-	TrajectoryMode = AutoDavey:CreateDropdown({
-		Name = 'Trajectory Mode',
-		List = {'Curve', 'Straight'},
-		Default = 'Curve',
-		Tooltip = 'Choose between parabolic curve or straight laser line aiming'
-	})
+                            local lplr = game:GetService("Players").LocalPlayer
+                            local mouseRay = cloneref(lplr:GetMouse()).UnitRay
+                            local origin = PositionMode.Value == 'Camera' and gameCamera.CFrame.Position or mouseRay.Origin
+                            local direction = PositionMode.Value == 'Camera' and gameCamera.CFrame.LookVector or mouseRay.Direction
+                            
+                            rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, cannon}
+                            local ray = Workspace:Raycast(origin, direction * 10000, rayCheck)
+                            if not ray then return end
 
-	BreakDelay = AutoDavey:CreateSlider({
-		Name = 'Break Delay',
-		Min = 0,
-		Max = 0.3,
-		Default = 0.05,
-		Decimal = 100,
-		Tooltip = 'Smooths out block breaking execution timing'
-	})
+                            local localPosition = entitylib.character.RootPart.Position
+                            local target = ray.Position + Vector3.new(0, entitylib.character.HipHeight, 0)
+                            local velocity = entitylib.character.RootPart.AssemblyLinearVelocity
+                            local time = getLaunchTime(localPosition, target - localPosition, velocity, math.sqrt(520 * Workspace.Gravity))
+                            if not time then return end
 
-	Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
-	Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
-	Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
-	LimitItem = AutoDavey:CreateToggle({
-		Name = 'Limit to items',
-		Tooltip = 'Only breaks when tools are held'
-	})
+                            local launchDirection = getLaunchVelocity(target - localPosition, velocity, time).Unit
+                            local blockPosition = bedwars.BlockController:getBlockPosition(cannon.Position)
+                            local visual = ShowTarget.Enabled and makeVisual(target, roundPos(ray.Position - ray.Normal * 1.5)) or nil
+                            if visual then
+                                visual.Tag.TextLabel.Text = `Landing ({math.floor((target - localPosition).Magnitude)} studs)`
+                            end
+
+                            if AimMode.Value == 'Aim And Launch' then
+                                cannon.AimPrompt:InputHoldBegin()
+                                task.wait(cannon.AimPrompt.HoldDuration)
+
+                                local timeout = tick() + 0.3
+                                repeat
+                                    gameCamera.CFrame = gameCamera.CFrame:Lerp(CFrame.lookAt(gameCamera.CFrame.Position, gameCamera.CFrame.Position + launchDirection), 22 * RunService.PostSimulation:Wait())
+                                    bedwars.Handler:Get('AimCannon'):Fire('SendToServer', {
+                                        cannonBlockPos = blockPosition,
+                                        lookVector = gameCamera.CFrame.LookVector
+                                    })
+                                until tick() > timeout
+                            end
+
+                            if not aimCannon(cannon, launchDirection) then
+                                if visual then visual:Destroy() end
+                                return
+                            end
+
+                            if AimMode.Value == 'Aim Only' then
+                                if visual then
+                                    task.delay(2, function()
+                                        if visual then visual:Destroy() end
+                                    end)
+                                end
+                                return
+                            end
+
+                            if AimMode.Value == 'Aim And Launch' then
+                                cannon.StopAimingPrompt:InputHoldBegin()
+                            end
+                            task.wait((cannon.StopAimingPrompt.HoldDuration + 0.2) + RunService.PostSimulation:Wait())
+
+                            if AimMode.Value == 'Aim And Launch' then
+                                cannon.LaunchSelfPrompt:InputHoldBegin()
+                                task.wait(cannon.LaunchSelfPrompt.HoldDuration + RunService.PostSimulation:Wait())
+                            else
+                                bedwars.CannonHandController:launchSelf(cannon)
+                            end
+
+                            local landing = tick() + time
+                            local root
+                            repeat
+                                RunService.PreSimulation:Wait()
+                                root = entitylib.isAlive and entitylib.character.RootPart
+                                if root then
+                                    local remaining = landing - tick()
+                                    if remaining > 0.1 then
+                                        root.AssemblyLinearVelocity = getLaunchVelocity(target - root.Position, Vector3.zero, remaining)
+                                    end
+                                    if visual then
+                                        visual.Tag.TextLabel.Text = `Landing ({math.floor((target - root.Position).Magnitude)} studs)`
+                                    end
+                                end
+                            until not root or tick() > landing
+
+                            if visual then
+                                visual:Destroy()
+                            end
+                        end)
+                    end
+
+                    if DrawTrajectory.Enabled and block and entitylib.isAlive then
+                        if aimConnection then aimConnection:Disconnect() end
+                        aimConnection = RunService.RenderStepped:Connect(function()
+                            if self.aiming and entitylib.isAlive then
+                                local lookVector = Workspace.CurrentCamera.CFrame.LookVector
+                                local angleHeight = math.max(-1.5, math.min(3, lookVector.Y * 8))
+                                local origin = block.Position + Vector3.new(0, 2.8 + angleHeight, 0)
+                                local launchVelocity = lookVector * 120
+                                updateTrajectory(origin, launchVelocity, block)
+                            else
+                                clearTrajectoryVisuals()
+                            end
+                        end)
+                    end
+
+                    if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
+                        task.spawn(function()
+                            if getBlockHits(block, block.Position) > 1 then
+                                task.wait(BreakDelay.Value)
+                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+                            end
+                        end)
+                    end
+
+                    return call
+                end
+
+                old = bedwars.CannonHandController.launchSelf
+                bedwars.CannonHandController.launchSelf = function(self, block, ...)
+                    clearTrajectoryVisuals()
+                    local call = old(self, block, ...)
+
+                    if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
+                        task.spawn(function()
+                            for i = 1, 2 do
+                                task.wait(BreakDelay.Value)
+                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+                            end
+                        end)
+                    end
+
+                    if Jump.Enabled and entitylib.isAlive then
+                        task.defer(function()
+                            if entitylib.isAlive and entitylib.character and entitylib.character.Humanoid then
+                                entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                            end
+                        end)
+                    end
+                    return call
+                end
+            else
+                clearTrajectoryVisuals()
+                bedwars.CannonHandController.launchSelf = old
+                bedwars.CannonController.startAiming = oldAim
+            end
+        end,
+        Tooltip = 'Smoothly breaks only your own cannon/jump on launch, displays landing trajectory, and includes auto-aim.'
+    })
+
+    -- Settings
+    AimMode = AutoDavey:CreateDropdown({
+        Name = 'Aim Mode',
+        List = {'Disabled', 'Aim And Launch', 'Aim Only'},
+        Default = 'Disabled',
+        Tooltip = 'Automatically aims cannon using DaveyAim configuration'
+    })
+
+    PositionMode = AutoDavey:CreateDropdown({
+        Name = 'Position Mode',
+        List = {'Mouse', 'Camera'},
+        Default = 'Mouse'
+    })
+
+    SearchRange = AutoDavey:CreateSlider({
+        Name = 'Search Range',
+        Min = 1,
+        Max = 18,
+        Default = 10,
+        Suffix = function(val)
+            return val <= 1 and 'stud' or 'studs'
+        end
+    })
+
+    ShowTarget = AutoDavey:CreateToggle({
+        Name = 'Show Target',
+        Default = true,
+        Tooltip = 'Highlights the block you are landing on until you land'
+    })
+
+    DrawTrajectory = AutoDavey:CreateToggle({
+        Name = 'Show Trajectory',
+        Default = true,
+        Tooltip = 'Displays trajectory line and landing target indicator'
+    })
+
+    TrajectoryMode = AutoDavey:CreateDropdown({
+        Name = 'Trajectory Mode',
+        List = {'Curve', 'Straight'},
+        Default = 'Curve',
+        Tooltip = 'Choose between parabolic curve or straight laser line aiming'
+    })
+
+    BreakDelay = AutoDavey:CreateSlider({
+        Name = 'Break Delay',
+        Min = 0,
+        Max = 0.3,
+        Default = 0.05,
+        Decimal = 100,
+        Tooltip = 'Smooths out block breaking execution timing'
+    })
+
+    Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
+    Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
+    Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
+    LimitItem = AutoDavey:CreateToggle({
+        Name = 'Limit to items',
+        Tooltip = 'Only breaks when tools are held'
+    })
 end)
 
 run(function()
