@@ -24320,6 +24320,97 @@ run(function()
 end)
 
 run(function()
+    local BountyHunterSpy
+    local NotifyToggle
+    
+    BountyHunterSpy = vape.Categories.Utility:CreateModule({
+        Name = 'BountyHunterSpy',
+        Function = function(callback)
+            if callback then
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local Players = game:GetService("Players")
+                local lplr = Players.LocalPlayer
+                
+                local remotePath = ReplicatedStorage:FindFirstChild("rbxts_include")
+                and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules")
+                and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts")
+                and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net
+                and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out
+                and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged
+                and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged:FindFirstChild("BountyHunterTargetChanged")
+                
+                if not remotePath then
+                    warning("[BountyHunterSpy] BountyHunterTargetChanged remote not found!")
+                    return
+                end
+
+                local activeBounties = {} -- [hunter] = { targetUserId = _, reward = { ... } }
+
+                -- Helper to format rewards nicely
+                local function formatReward(reward)
+                    if not reward then return "Unknown" end
+                    local parts = {}
+                    for item, amount in pairs(reward) do
+                        if item ~= "assignedTime" and type(amount) == "number" and amount > 0 then
+                            table.insert(parts, amount .. " " .. item)
+                        end
+                    end
+                    return #parts > 0 and table.concat(parts, ", ") or "No reward"
+                end
+
+                -- Listen to bounty updates
+                BountyHunterSpy:Clean(remotePath.OnClientEvent:Connect(function(data)
+                    if not data or not data.hunter then return end
+                    
+                    local hunter = data.hunter
+                    local newTargetUserId = data.newTargetUserId
+                    local reward = data.reward
+                    
+                    local targetPlayer = Players:GetPlayerByUserId(newTargetUserId)
+                    local targetName = targetPlayer and targetPlayer.Name or ("UserId: " .. tostring(newTargetUserId))
+                    local rewardStr = formatReward(reward)
+
+                    activeBounties[hunter] = {
+                        targetUserId = newTargetUserId,
+                        targetPlayer = targetPlayer,
+                        reward = reward
+                    }
+
+                    -- Notify target assignment
+                    print(string.dash or "" )
+                    vape:CreateNotification("Bounty Hunter Spy", string.format("%s is now hunting %s! Reward: %s", hunter.Name, targetName, rewardStr), 6)
+
+                    -- Track target health / elimination to detect successful kills
+                    if targetPlayer then
+                        local connection
+                        connection = game:GetService("RunService").Heartbeat:Connect(function()
+                            if not BountyHunterSpy.Enabled then
+                                connection:Disconnect()
+                                return
+                            end
+
+                            -- Check if target died or left
+                            local char = targetPlayer.Character
+                            local hum = char and char:FindFirstChildOfClass("Humanoid")
+                            
+                            if not targetPlayer.Parent or (hum and hum.Health <= 0) then
+                                connection:Disconnect()
+                                if activeBounties[hunter] and activeBounties[hunter].targetUserId == newTargetUserId then
+                                    vape:CreateNotification("Bounty Eliminated!", string.format("%s successfully killed their target %s and claimed %s!", hunter.Name, targetName, rewardStr), 8)
+                                    activeBounties[hunter] = nil
+                                end
+                            end
+                        end)
+                        BountyHunterSpy:Clean(connection)
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Notifies you when players take bounties, who their targets are, their rewards, and when they secure a kill.'
+    })
+end)
+
+run(function()
     local PlayerAttachModule
     local ModeDropdown
     local RangeSlider
