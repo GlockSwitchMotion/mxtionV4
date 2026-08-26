@@ -23830,7 +23830,8 @@ run(function()
     local ModeDropdown
     local RangeSlider
     local HeightOffsetSlider
-    local RepelDistSlider
+    local StrafeAngleSlider
+    local StrafeSpeedSlider
     local PredictionSlider
 
     local function isValidTarget(ent, myRoot)
@@ -23856,6 +23857,7 @@ run(function()
         Name = 'PlayerAttach',
         Function = function(callback)
             if callback then
+                local strafeAngleTracker = 0
                 PlayerAttachModule:Clean(runService.Heartbeat:Connect(function(dt)
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
@@ -23888,28 +23890,37 @@ run(function()
                             myRoot.CFrame = targetCFrame
                             myRoot.AssemblyLinearVelocity = targetVelocity
 
-                        elseif mode == 'Repel' then
-                            local currentDist = (targetRoot.Position - myRoot.Position).Magnitude
-                            local minDistance = RepelDistSlider.Value
-
-                            if currentDist < minDistance then
-                                local pushDir = (myRoot.Position - targetRoot.Position) * Vector3.new(1, 0, 1)
-                                if pushDir.Magnitude == 0 then
-                                    pushDir = -targetRoot.CFrame.LookVector * Vector3.new(1, 0, 1)
-                                end
-                                
-                                local pushVector = pushDir.Unit * (minDistance - currentDist)
-                                myRoot.CFrame = myRoot.CFrame + pushVector
-                                
-                                local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
-                                myRoot.AssemblyLinearVelocity = pushDir.Unit * math.max(targetVel.Magnitude, 16)
+                        elseif mode == 'Strafe' then
+                            local targetPos = targetRoot.Position
+                            local maxAngle = math.rad(StrafeAngleSlider.Value)
+                            
+                            -- Increment angle based on speed
+                            strafeAngleTracker = strafeAngleTracker + (StrafeSpeedSlider.Value * dt)
+                            
+                            -- Oscillate or loop based on the max angle restriction
+                            local currentAngle
+                            if maxAngle >= math.rad(360) then
+                                currentAngle = strafeAngleTracker
+                            else
+                                currentAngle = (math.sin(strafeAngleTracker) * (maxAngle / 2))
                             end
+
+                            -- Keep distance based on current distance or default to a safe orbit radius (e.g. 8 studs)
+                            local orbitRadius = math.clamp((myRoot.Position - targetPos) * Vector3.new(1, 0, 1), 6, 15).Magnitude
+                            if orbitRadius < 4 then orbitRadius = 8 end
+
+                            local offset = Vector3.new(math.cos(currentAngle) * orbitRadius, 0, math.sin(currentAngle) * orbitRadius)
+                            local desiredPos = targetPos + offset + Vector3.new(0, 2, 0)
+
+                            -- Look at target while positioning
+                            myRoot.CFrame = CFrame.new(desiredPos, targetPos + Vector3.new(0, 1, 0))
+                            myRoot.AssemblyLinearVelocity = Vector3.zero
                         end
                     end
                 end))
             end
         end,
-        Tooltip = 'Attaches overhead or repels away from enemy players'
+        Tooltip = 'Attaches overhead or auto-strafes around enemy players'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
@@ -23928,12 +23939,21 @@ run(function()
         Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 
-    RepelDistSlider = PlayerAttachModule:CreateSlider({
-        Name = 'Repel Distance',
-        Min = 5,
-        Max = 30,
-        Default = 18,
-        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+    StrafeAngleSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Strafe Max Angle',
+        Min = 30,
+        Max = 360,
+        Default = 360,
+        Suffix = function(val) return '°' end,
+        Tooltip = 'Maximum arc angle for strafing around the target.'
+    })
+
+    StrafeSpeedSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Strafe Speed',
+        Min = 1,
+        Max = 10,
+        Default = 4,
+        Tooltip = 'Speed at which you orbit around the target.'
     })
 
     PredictionSlider = PlayerAttachModule:CreateSlider({
@@ -23946,18 +23966,20 @@ run(function()
 
     ModeDropdown = PlayerAttachModule:CreateDropdown({
         Name = 'Mode',
-        List = {'OverHead', 'Repel'},
+        List = {'OverHead', 'Strafe'},
         Default = 'OverHead',
         Function = function(val)
             HeightOffsetSlider.Object.Visible = (val == 'OverHead')
             PredictionSlider.Object.Visible = (val == 'OverHead')
-            RepelDistSlider.Object.Visible = (val == 'Repel')
+            StrafeAngleSlider.Object.Visible = (val == 'Strafe')
+            StrafeSpeedSlider.Object.Visible = (val == 'Strafe')
         end,
-        Tooltip = 'OverHead: Floats directly above target | Repel: Maintains minimum distance'
+        Tooltip = 'OverHead: Floats directly above target | Strafe: Circles around the target'
     })
 
     -- Initialize UI visibility state
     HeightOffsetSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
     PredictionSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
-    RepelDistSlider.Object.Visible = (ModeDropdown.Value == 'Repel')
+    StrafeAngleSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
+    StrafeSpeedSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
 end)
