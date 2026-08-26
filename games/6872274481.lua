@@ -7473,6 +7473,7 @@ run(function()
 	local SkinChanger
 	local Options = {}
 	local skins, families, groups, order = {}, {}, {}, {}
+	local sounds = {}
 	local added = setmetatable({}, {__mode = 'k'})
 	local watching
 	local tiers = {leather = true, chainmail = true, wood = true, stone = true, gold = true, iron = true, diamond = true, emerald = true}
@@ -7546,6 +7547,13 @@ run(function()
 		}
 		added[accessory] = record
 	
+		for _, v in handle:GetChildren() do
+			if v:IsA('BasePart') and v:GetAttribute('SkinHidden') == nil then
+				v:SetAttribute('SkinHidden', v.Transparency)
+				v.Transparency = 1
+			end
+		end
+	
 		handle:ApplyMesh(template.Handle)
 		handle.Size = template.Handle.Size
 		if grip and templategrip then
@@ -7580,6 +7588,14 @@ run(function()
 		for _, v in record.Parts do
 			v:Destroy()
 		end
+	
+		for _, v in handle and handle:GetChildren() or {} do
+			local transparency = v:GetAttribute('SkinHidden')
+			if transparency then
+				v.Transparency = transparency
+				v:SetAttribute('SkinHidden', nil)
+			end
+		end
 		added[accessory] = nil
 	
 		if handle then
@@ -7595,7 +7611,31 @@ run(function()
 		end
 	end
 	
+	local function applySounds()
+		for itemType in skins do
+			local meta = bedwars.ItemMeta[itemType]
+			if meta and meta.sword then
+				local skin = getSkin(itemType)
+				local skinmeta = skin and bedwars.getItemSkinMeta(skin)
+				local sword = skinmeta and skinmeta.sword
+	
+				if sword and (sword.swingSounds or sword.hitSounds) then
+					if not sounds[itemType] then
+						sounds[itemType] = {swing = meta.sword.swingSounds, hit = meta.sword.hitSounds}
+					end
+					meta.sword.swingSounds = sword.swingSounds or sounds[itemType].swing
+					meta.sword.hitSounds = sword.hitSounds or sounds[itemType].hit
+				elseif sounds[itemType] then
+					meta.sword.swingSounds = sounds[itemType].swing
+					meta.sword.hitSounds = sounds[itemType].hit
+					sounds[itemType] = nil
+				end
+			end
+		end
+	end
+	
 	local function applySkins()
+		applySounds()
 		local inventory = store.inventory.inventory
 		for _, item in inventory.items do
 			item.itemSkin = getSkin(item.itemType)
@@ -7628,7 +7668,7 @@ run(function()
 	end
 	
 	SkinChanger = vape.Categories.Render:CreateModule({
-		Name = 'ChangeItemSkin',
+		Name = 'SkinChanger',
 		Function = function(callback)
 			if callback then
 				SkinChanger:Clean(vapeEvents.InventoryChanged.Event:Connect(applySkins))
