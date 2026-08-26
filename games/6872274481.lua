@@ -24131,11 +24131,11 @@ run(function()
 
                             if GroundTouchToggle.Enabled then
                                 cycleTimer = cycleTimer + dt
-                                if cycleTimer >= 2.1 then
+                                if cycleTimer >= 1.6 then
                                     cycleTimer = 0
                                 end
                                 
-                                local isTouchingGround = cycleTimer <= 0.3
+                                local isTouchingGround = cycleTimer <= 0.1
                                 if isTouchingGround then
                                     currentHeight = 0
                                 end
@@ -24232,7 +24232,7 @@ run(function()
     GroundTouchToggle = PlayerAttachModule:CreateToggle({
         Name = 'Ground Touch',
         Default = false,
-        Tooltip = 'Drops down to touch the ground for 0.3s every 2.1s in OverHead mode'
+        Tooltip = 'Drops down to touch the ground for 0.1s every 1.6s in OverHead mode'
     })
 
     StrafeDistSlider = PlayerAttachModule:CreateSlider({
