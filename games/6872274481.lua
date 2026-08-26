@@ -23832,6 +23832,7 @@ run(function()
     local HeightOffsetSlider
     local StrafeAngleSlider
     local StrafeDistSlider
+    local StrafeSpeedSlider
     local PredictionSlider
 
     local function isValidTarget(ent, myRoot)
@@ -23858,6 +23859,8 @@ run(function()
         Function = function(callback)
             if callback then
                 local strafeTime = 0
+                local strafeDirection = 1
+                
                 PlayerAttachModule:Clean(runService.Heartbeat:Connect(function(dt)
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
@@ -23893,11 +23896,12 @@ run(function()
                         elseif mode == 'Strafe' then
                             local maxAngle = StrafeAngleSlider.Value
                             local orbitRadius = StrafeDistSlider.Value
+                            local strafeSpeed = StrafeSpeedSlider.Value
                             
                             if maxAngle > 0 then
-                                strafeTime = strafeTime + (dt * 2.5) -- Speed of oscillation/strafing
+                                -- Advance strafe time based on custom speed and current direction
+                                strafeTime = strafeTime + (dt * (strafeSpeed / 2) * strafeDirection)
                                 
-                                -- Oscillates back and forth based on the angle slider (e.g., 0-360 deg arc swing)
                                 local halfArc = math.rad(maxAngle / 2)
                                 local currentRadian = math.sin(strafeTime) * halfArc
                                 
@@ -23906,7 +23910,30 @@ run(function()
                                 
                                 local targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
                                 
-                                -- Face the target while positioning around them
+                                -- Smart Wall Detection using Raycasting
+                                local rayParams = RaycastParams.new()
+                                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                                rayParams.IgnoreWater = true
+                                
+                                -- Exclude local character and target from raycast
+                                local excludeList = {myRoot.Parent}
+                                if closestTarget.Character then table.insert(excludeList, closestTarget.Character) end
+                                rayParams.FilterDescendantsInstances = excludeList
+                                
+                                local raycastResult = workspace:Raycast(targetRoot.Position, Vector3.new(targetPos.X - targetRoot.Position.X, 0, targetPos.Z - targetRoot.Position.Z), rayParams)
+                                if raycastResult then
+                                    -- Wall detected! Reverse strafe direction to go around the other way
+                                    strafeDirection = strafeDirection * -1
+                                    strafeTime = strafeTime + (dt * (strafeSpeed / 2) * strafeDirection * 2)
+                                    
+                                    -- Recalculate position with new direction
+                                    currentRadian = math.sin(strafeTime) * halfArc
+                                    offsetX = math.cos(currentRadian) * orbitRadius
+                                    offsetZ = math.sin(currentRadian) * orbitRadius
+                                    targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
+                                end
+                                
+                                -- Apply position and face the target
                                 myRoot.CFrame = CFrame.new(Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z), targetRoot.Position)
                                 
                                 local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
@@ -23917,7 +23944,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Attaches overhead or auto-strafes around enemy players'
+        Tooltip = 'Attaches overhead or auto-strafes with smart wall avoidance around enemy players'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
@@ -23942,6 +23969,14 @@ run(function()
         Max = 30,
         Default = 12,
         Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+    })
+
+    StrafeSpeedSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Strafe Speed',
+        Min = 1,
+        Max = 10,
+        Default = 5,
+        Tooltip = 'Speed of the auto strafe movement'
     })
 
     StrafeAngleSlider = PlayerAttachModule:CreateSlider({
@@ -23969,14 +24004,16 @@ run(function()
             HeightOffsetSlider.Object.Visible = (val == 'OverHead')
             PredictionSlider.Object.Visible = (val == 'OverHead')
             StrafeDistSlider.Object.Visible = (val == 'Strafe')
+            StrafeSpeedSlider.Object.Visible = (val == 'Strafe')
             StrafeAngleSlider.Object.Visible = (val == 'Strafe')
         end,
-        Tooltip = 'OverHead: Floats directly above target | Strafe: Auto-moves/strafes around target'
+        Tooltip = 'OverHead: Floats directly above target | Strafe: Auto-moves/strafes around target with wall avoidance'
     })
 
     -- Initialize UI visibility state
     HeightOffsetSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
     PredictionSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
     StrafeDistSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
+    StrafeSpeedSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
     StrafeAngleSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
 end)
