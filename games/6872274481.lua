@@ -24141,7 +24141,15 @@ run(function()
                             local strafeSpeed = StrafeSpeedSlider.Value
                             
                             if maxAngle > 0 then
-                                -- Advance strafe time based on custom speed and current direction
+                                -- Check enemy look direction (if they are facing us, auto flip strafe direction)
+                                local enemyLook = targetRoot.CFrame.LookVector
+                                local toMyRoot = (myRoot.Position - targetRoot.Position).Unit
+                                local dotProduct = enemyLook:Dot(toMyRoot) -- > 0 means they are looking roughly toward us
+                                
+                                if dotProduct > 0.2 then
+                                    strafeDirection = -strafeDirection
+                                end
+
                                 strafeTime = strafeTime + (dt * (strafeSpeed / 2) * strafeDirection)
                                 
                                 local halfArc = math.rad(maxAngle / 2)
@@ -24152,31 +24160,36 @@ run(function()
                                 
                                 local targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
                                 
-                                -- Smart Wall Detection using Raycasting
+                                -- Smart Wall & Block Detection using Raycasting to prevent suffocation
                                 local rayParams = RaycastParams.new()
                                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                                 rayParams.IgnoreWater = true
                                 
-                                -- Exclude local character and target from raycast
                                 local excludeList = {myRoot.Parent}
                                 if closestTarget.Character then table.insert(excludeList, closestTarget.Character) end
                                 rayParams.FilterDescendantsInstances = excludeList
                                 
-                                local raycastResult = workspace:Raycast(targetRoot.Position, Vector3.new(targetPos.X - targetRoot.Position.X, 0, targetPos.Z - targetRoot.Position.Z), rayParams)
+                                local raycastResult = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayParams)
                                 if raycastResult then
-                                    -- Wall detected! Reverse strafe direction to go around the other way
+                                    -- Wall or block detected in path! Prevent phasing/suffocating, flip direction or clamp position safely
                                     strafeDirection = strafeDirection * -1
                                     strafeTime = strafeTime + (dt * (strafeSpeed / 2) * strafeDirection * 2)
                                     
-                                    -- Recalculate position with new direction
                                     currentRadian = math.sin(strafeTime) * halfArc
                                     offsetX = math.cos(currentRadian) * orbitRadius
                                     offsetZ = math.sin(currentRadian) * orbitRadius
                                     targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
+                                    
+                                    -- Secondary check to ensure safe open space
+                                    local safetyCheck = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayParams)
+                                    if safetyCheck then
+                                        targetPos = safetyCheck.Position - (targetPos - targetRoot.Position).Unit * 2
+                                    end
                                 end
                                 
-                                -- Apply position and face the target
-                                myRoot.CFrame = CFrame.new(Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z), targetRoot.Position)
+                                -- Safe Anti-Cheat Friendly Incremental Movement / Angle Interpolation
+                                local desiredCFrame = CFrame.new(Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z), targetRoot.Position)
+                                myRoot.CFrame = myRoot.CFrame:Lerp(desiredCFrame, math.clamp(dt * strafeSpeed * 4, 0.1, 1))
                                 
                                 local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
                                 myRoot.AssemblyLinearVelocity = targetVel
@@ -24186,7 +24199,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Attaches overhead or auto-strafes with smart wall avoidance around enemy players'
+        Tooltip = 'Attaches overhead or auto-strafes with enemy vision-detection, anti-cheat friendly interpolation, and wall block avoidance.'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
@@ -24249,10 +24262,9 @@ run(function()
             StrafeSpeedSlider.Object.Visible = (val == 'Strafe')
             StrafeAngleSlider.Object.Visible = (val == 'Strafe')
         end,
-        Tooltip = 'OverHead: Floats directly above target | Strafe: Auto-moves/strafes around target with wall avoidance'
+        Tooltip = 'OverHead: Floats directly above target | Strafe: Auto-moves/strafes around target with wall avoidance and vision checks'
     })
 
-    -- Initialize UI visibility state
     HeightOffsetSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
     PredictionSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
     StrafeDistSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
