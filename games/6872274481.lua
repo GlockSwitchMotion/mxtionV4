@@ -7510,6 +7510,16 @@ run(function()
         table.insert(TrimList, ArmorTrimNames[value] or value)
     end
 
+    local function applyArmorTrim(trimValue)
+        store.selectedArmorTrim = trimValue
+        pcall(function()
+            local updateTrimRemote = bedwars.Handler:Get('UpdateArmorTrim')
+            if updateTrimRemote then
+                updateTrimRemote:Fire('CallServer', {trimValue})
+            end
+        end)
+    end
+
     local ArmorTrimDropdown = ArmorTrimModule:CreateDropdown({
         Name = 'Select Trim',
         List = TrimList,
@@ -7517,7 +7527,7 @@ run(function()
         Function = function(val)
             for internalName, displayName in pairs(ArmorTrimNames) do
                 if displayName == val then
-                    store.selectedArmorTrim = internalName
+                    applyArmorTrim(internalName)
                     print('[Armor Trim] Selected: ' .. val .. ' (' .. internalName .. ')')
                     break
                 end
@@ -7531,12 +7541,12 @@ run(function()
         Default = false,
         Function = function(val)
             if val then
-                print('[Armor Trim] Auto-equip enabled - trim will apply when armor is equipped')
+                print('[Armor Trim] Auto-equip enabled')
             else
                 print('[Armor Trim] Auto-equip disabled')
             end
         end,
-        Tooltip = 'Automatically applies selected trim to armor when equipped'
+        Tooltip = 'Automatically applies selected trim to armor'
     })
 
     getgenv().getSelectedArmorTrim = function()
@@ -7545,7 +7555,7 @@ run(function()
 
     getgenv().setArmorTrim = function(trimName)
         if ArmorTrimEffectType[trimName] then
-            store.selectedArmorTrim = ArmorTrimEffectType[trimName]
+            applyArmorTrim(ArmorTrimEffectType[trimName])
             print('[Armor Trim] Set to: ' .. trimName)
             return true
         end
