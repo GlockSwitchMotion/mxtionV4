@@ -16844,11 +16844,6 @@ run(function()
             if callback then
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 
-                -- Grab the main ability use event path shown in your logs
-                local successLib, eventsFolder = pcall(function()
-                    return ReplicatedStorage["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"]
-                end)
-
                 local netManaged = ReplicatedStorage:FindFirstChild("rbxts_include") 
                     and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules") 
                     and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts") 
@@ -16857,27 +16852,30 @@ run(function()
                     and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged
 
                 if not netManaged then
-                    warning("[AutoSkoll] NetManaged folder not found!")
+                    warn("[AutoSkoll Debug] NetManaged folder missing!")
                     return
                 end
 
-                local markEvent = netManaged:FindFirstChild("VoidHunter_MarkAbilityUsed")
+                local markRequestEvent = netManaged:FindFirstChild("VoidHunter_MarkAbilityRequest")
+                local markUsedEvent = netManaged:FindFirstChild("VoidHunter_MarkAbilityUsed")
                 local detonateEvent = netManaged:FindFirstChild("VoidHunter_TargetDetonated")
 
-                if not markEvent or not detonateEvent then
-                    warning("[AutoSkoll] VoidHunter remotes not found!")
+                if not markRequestEvent or not markUsedEvent or not detonateEvent then
+                    warn("[AutoSkoll Debug] VoidHunter remotes missing!")
                     return
                 end
 
                 local activeMarkedTarget = nil
+                local lastFireTick = 0
 
                 AutoSkoll:Clean(runService.Heartbeat:Connect(function()
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
+                    
                     local myRoot = entitylib.character.RootPart
                     local maxRange = RangeSlider.Value
                     local detonateDistance = DetonateRangeSlider.Value
 
-                    -- Find best target using built-in entity list
+                    -- Find best target
                     local closestTarget = nil
                     local closestDist = maxRange + 1
 
@@ -16907,7 +16905,7 @@ run(function()
                         end
                     end
 
-                    -- Auto Detonate logic if target leaves range or dies
+                    -- Auto Detonate logic
                     if activeMarkedTarget then
                         local targetValid = false
                         if activeMarkedTarget.RootPart and activeMarkedTarget.Humanoid and activeMarkedTarget.Humanoid.Health > 0 then
@@ -16920,6 +16918,7 @@ run(function()
                         end
 
                         if targetValid then
+                            print("[AutoSkoll Debug] Detonating target!")
                             pcall(function()
                                 detonateEvent:FireServer({
                                     targetEntityInstance = activeMarkedTarget.Character or activeMarkedTarget.RootPart,
@@ -16930,25 +16929,30 @@ run(function()
                         end
                     end
 
-                    -- Auto Mark / Use Ability
-                    if closestTarget and not activeMarkedTarget then
+                    -- Auto Mark / Use Ability (with 1.5s internal cooldown)
+                    if closestTarget and not activeMarkedTarget and (tick() - lastFireTick > 1.5) then
+                        lastFireTick = tick()
                         activeMarkedTarget = closestTarget
                         local originPos = myRoot.Position
                         local targetPart = closestTarget.RootPart
                         local dir = (targetPart.Position - originPos).Unit
                         local targetInst = closestTarget.Character or targetPart
+                        local generatedUuid = HttpService and HttpService:GenerateGUID(false) or "uuid_skoll_" .. math.random(1000,9999)
 
-                        -- Fire general ability container remote if available
-                        if successLib and eventsFolder and eventsFolder.abilityUsed then
-                            pcall(function()
-                                eventsFolder.abilityUsed:FireServer(lplr.Character, "void_hunter_mark")
-                            end)
-                        end
+                        print("[AutoSkoll Debug] Firing Mark Request & Used events at target:", closestTarget.Name)
 
-                        -- Fire specific net event payload matching your logs
+                        -- 1. Fire the Request remote first (matching your new screenshot)
                         pcall(function()
-                            markEvent:FireServer({
-                                uuid = HttpService and HttpService:GenerateGUID(false) or "uuid_skoll_" .. math.random(1000,9999),
+                            markRequestEvent:FireServer({
+                                originPosition = originPos,
+                                direction = dir
+                            })
+                        end)
+
+                        -- 2. Fire the MarkAbilityUsed event right after
+                        pcall(function()
+                            markUsedEvent:FireServer({
+                                uuid = generatedUuid,
                                 userPlayer = lplr,
                                 direction = dir,
                                 startTime = workspace:GetServerTimeNow(),
