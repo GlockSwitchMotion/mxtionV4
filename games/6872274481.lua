@@ -24146,10 +24146,22 @@ run(function()
                             local predictionOffset = targetVelocity * (PredictionSlider.Value / 10)
                             
                             local basePos = (targetHead and targetHead.Position or targetRoot.Position) + predictionOffset
-                            local targetCFrame = CFrame.new(basePos + Vector3.new(0, currentHeight, 0)) * targetRoot.CFrame.Rotation
+                            local targetPos = basePos + Vector3.new(0, currentHeight, 0)
+                            
+                            -- Clamp max movement delta per frame to prevent high-speed snap flags from anti-cheats
+                            local maxStep = 35 * dt
+                            local currentPos = myRoot.Position
+                            local clampedPos = currentPos:Lerp(targetPos, math.clamp(dt * 20, 0.1, 0.7))
+                            
+                            if (clampedPos - currentPos).Magnitude > maxStep then
+                                clampedPos = currentPos + (clampedPos - currentPos).Unit * maxStep
+                            end
 
-                            myRoot.CFrame = myRoot.CFrame:Lerp(targetCFrame, math.clamp(dt * 25, 0.2, 1))
-                            myRoot.AssemblyLinearVelocity = targetVelocity
+                            myRoot.CFrame = CFrame.new(clampedPos, clampedPos + targetRoot.CFrame.LookVector)
+                            
+                            -- Smooth velocity matching to prevent rubber-banding
+                            local currentVel = myRoot.AssemblyLinearVelocity or myRoot.Velocity
+                            myRoot.AssemblyLinearVelocity = currentVel:Lerp(targetVelocity, math.clamp(dt * 12, 0.1, 1))
 
                         elseif mode == 'Strafe' then
                             local maxAngle = StrafeAngleSlider.Value
@@ -24199,18 +24211,22 @@ run(function()
                                     end
                                 end
                                 
-                                local desiredCFrame = CFrame.new(Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z), targetRoot.Position)
-                                myRoot.CFrame = myRoot.CFrame:Lerp(desiredCFrame, math.clamp(dt * strafeSpeed * 4, 0.1, 1))
+                                local currentPos = myRoot.Position
+                                local desiredPos = Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z)
+                                local clampedPos = currentPos:Lerp(desiredPos, math.clamp(dt * strafeSpeed * 3, 0.1, 0.8))
+                                
+                                myRoot.CFrame = CFrame.new(clampedPos, targetRoot.Position)
                                 
                                 local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
-                                myRoot.AssemblyLinearVelocity = targetVel
+                                local currentVel = myRoot.AssemblyLinearVelocity or myRoot.Velocity
+                                myRoot.AssemblyLinearVelocity = currentVel:Lerp(targetVel, math.clamp(dt * 10, 0.1, 1))
                             end
                         end
                     end
                 end))
             end
         end,
-        Tooltip = 'Attaches overhead with optional ground-touch cycles or auto-strafes with vision detection and wall avoidance'
+        Tooltip = 'Anti-cheat optimized PlayerAttach with delta-clamped smoothing for moving targets'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
