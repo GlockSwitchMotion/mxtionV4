@@ -14292,6 +14292,7 @@ end)
 
 run(function()
     local RegentAura
+    local ModeDropdown
     local RangeSlider
     local Targets
     local WallCheckToggle
@@ -14313,31 +14314,26 @@ run(function()
         return success and remote or nil
     end
 
-    -- Auto-equip Void Axe from character or inventory
-    local function equipVoidAxe()
-        local char = LocalPlayer.Character
-        if not char then return false end
-
-        for _, item in ipairs(char:GetChildren()) do
-            if item:IsA("Tool") and item.Name:lower():find("void") then
-                return true
-            end
+    -- Trigger the void axe jump / click action
+    local function triggerAbility()
+        local remote = getRegentRemote()
+        if remote then
+            pcall(function()
+                remote:FireServer()
+            end)
         end
 
-        local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-        if backpack then
-            for _, item in ipairs(backpack:GetChildren()) do
-                if item:IsA("Tool") and item.Name:lower():find("void") then
-                    local humanoid = char:FindFirstChildOfClass("Humanoid")
-                    if humanoid then
-                        humanoid:EquipTool(item)
-                        return true
-                    end
-                end
+        pcall(function()
+            local eventsFolder = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+            if eventsFolder and eventsFolder.abilityUsed then
+                eventsFolder.abilityUsed:FireServer(LocalPlayer.Character, "void_axe_jump")
             end
-        end
+        end)
+    end
 
-        return false
+    -- Helper to check if item is a Void Axe
+    local function isVoidAxe(item)
+        return item and item:IsA("Tool") and item.Name:lower():find("void")
     end
 
     local Category = vape.Categories.Blatant
@@ -14383,31 +14379,80 @@ run(function()
                         end
                     end
 
-                    -- Trigger ability if target is found and cooldown has passed (e.g. 1.5s interval)
+                    -- Execute if target found and cooldown passed (1.5s)
                     if closestTarget and (tick() - lastFireTick > 1.5) then
-                        lastFireTick = tick()
-                        equipVoidAxe()
+                        local currentMode = ModeDropdown.Value
 
-                        -- 1. Fire the NetManaged remote
-                        local remote = getRegentRemote()
-                        if remote then
-                            pcall(function()
-                                remote:FireServer()
-                            end)
-                        end
+                        if currentMode == 'Auto Equip & Tap' then
+                            local char = LocalPlayer.Character
+                            local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+                            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+                            
+                            if not char or not humanoid then return end
 
-                        -- 2. Fire the easy-games abilityUsed event signal
-                        pcall(function()
-                            local eventsFolder = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-                            if eventsFolder and eventsFolder.abilityUsed then
-                                eventsFolder.abilityUsed:FireServer(LocalPlayer.Character, "void_axe_jump")
+                            -- Find currently equipped tool to switch back later
+                            local previousTool = nil
+                            for _, item in ipairs(char:GetChildren()) do
+                                if item:IsA("Tool") then
+                                    previousTool = item
+                                    break
+                                end
                             end
-                        end)
+
+                            -- Find Void Axe in Character or Backpack
+                            local axeTool = nil
+                            for _, item in ipairs(char:GetChildren()) do
+                                if isVoidAxe(item) then axeTool = item break end
+                            end
+                            if not axeTool and backpack then
+                                for _, item in ipairs(backpack:GetChildren()) do
+                                    if isVoidAxe(item) then axeTool = item break end
+                                end
+                            end
+
+                            if axeTool then
+                                lastFireTick = tick()
+                                humanoid:EquipTool(axeTool)
+                                task.wait(0.05)
+                                
+                                triggerAbility()
+                                
+                                task.wait(0.05)
+                                if previousTool and previousTool.Parent == backpack then
+                                    humanoid:EquipTool(previousTool)
+                                end
+                            end
+
+                        elseif currentMode == 'Manual Equip' then
+                            -- Check if user is currently holding the Void Axe
+                            local char = LocalPlayer.Character
+                            local holdingAxe = false
+                            if char then
+                                for _, item in ipairs(char:GetChildren()) do
+                                    if isVoidAxe(item) then
+                                        holdingAxe = true
+                                        break
+                                    end
+                                end
+                            end
+
+                            if holdingAxe then
+                                lastFireTick = tick()
+                                triggerAbility()
+                            end
+                        end
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically equips Void Axe and triggers dash/slash when targets are within range.'
+        Tooltip = 'Automatically triggers Void Axe jump/slash when enemies are within range using custom equip modes.'
+    })
+
+    ModeDropdown = RegentAura:CreateDropdown({
+        Name = 'Mode',
+        List = {'Auto Equip & Tap', 'Manual Equip'},
+        Default = 'Auto Equip & Tap',
+        Tooltip = 'Auto Equip pulls the axe from inventory/backpack and switches back. Manual requires you to hold it.'
     })
 
     RangeSlider = RegentAura:CreateSlider({
