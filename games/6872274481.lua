@@ -24072,6 +24072,7 @@ run(function()
     local ModeDropdown
     local RangeSlider
     local HeightOffsetSlider
+    local GroundTouchToggle
     local StrafeDistSlider
     local StrafeSpeedSlider
     local StrafeAngleSlider
@@ -24126,19 +24127,25 @@ run(function()
                         local mode = ModeDropdown.Value
 
                         if mode == 'OverHead' then
-                            -- Cycle timer logic: every 3.5 seconds, touch ground for 0.3 seconds
-                            cycleTimer = cycleTimer + dt
-                            if cycleTimer >= 3.5 then
-                                cycleTimer = 0
+                            local currentHeight = HeightOffsetSlider.Value
+
+                            if GroundTouchToggle.Enabled then
+                                cycleTimer = cycleTimer + dt
+                                if cycleTimer >= 2.1 then
+                                    cycleTimer = 0
+                                end
+                                
+                                local isTouchingGround = cycleTimer <= 0.3
+                                if isTouchingGround then
+                                    currentHeight = 0
+                                end
                             end
-                            
-                            local isTouchingGround = cycleTimer <= 0.3
+
                             local targetHead = closestTarget.Character and closestTarget.Character:FindFirstChild("Head")
                             local targetVelocity = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
                             local predictionOffset = targetVelocity * (PredictionSlider.Value / 10)
                             
                             local basePos = (targetHead and targetHead.Position or targetRoot.Position) + predictionOffset
-                            local currentHeight = isTouchingGround and 0 or HeightOffsetSlider.Value
                             local targetCFrame = CFrame.new(basePos + Vector3.new(0, currentHeight, 0)) * targetRoot.CFrame.Rotation
 
                             myRoot.CFrame = myRoot.CFrame:Lerp(targetCFrame, math.clamp(dt * 25, 0.2, 1))
@@ -24203,7 +24210,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Attaches overhead with ground-touch cycles or auto-strafes with vision detection and wall avoidance'
+        Tooltip = 'Attaches overhead with optional ground-touch cycles or auto-strafes with vision detection and wall avoidance'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
@@ -24220,6 +24227,12 @@ run(function()
         Max = 12,
         Default = 4,
         Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+    })
+
+    GroundTouchToggle = PlayerAttachModule:CreateToggle({
+        Name = 'Ground Touch',
+        Default = false,
+        Tooltip = 'Drops down to touch the ground for 0.3s every 2.1s in OverHead mode'
     })
 
     StrafeDistSlider = PlayerAttachModule:CreateSlider({
@@ -24261,15 +24274,17 @@ run(function()
         Default = 'OverHead',
         Function = function(val)
             HeightOffsetSlider.Object.Visible = (val == 'OverHead')
+            GroundTouchToggle.Object.Visible = (val == 'OverHead')
             PredictionSlider.Object.Visible = (val == 'OverHead')
             StrafeDistSlider.Object.Visible = (val == 'Strafe')
             StrafeSpeedSlider.Object.Visible = (val == 'Strafe')
             StrafeAngleSlider.Object.Visible = (val == 'Strafe')
         end,
-        Tooltip = 'OverHead: Floats overhead & drops to ground for 0.3s every 3.5s | Strafe: Auto-moves around target'
+        Tooltip = 'OverHead: Floats above target with optional ground touch | Strafe: Auto-moves around target'
     })
 
     HeightOffsetSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
+    GroundTouchToggle.Object.Visible = (ModeDropdown.Value == 'OverHead')
     PredictionSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
     StrafeDistSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
     StrafeSpeedSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
