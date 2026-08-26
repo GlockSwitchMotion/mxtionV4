@@ -24072,9 +24072,9 @@ run(function()
     local ModeDropdown
     local RangeSlider
     local HeightOffsetSlider
-    local StrafeAngleSlider
     local StrafeDistSlider
     local StrafeSpeedSlider
+    local StrafeAngleSlider
     local PredictionSlider
 
     local function isValidTarget(ent, myRoot)
@@ -24102,6 +24102,7 @@ run(function()
             if callback then
                 local strafeTime = 0
                 local strafeDirection = 1
+                local cycleTimer = 0
                 
                 PlayerAttachModule:Clean(runService.Heartbeat:Connect(function(dt)
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
@@ -24125,14 +24126,22 @@ run(function()
                         local mode = ModeDropdown.Value
 
                         if mode == 'OverHead' then
+                            -- Cycle timer logic: every 3.5 seconds, touch ground for 0.3 seconds
+                            cycleTimer = cycleTimer + dt
+                            if cycleTimer >= 3.5 then
+                                cycleTimer = 0
+                            end
+                            
+                            local isTouchingGround = cycleTimer <= 0.3
                             local targetHead = closestTarget.Character and closestTarget.Character:FindFirstChild("Head")
                             local targetVelocity = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
                             local predictionOffset = targetVelocity * (PredictionSlider.Value / 10)
                             
                             local basePos = (targetHead and targetHead.Position or targetRoot.Position) + predictionOffset
-                            local targetCFrame = CFrame.new(basePos + Vector3.new(0, HeightOffsetSlider.Value, 0)) * targetRoot.CFrame.Rotation
+                            local currentHeight = isTouchingGround and 0 or HeightOffsetSlider.Value
+                            local targetCFrame = CFrame.new(basePos + Vector3.new(0, currentHeight, 0)) * targetRoot.CFrame.Rotation
 
-                            myRoot.CFrame = targetCFrame
+                            myRoot.CFrame = myRoot.CFrame:Lerp(targetCFrame, math.clamp(dt * 25, 0.2, 1))
                             myRoot.AssemblyLinearVelocity = targetVelocity
 
                         elseif mode == 'Strafe' then
@@ -24141,10 +24150,9 @@ run(function()
                             local strafeSpeed = StrafeSpeedSlider.Value
                             
                             if maxAngle > 0 then
-                                -- Check enemy look direction (if they are facing us, auto flip strafe direction)
                                 local enemyLook = targetRoot.CFrame.LookVector
                                 local toMyRoot = (myRoot.Position - targetRoot.Position).Unit
-                                local dotProduct = enemyLook:Dot(toMyRoot) -- > 0 means they are looking roughly toward us
+                                local dotProduct = enemyLook:Dot(toMyRoot)
                                 
                                 if dotProduct > 0.2 then
                                     strafeDirection = -strafeDirection
@@ -24160,7 +24168,6 @@ run(function()
                                 
                                 local targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
                                 
-                                -- Smart Wall & Block Detection using Raycasting to prevent suffocation
                                 local rayParams = RaycastParams.new()
                                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                                 rayParams.IgnoreWater = true
@@ -24171,7 +24178,6 @@ run(function()
                                 
                                 local raycastResult = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayParams)
                                 if raycastResult then
-                                    -- Wall or block detected in path! Prevent phasing/suffocating, flip direction or clamp position safely
                                     strafeDirection = strafeDirection * -1
                                     strafeTime = strafeTime + (dt * (strafeSpeed / 2) * strafeDirection * 2)
                                     
@@ -24180,14 +24186,12 @@ run(function()
                                     offsetZ = math.sin(currentRadian) * orbitRadius
                                     targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
                                     
-                                    -- Secondary check to ensure safe open space
                                     local safetyCheck = workspace:Raycast(targetRoot.Position, targetPos - targetRoot.Position, rayParams)
                                     if safetyCheck then
                                         targetPos = safetyCheck.Position - (targetPos - targetRoot.Position).Unit * 2
                                     end
                                 end
                                 
-                                -- Safe Anti-Cheat Friendly Incremental Movement / Angle Interpolation
                                 local desiredCFrame = CFrame.new(Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z), targetRoot.Position)
                                 myRoot.CFrame = myRoot.CFrame:Lerp(desiredCFrame, math.clamp(dt * strafeSpeed * 4, 0.1, 1))
                                 
@@ -24199,7 +24203,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Attaches overhead or auto-strafes with enemy vision-detection, anti-cheat friendly interpolation, and wall block avoidance.'
+        Tooltip = 'Attaches overhead with ground-touch cycles or auto-strafes with vision detection and wall avoidance'
     })
 
     RangeSlider = PlayerAttachModule:CreateSlider({
@@ -24262,7 +24266,7 @@ run(function()
             StrafeSpeedSlider.Object.Visible = (val == 'Strafe')
             StrafeAngleSlider.Object.Visible = (val == 'Strafe')
         end,
-        Tooltip = 'OverHead: Floats directly above target | Strafe: Auto-moves/strafes around target with wall avoidance and vision checks'
+        Tooltip = 'OverHead: Floats overhead & drops to ground for 0.3s every 3.5s | Strafe: Auto-moves around target'
     })
 
     HeightOffsetSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
