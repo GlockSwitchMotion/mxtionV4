@@ -16843,6 +16843,12 @@ run(function()
         Function = function(callback)
             if callback then
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                
+                -- Grab the main ability use event path shown in your logs
+                local successLib, eventsFolder = pcall(function()
+                    return ReplicatedStorage["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"]
+                end)
+
                 local netManaged = ReplicatedStorage:FindFirstChild("rbxts_include") 
                     and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules") 
                     and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts") 
@@ -16877,14 +16883,12 @@ run(function()
 
                     for _, ent in ipairs(entitylib.List) do
                         if ent and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
-                            -- Check if player/npc matches configuration
                             local isPlayer = ent.Player ~= nil
                             local isNpc = not isPlayer
                             
                             if (isPlayer and Targets.Players.Enabled) or (isNpc and Targets.NPCs.Enabled) then
                                 local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
                                 if dist <= maxRange and dist < closestDist then
-                                    -- Wall check implementation
                                     if WallCheckToggle.Enabled then
                                         local rayParams = RaycastParams.new()
                                         rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -16903,16 +16907,16 @@ run(function()
                         end
                     end
 
-                    -- Auto Detonate logic if current target moves out of range
+                    -- Auto Detonate logic if target leaves range or dies
                     if activeMarkedTarget then
                         local targetValid = false
                         if activeMarkedTarget.RootPart and activeMarkedTarget.Humanoid and activeMarkedTarget.Humanoid.Health > 0 then
                             local currentDist = (activeMarkedTarget.RootPart.Position - myRoot.Position).Magnitude
                             if currentDist > detonateDistance then
-                                targetValid = true -- Triggers detonation because it left range
+                                targetValid = true
                             end
                         else
-                            targetValid = true -- Target died or disappeared
+                            targetValid = true
                         end
 
                         if targetValid then
@@ -16926,20 +16930,29 @@ run(function()
                         end
                     end
 
-                    -- Auto Mark / Use Ability if target is found and we don't have an active one
+                    -- Auto Mark / Use Ability
                     if closestTarget and not activeMarkedTarget then
                         activeMarkedTarget = closestTarget
                         local originPos = myRoot.Position
                         local targetPart = closestTarget.RootPart
                         local dir = (targetPart.Position - originPos).Unit
+                        local targetInst = closestTarget.Character or targetPart
 
+                        -- Fire general ability container remote if available
+                        if successLib and eventsFolder and eventsFolder.abilityUsed then
+                            pcall(function()
+                                eventsFolder.abilityUsed:FireServer(lplr.Character, "void_hunter_mark")
+                            end)
+                        end
+
+                        -- Fire specific net event payload matching your logs
                         pcall(function()
                             markEvent:FireServer({
                                 uuid = HttpService and HttpService:GenerateGUID(false) or "uuid_skoll_" .. math.random(1000,9999),
                                 userPlayer = lplr,
                                 direction = dir,
                                 startTime = workspace:GetServerTimeNow(),
-                                targetEntityInstance = closestTarget.Character or targetPart,
+                                targetEntityInstance = targetInst,
                                 originPosition = originPos
                             })
                         end)
