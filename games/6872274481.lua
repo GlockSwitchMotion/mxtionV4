@@ -23831,7 +23831,7 @@ run(function()
     local RangeSlider
     local HeightOffsetSlider
     local StrafeAngleSlider
-    local StrafeSpeedSlider
+    local StrafeDistSlider
     local PredictionSlider
 
     local function isValidTarget(ent, myRoot)
@@ -23857,7 +23857,7 @@ run(function()
         Name = 'PlayerAttach',
         Function = function(callback)
             if callback then
-                local strafeAngleTracker = 0
+                local strafeTime = 0
                 PlayerAttachModule:Clean(runService.Heartbeat:Connect(function(dt)
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
@@ -23891,30 +23891,27 @@ run(function()
                             myRoot.AssemblyLinearVelocity = targetVelocity
 
                         elseif mode == 'Strafe' then
-                            local targetPos = targetRoot.Position
-                            local maxAngle = math.rad(StrafeAngleSlider.Value)
+                            local maxAngle = StrafeAngleSlider.Value
+                            local orbitRadius = StrafeDistSlider.Value
                             
-                            -- Increment angle based on speed
-                            strafeAngleTracker = strafeAngleTracker + (StrafeSpeedSlider.Value * dt)
-                            
-                            -- Oscillate or loop based on the max angle restriction
-                            local currentAngle
-                            if maxAngle >= math.rad(360) then
-                                currentAngle = strafeAngleTracker
-                            else
-                                currentAngle = (math.sin(strafeAngleTracker) * (maxAngle / 2))
+                            if maxAngle > 0 then
+                                strafeTime = strafeTime + (dt * 2.5) -- Speed of oscillation/strafing
+                                
+                                -- Oscillates back and forth based on the angle slider (e.g., 0-360 deg arc swing)
+                                local halfArc = math.rad(maxAngle / 2)
+                                local currentRadian = math.sin(strafeTime) * halfArc
+                                
+                                local offsetX = math.cos(currentRadian) * orbitRadius
+                                local offsetZ = math.sin(currentRadian) * orbitRadius
+                                
+                                local targetPos = targetRoot.Position + Vector3.new(offsetX, 0, offsetZ)
+                                
+                                -- Face the target while positioning around them
+                                myRoot.CFrame = CFrame.new(Vector3.new(targetPos.X, targetRoot.Position.Y, targetPos.Z), targetRoot.Position)
+                                
+                                local targetVel = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity or Vector3.zero
+                                myRoot.AssemblyLinearVelocity = targetVel
                             end
-
-                            -- Keep distance based on current distance or default to a safe orbit radius (e.g. 8 studs)
-                            local orbitRadius = math.clamp((myRoot.Position - targetPos) * Vector3.new(1, 0, 1), 6, 15).Magnitude
-                            if orbitRadius < 4 then orbitRadius = 8 end
-
-                            local offset = Vector3.new(math.cos(currentAngle) * orbitRadius, 0, math.sin(currentAngle) * orbitRadius)
-                            local desiredPos = targetPos + offset + Vector3.new(0, 2, 0)
-
-                            -- Look at target while positioning
-                            myRoot.CFrame = CFrame.new(desiredPos, targetPos + Vector3.new(0, 1, 0))
-                            myRoot.AssemblyLinearVelocity = Vector3.zero
                         end
                     end
                 end))
@@ -23939,21 +23936,21 @@ run(function()
         Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 
-    StrafeAngleSlider = PlayerAttachModule:CreateSlider({
-        Name = 'Strafe Max Angle',
-        Min = 30,
-        Max = 360,
-        Default = 360,
-        Suffix = function(val) return '°' end,
-        Tooltip = 'Maximum arc angle for strafing around the target.'
+    StrafeDistSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Strafe Distance',
+        Min = 5,
+        Max = 30,
+        Default = 12,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 
-    StrafeSpeedSlider = PlayerAttachModule:CreateSlider({
-        Name = 'Strafe Speed',
-        Min = 1,
-        Max = 10,
-        Default = 4,
-        Tooltip = 'Speed at which you orbit around the target.'
+    StrafeAngleSlider = PlayerAttachModule:CreateSlider({
+        Name = 'Strafe Angle',
+        Min = 30,
+        Max = 360,
+        Default = 180,
+        Suffix = function(val) return '°' end,
+        Tooltip = 'Maximum arc swing angle for auto strafing'
     })
 
     PredictionSlider = PlayerAttachModule:CreateSlider({
@@ -23971,15 +23968,15 @@ run(function()
         Function = function(val)
             HeightOffsetSlider.Object.Visible = (val == 'OverHead')
             PredictionSlider.Object.Visible = (val == 'OverHead')
+            StrafeDistSlider.Object.Visible = (val == 'Strafe')
             StrafeAngleSlider.Object.Visible = (val == 'Strafe')
-            StrafeSpeedSlider.Object.Visible = (val == 'Strafe')
         end,
-        Tooltip = 'OverHead: Floats directly above target | Strafe: Circles around the target'
+        Tooltip = 'OverHead: Floats directly above target | Strafe: Auto-moves/strafes around target'
     })
 
     -- Initialize UI visibility state
     HeightOffsetSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
     PredictionSlider.Object.Visible = (ModeDropdown.Value == 'OverHead')
+    StrafeDistSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
     StrafeAngleSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
-    StrafeSpeedSlider.Object.Visible = (ModeDropdown.Value == 'Strafe')
 end)
