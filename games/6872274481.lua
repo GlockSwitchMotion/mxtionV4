@@ -14291,94 +14291,146 @@ run(function()
 end)
 
 run(function()
-	local RegentAura
-	local HealthThreshold
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local Players = game:GetService("Players")
-	local LocalPlayer = Players.LocalPlayer
+    local RegentAura
+    local RangeSlider
+    local Targets
+    local WallCheckToggle
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
 
-	-- Locate the UseVoidAxeSlash remote
-	local function getRegentRemote()
-		local success, remote = pcall(function()
-			return ReplicatedStorage:WaitForChild("rbxts_include")
-				:WaitForChild("node_modules")
-				:WaitForChild("@rbxts")
-				:WaitForChild("net")
-				:WaitForChild("out")
-				:WaitForChild("_NetManaged")
-				:FindFirstChild("UseVoidAxeSlash")
-		end)
-		return success and remote or nil
-	end
+    -- Locate the UseVoidAxeSlash remote
+    local function getRegentRemote()
+        local success, remote = pcall(function()
+            return ReplicatedStorage:WaitForChild("rbxts_include")
+                :WaitForChild("node_modules")
+                :WaitForChild("@rbxts")
+                :WaitForChild("net")
+                :WaitForChild("out")
+                :WaitForChild("_NetManaged")
+                :WaitForChild("UseVoidAxeSlash")
+        end)
+        return success and remote or nil
+    end
 
-	-- Auto-equip Void Axe from character or inventory
-	local function equipVoidAxe()
-		local char = LocalPlayer.Character
-		if not char then return false end
+    -- Auto-equip Void Axe from character or inventory
+    local function equipVoidAxe()
+        local char = LocalPlayer.Character
+        if not char then return false end
 
-		-- Check if already holding it
-		for _, item in ipairs(char:GetChildren()) do
-			if item:IsA("Tool") and item.Name:lower():find("void") then
-				return true
-			end
-		end
+        for _, item in ipairs(char:GetChildren()) do
+            if item:IsA("Tool") and item.Name:lower():find("void") then
+                return true
+            end
+        end
 
-		-- Check backpack and equip
-		local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-		if backpack then
-			for _, item in ipairs(backpack:GetChildren()) do
-				if item:IsA("Tool") and item.Name:lower():find("void") then
-					local humanoid = char:FindFirstChildOfClass("Humanoid")
-					if humanoid then
-						humanoid:EquipTool(item)
-						return true
-					end
-				end
-			end
-		end
+        local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+        if backpack then
+            for _, item in ipairs(backpack:GetChildren()) do
+                if item:IsA("Tool") and item.Name:lower():find("void") then
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        humanoid:EquipTool(item)
+                        return true
+                    end
+                end
+            end
+        end
 
-		return false
-	end
+        return false
+    end
 
-	-- Module definition
-	local Category = vape.Categories.Blatant
+    local Category = vape.Categories.Blatant
+    local lastFireTick = 0
 
-	RegentAura = Category:CreateModule({
-		Name = 'RegentAura',
-		Function = function(callback)
-			if callback then
-				RegentAura:Clean(runService.Heartbeat:Connect(function()
-					if not entitylib.isAlive then return end
+    RegentAura = Category:CreateModule({
+        Name = 'RegentAura',
+        Function = function(callback)
+            if callback then
+                RegentAura:Clean(runService.Heartbeat:Connect(function()
+                    if not entitylib.isAlive or not entitylib.character.RootPart then return end
 
-					local myEnt = entitylib.character
-					if not myEnt or not myEnt.Humanoid then return end
+                    local myRoot = entitylib.character.RootPart
+                    local maxRange = RangeSlider.Value
 
-					-- Check if current health is at or below threshold
-					if myEnt.Humanoid.Health <= HealthThreshold.Value and myEnt.Humanoid.Health > 0 then
-						equipVoidAxe()
+                    -- Find target within range
+                    local closestTarget = nil
+                    local closestDist = maxRange + 1
 
-						local remote = getRegentRemote()
-						if remote then
-							pcall(function()
-								remote:FireServer()
-							end)
-						end
-					end
-				end))
-			end
-		end,
-		Tooltip = 'Equips Void Axe and triggers dash/slash automatically when health drops below set threshold.'
-	})
+                    for _, ent in ipairs(entitylib.List) do
+                        if ent and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
+                            local isPlayer = ent.Player ~= nil
+                            local isNpc = not isPlayer
+                            
+                            if (isPlayer and Targets.Players.Enabled) or (isNpc and Targets.NPCs.Enabled) then
+                                local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
+                                if dist <= maxRange and dist < closestDist then
+                                    if WallCheckToggle.Enabled then
+                                        local rayParams = RaycastParams.new()
+                                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                                        rayParams.FilterDescendantsInstances = {LocalPlayer.Character, ent.Character}
+                                        local ray = workspace:Raycast(myRoot.Position, ent.RootPart.Position - myRoot.Position, rayParams)
+                                        if not ray then
+                                            closestDist = dist
+                                            closestTarget = ent
+                                        end
+                                    else
+                                        closestDist = dist
+                                        closestTarget = ent
+                                    end
+                                end
+                            end
+                        end
+                    end
 
-	-- Health trigger threshold slider
-	HealthThreshold = RegentAura:CreateSlider({
-		Name = 'Health Trigger',
-		Function = function() end,
-		Default = 30,
-		Min = 0,
-		Max = 100,
-		Decimal = 1
-	})
+                    -- Trigger ability if target is found and cooldown has passed (e.g. 1.5s interval)
+                    if closestTarget and (tick() - lastFireTick > 1.5) then
+                        lastFireTick = tick()
+                        equipVoidAxe()
+
+                        -- 1. Fire the NetManaged remote
+                        local remote = getRegentRemote()
+                        if remote then
+                            pcall(function()
+                                remote:FireServer()
+                            end)
+                        end
+
+                        -- 2. Fire the easy-games abilityUsed event signal
+                        pcall(function()
+                            local eventsFolder = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+                            if eventsFolder and eventsFolder.abilityUsed then
+                                eventsFolder.abilityUsed:FireServer(LocalPlayer.Character, "void_axe_jump")
+                            end
+                        end)
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Automatically equips Void Axe and triggers dash/slash when targets are within range.'
+    })
+
+    RangeSlider = RegentAura:CreateSlider({
+        Name = 'Range',
+        Min = 5,
+        Max = 100,
+        Default = 25,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end,
+        Tooltip = 'Maximum range to trigger ability on targets'
+    })
+
+    Targets = RegentAura:CreateTargets({
+        Players = true,
+        NPCs = false
+    })
+
+    WallCheckToggle = RegentAura:CreateToggle({
+        Name = 'Wall Check',
+        Default = true,
+        Tooltip = 'Prevents triggering on targets behind walls'
+    })
 end)
 
 run(function()
@@ -15978,61 +16030,98 @@ run(function()
 end)
 
 run(function()
-	local AutoGrim
-	local Range
-	local Delay
-	
-	local Legit = getFunctionRange(bedwars.GrimReaperController.registerSoulInteractions) or 0
-	
-	AutoGrim = vape.Categories.Kits:CreateModule({
-		Name = 'AutoGrim',
-		Function = function(callback)
-			if callback then
-				local souls = collection(bedwars.GrimReaperController.soulsByPosition, AutoGrim)
-				local cooldown = 0
-	
-				repeat
-					if entitylib.isAlive and lplr.Character:GetAttribute('Health') <= (lplr.Character:GetAttribute('MaxHealth') / 4) and not lplr.Character:GetAttribute('GrimReaperChannel') and (Delay.Value <= 0 or tick() - cooldown >= Delay.Value) then
-						local localPosition = entitylib.character.RootPart.Position
-						for _, v in souls do
-							if (localPosition - v.Position).Magnitude <= Range.Value then
-								bedwars.Handler:Get('ConsumeGrimReaperSoul'):Fire('CallServer', {
-									secret = v:GetAttribute('GrimReaperSoulSecret')
-								})
-								cooldown = tick()
-								break
-							end
-						end
-					end
-					task.wait(0.1)
-				until not AutoGrim.Enabled
-			end
-		end,
-		Tooltip = 'Automatically consumes nearby souls when your health drops low'
-	})
-	Range = AutoGrim:CreateSlider({
-		Name = 'Range',
-		Min = 1,
-		Max = 120,
-		Default = 12,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end
-	})
-	AutoGrim:CreateButton({
-		Name = 'Sync to legit range',
-		Function = function()
-			Range:SetValue(Legit)
-		end
-	})
-	Delay = AutoGrim:CreateSlider({
-		Name = 'Delay',
-		Min = 0,
-		Max = 2,
-		Default = 0.1,
-		Decimal = 10,
-		Suffix = 'seconds'
-	})
+    local AutoGrim
+    local Range
+    local HealthTrigger
+    local Delay
+    
+    local Legit = getFunctionRange(bedwars.GrimReaperController.registerSoulInteractions) or 0
+    
+    AutoGrim = vape.Categories.Kits:CreateModule({
+        Name = 'AutoGrimReaper',
+        Function = function(callback)
+            if callback then
+                local cooldown = 0
+    
+                AutoGrim:Clean(task.spawn(function()
+                    repeat
+                        if entitylib.isAlive and lplr.Character then
+                            local humanoid = lplr.Character:FindFirstChildOfClass("Humanoid")
+                            if humanoid and humanoid.Health > 0 then
+                                local currentHealth = humanoid.Health
+                                local maxHealth = humanoid.MaxHealth
+                                local healthPercent = (currentHealth / maxHealth) * 100
+                                
+                                local isChanneling = lplr.Character:GetAttribute('GrimReaperChannel')
+                                local delayPassed = (Delay.Value <= 0 or tick() - cooldown >= Delay.Value)
+
+                                if healthPercent <= HealthTrigger.Value and not isChanneling and delayPassed then
+                                    local localPosition = entitylib.character.RootPart.Position
+                                    local souls = bedwars.GrimReaperController.soulsByPosition
+                                    
+                                    if souls then
+                                        for _, v in pairs(souls) do
+                                            if v and v.Position and (localPosition - v.Position).Magnitude <= Range.Value then
+                                                local secret = v:GetAttribute('GrimReaperSoulSecret')
+                                                if secret then
+                                                    pcall(function()
+                                                        bedwars.Handler:Get('ConsumeGrimReaperSoul'):Fire('CallServer', {
+                                                            secret = secret
+                                                        })
+                                                    end)
+                                                    cooldown = tick()
+                                                    break
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        task.wait(0.05)
+                    until not AutoGrim.Enabled
+                end))
+            end
+        end,
+        Tooltip = 'Automatically consumes nearby souls when your health drops below a specified threshold'
+    })
+
+    Range = AutoGrim:CreateSlider({
+        Name = 'Range',
+        Min = 1,
+        Max = 120,
+        Default = 12,
+        Suffix = function(val)
+            return val <= 1 and 'stud' or 'studs'
+        end
+    })
+
+    HealthTrigger = AutoGrim:CreateSlider({
+        Name = 'Health Trigger',
+        Min = 5,
+        Max = 100,
+        Default = 25,
+        Suffix = function(val)
+            return '%'
+        end,
+        Tooltip = 'Health percentage threshold to trigger soul consumption'
+    })
+
+    AutoGrim:CreateButton({
+        Name = 'Sync to legit range',
+        Function = function()
+            Range:SetValue(Legit)
+        end
+    })
+
+    Delay = AutoGrim:CreateSlider({
+        Name = 'Delay',
+        Min = 0,
+        Max = 2,
+        Default = 0.1,
+        Decimal = 10,
+        Suffix = 'seconds'
+    })
 end)
 
 run(function()
