@@ -14668,11 +14668,6 @@ run(function()
     local rayCheck = RaycastParams.new()
     rayCheck.RespectCanCollide = true
 
-    local function getLaunchVelocity(delta, velocity, time)
-        -- Reduced velocity calculation by 55% (multiplying by 0.45)
-        return ((delta + Vector3.new(0, Workspace.Gravity * time * time * 0.5, 0)) / time - velocity) * 0.45
-    end
-
     local function getCannon()
         if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
         local cannons = {}
@@ -14688,33 +14683,6 @@ run(function()
             end)
         end
         return cannons[1] or nil
-    end
-
-    local function isPathBlocked(origin, velocity, time)
-        local previous = origin
-        for i = 1, 11 do
-            local elapsed = time * i / 12
-            local point = origin + velocity * elapsed - Vector3.new(0, Workspace.Gravity * elapsed * elapsed * 0.5, 0)
-            if Workspace:Spherecast(previous, 2, point - previous, rayCheck) then
-                return true
-            end
-            previous = point
-        end
-        return false
-    end
-
-    local function getLaunchTime(origin, delta, velocity, ceiling)
-        local low, up = 0.1, 15
-        for _ = 1, 40 do
-            local first, second = low + (up - low) / 3, up - (up - low) / 3
-            if getLaunchVelocity(delta, velocity, first).Magnitude < getLaunchVelocity(delta, velocity, second).Magnitude then
-                up = second
-            else
-                low = first
-            end
-        end
-        local middle = (low + up) / 2
-        return math.clamp(middle, 0.5, 5)
     end
 
     local function makeVisual(target, blockPosition)
@@ -14827,99 +14795,47 @@ run(function()
             raycastParams.FilterDescendantsInstances = {entitylib.character.Character, block}
         end
 
-        if TrajectoryMode.Value == 'Straight' then
-            local camera = Workspace.CurrentCamera
-            if not camera then return end
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
 
-            local lookVector = camera.CFrame.LookVector
-            local startPos = block.Position + Vector3.new(0, 2.5, 0) + (lookVector * 3)
-            local maxDist = 160
-            local hitPos = startPos + (lookVector * maxDist)
+        local lookVector = camera.CFrame.LookVector
+        -- Flatter look vector clamp to prevent looking straight up into the sky
+        local flatDirection = Vector3.new(lookVector.X, math.clamp(lookVector.Y, -0.2, 0.4), lookVector.Z).Unit
+        local startPos = block.Position + Vector3.new(0, 2.5, 0) + (flatDirection * 3)
+        local maxDist = 160
+        local hitPos = startPos + (flatDirection * maxDist)
 
-            local ray = Workspace:Raycast(startPos, lookVector * maxDist, raycastParams)
-            if ray then
-                hitPos = ray.Position
-            end
-
-            if trajectoryBeam and not trajectoryBeam:IsA("Beam") then
-                trajectoryBeam:Destroy()
-                trajectoryBeam = nil
-            end
-
-            if not trajectoryBeam then
-                attach0 = Instance.new("Attachment", Workspace.Terrain)
-                attach1 = Instance.new("Attachment", Workspace.Terrain)
-
-                trajectoryBeam = Instance.new("Beam")
-                trajectoryBeam.Attachment0 = attach0
-                trajectoryBeam.Attachment1 = attach1
-                trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
-                trajectoryBeam.Width0 = 0.35
-                trajectoryBeam.Width1 = 0.35
-                trajectoryBeam.Transparency = NumberSequence.new(0.1)
-                trajectoryBeam.FaceCamera = true
-                trajectoryBeam.AlwaysOnTop = true
-                trajectoryBeam.Parent = Workspace.Terrain
-            end
-
-            attach0.WorldPosition = startPos
-            attach1.WorldPosition = hitPos
-
-            landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
-            landingMarker.Visible = true
-        else
-            local gravity = Workspace.Gravity
-            local t = 0
-            local dt = 0.03
-            local currentPos = origin
-            local hitPos = origin
-            local trajectoryPoints = {}
-
-            for _ = 1, 150 do
-                t = t + dt
-                local nextPos = origin + (velocity * t) + Vector3.new(0, -0.5 * gravity * (t ^ 2), 0)
-                local ray = Workspace:Raycast(currentPos, nextPos - currentPos, raycastParams)
-
-                if ray then
-                    hitPos = ray.Position
-                    break
-                end
-                table.insert(trajectoryPoints, nextPos)
-                currentPos = nextPos
-            end
-
-            if trajectoryBeam and trajectoryBeam.Parent then
-                trajectoryBeam:Destroy()
-            end
-
-            trajectoryBeam = Instance.new("Folder")
-            trajectoryBeam.Name = "TrajectoryArc"
-            trajectoryBeam.Parent = Workspace.Terrain
-
-            for i = 1, #trajectoryPoints - 1 do
-                local p1 = trajectoryPoints[i]
-                local p2 = trajectoryPoints[i + 1]
-
-                local a1 = Instance.new("Attachment", trajectoryBeam)
-                a1.WorldPosition = p1
-
-                local a2 = Instance.new("Attachment", trajectoryBeam)
-                a2.WorldPosition = p2
-
-                local beam = Instance.new("Beam")
-                beam.Attachment0 = a1
-                beam.Attachment1 = a2
-                beam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
-                beam.Width0 = 0.4
-                beam.Width1 = 0.4
-                beam.Transparency = NumberSequence.new(0.1)
-                beam.FaceCamera = true
-                beam.Parent = trajectoryBeam
-            end
-
-            landingMarker.Position = hitPos + Vector3.new(0, 2, 0)
-            landingMarker.Visible = true
+        local ray = Workspace:Raycast(startPos, flatDirection * maxDist, raycastParams)
+        if ray then
+            hitPos = ray.Position
         end
+
+        if trajectoryBeam and not trajectoryBeam:IsA("Beam") then
+            trajectoryBeam:Destroy()
+            trajectoryBeam = nil
+        end
+
+        if not trajectoryBeam then
+            attach0 = Instance.new("Attachment", Workspace.Terrain)
+            attach1 = Instance.new("Attachment", Workspace.Terrain)
+
+            trajectoryBeam = Instance.new("Beam")
+            trajectoryBeam.Attachment0 = attach0
+            trajectoryBeam.Attachment1 = attach1
+            trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
+            trajectoryBeam.Width0 = 0.35
+            trajectoryBeam.Width1 = 0.35
+            trajectoryBeam.Transparency = NumberSequence.new(0.1)
+            trajectoryBeam.FaceCamera = true
+            trajectoryBeam.AlwaysOnTop = true
+            trajectoryBeam.Parent = Workspace.Terrain
+        end
+
+        attach0.WorldPosition = startPos
+        attach1.WorldPosition = hitPos
+
+        landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
+        landingMarker.Visible = true
     end
 
     local function canBreak()
@@ -14960,25 +14876,21 @@ run(function()
                             local cannon = getCannon()
                             if not cannon then return end
 
-                            local mouseRay = cloneref(lplr:GetMouse()).UnitRay
-                            local origin = PositionMode.Value == 'Camera' and gameCamera.CFrame.Position or mouseRay.Origin
-                            local direction = PositionMode.Value == 'Camera' and gameCamera.CFrame.LookVector or mouseRay.Direction
+                            local camera = Workspace.CurrentCamera
+                            if not camera then return end
                             
+                            -- Completely flat/clamped aiming direction to stop it from aiming high up
+                            local lookVector = camera.CFrame.LookVector
+                            local clampedDirection = Vector3.new(lookVector.X, math.clamp(lookVector.Y, -0.2, 0.4), lookVector.Z).Unit
+
+                            local origin = block.Position + Vector3.new(0, 2.5, 0)
                             rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, cannon}
-                            local ray = Workspace:Raycast(origin, direction * 10000, rayCheck)
-                            if not ray then return end
+                            local ray = Workspace:Raycast(origin, clampedDirection * 100, rayCheck)
+                            local target = ray and ray.Position or (origin + clampedDirection * 50)
 
-                            local localPosition = entitylib.character.RootPart.Position
-                            local target = ray.Position
-                            local velocity = entitylib.character.RootPart.AssemblyLinearVelocity
-                            local time = getLaunchTime(localPosition, target - localPosition, velocity, 300)
-                            if not time then return end
-
-                            local launchDirection = getLaunchVelocity(target - localPosition, velocity, time).Unit
-                            local blockPosition = bedwars.BlockController:getBlockPosition(cannon.Position)
-                            local visual = ShowTarget.Enabled and makeVisual(target, roundPos(ray.Position - ray.Normal * 1.5)) or nil
+                            local visual = ShowTarget.Enabled and makeVisual(target, target - Vector3.new(0, 1, 0)) or nil
                             if visual and visual:FindFirstChild("Tag") then
-                                visual.Tag.TextLabel.Text = string.format("Landing (%d studs)", math.floor((target - localPosition).Magnitude))
+                                visual.Tag.TextLabel.Text = string.format("Landing (%d studs)", math.floor((target - origin).Magnitude))
                             end
 
                             if AimMode.Value == 'Aim And Launch' then
@@ -14988,7 +14900,7 @@ run(function()
                                 end
                             end
 
-                            if not aimCannon(cannon, launchDirection) then
+                            if not aimCannon(cannon, clampedDirection) then
                                 if visual then visual:Destroy() end
                                 return
                             end
@@ -15015,24 +14927,10 @@ run(function()
                                 bedwars.CannonHandController:launchSelf(cannon)
                             end
 
-                            local landing = tick() + time
-                            local root
-                            repeat
-                                RunService.PreSimulation:Wait()
-                                root = entitylib.isAlive and entitylib.character.RootPart
-                                if root then
-                                    local remaining = landing - tick()
-                                    if remaining > 0.1 then
-                                        root.AssemblyLinearVelocity = getLaunchVelocity(target - root.Position, Vector3.zero, remaining)
-                                    end
-                                    if visual and visual:FindFirstChild("Tag") then
-                                        visual.Tag.TextLabel.Text = string.format("Landing (%d studs)", math.floor((target - root.Position).Magnitude))
-                                    end
-                                end
-                            until not root or tick() > landing
-
                             if visual then
-                                visual:Destroy()
+                                task.delay(2, function()
+                                    if visual then visual:Destroy() end
+                                end)
                             end
                         end)
                     end
@@ -15041,11 +14939,7 @@ run(function()
                         if aimConnection then aimConnection:Disconnect() end
                         aimConnection = RunService.RenderStepped:Connect(function()
                             if self.aiming and entitylib.isAlive then
-                                local lookVector = Workspace.CurrentCamera.CFrame.LookVector
-                                local angleHeight = math.max(-1.5, math.min(3, lookVector.Y * 8))
-                                local origin = block.Position + Vector3.new(0, 2.8 + angleHeight, 0)
-                                local launchVelocity = lookVector * 120
-                                updateTrajectory(origin, launchVelocity, block)
+                                updateTrajectory(block.Position, nil, block)
                             else
                                 clearTrajectoryVisuals()
                             end
@@ -15139,7 +15033,7 @@ run(function()
     TrajectoryMode = AutoDavey:CreateDropdown({
         Name = 'Trajectory Mode',
         List = {'Curve', 'Straight'},
-        Default = 'Curve',
+        Default = 'Straight',
         Tooltip = 'Choose between parabolic curve or straight laser line aiming'
     })
 
@@ -15154,7 +15048,7 @@ run(function()
 
     Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
     Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
-    Switch = AutoDuty and AutoDavey:CreateToggle({Name = 'Legit switch'}) or AutoDavey:CreateToggle({Name = 'Legit switch'})
+    Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
     LimitItem = AutoDavey:CreateToggle({
         Name = 'Limit to items',
         Tooltip = 'Only breaks when tools are held'
