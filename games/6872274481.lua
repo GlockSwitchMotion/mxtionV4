@@ -19480,7 +19480,6 @@ run(function()
     local UseStorm
     local Range
     local Delay
-    local WallCheck
     
     local function getAttackData()
         if Limit.Enabled then
@@ -19502,24 +19501,6 @@ run(function()
         return nil
     end
     
-    local function isVisible(origin, targetPart)
-        if not WallCheck.Enabled then return true end
-
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        local ignoreList = {entitylib.character.Character}
-        if targetPart and targetPart.Parent then
-            table.insert(ignoreList, targetPart.Parent)
-        end
-        raycastParams.FilterDescendantsInstances = ignoreList
-
-        local direction = targetPart.Position - origin
-        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
-
-        return raycastResult == nil
-    end
-
     local function canUseAbility(ability, itemType)
         if not bedwars.WizardUtil:hasAbility(itemType, ability) then return false end
         local controller = bedwars.WizardStaffController
@@ -19571,7 +19552,7 @@ run(function()
                                 Sort = sortmethods[TargetMode.Value]
                             })
     
-                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
+                            if ent and ent.RootPart then
                                 local distance = (localPosition - ent.RootPart.Position).Magnitude
                                 local target = ent.RootPart.Position + ((ent.Humanoid.MoveDirection or Vector3.zero) * (1 + lplr:GetNetworkPing()))
                                 
@@ -19626,11 +19607,6 @@ run(function()
     Limit = AutoZeno:CreateToggle({
         Name = 'Limit to item',
         Default = true
-    })
-    WallCheck = AutoZeno:CreateToggle({
-        Name = 'Wall Check',
-        Default = true,
-        Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
     UseStrike = AutoZeno:CreateToggle({
         Name = 'Use Lightning Strike',
