@@ -14863,44 +14863,35 @@ run(function()
         return true
     end
 
-    -- Hook into Network Handler & listen to CannonFired to block GroundHit
-    local activeCannonLaunch = false
+    -- Listen to CannonFired and spam GroundHit remote payload
     local function setupInterceptions()
         pcall(function()
-            local handler = bedwars.Handler
-            if handler and handler.Get then
-                local groundHitRemote = handler:Get('GroundHit')
-                if groundHitRemote and not groundHitRemote._hooked then
-                    groundHitRemote._hooked = true
-                    local oldFire = groundHitRemote.Fire
-                    groundHitRemote.Fire = function(self, method, ...)
-                        if activeCannonLaunch and NoFallToggle.Enabled then
-                            return -- Drop the ground hit packet entirely to avoid fall damage calculation
-                        end
-                        return oldFire(self, method, ...)
-                    end
-                end
-            end
-
             local cannonFiredEvent = ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.CannonFired
-            if cannonFiredEvent and not cannonFiredEvent._hooked then
+            local groundHitEvent = ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.GroundHit
+
+            if cannonFiredEvent and groundHitEvent and not cannonFiredEvent._hooked then
                 cannonFiredEvent._hooked = true
                 cannonFiredEvent.OnClientEvent:Connect(function(data)
-                    if type(data) == "table" and data.player == lplr then
-                        activeCannonLaunch = true
-
-                        -- Automatically reset after landing/timeout
+                    if type(data) == "table" and data.player == lplr and NoFallToggle.Enabled then
                         task.spawn(function()
                             local startTime = tick()
+                            -- Spam GroundHit payload during the cannon flight until landing or timeout
                             repeat
-                                task.wait(0.2)
+                                pcall(function()
+                                    groundHitEvent:FireServer(
+                                        nil,
+                                        Vector3.new(0, -46.452854156494, 0),
+                                        1787806783.1247
+                                    )
+                                end)
+                                task.wait(0.05)
+                                
                                 local root = entitylib.character and entitylib.character.RootPart
                                 if root and root.Velocity.Y > -5 then
-                                    task.wait(0.3)
+                                    task.wait(0.1)
                                     break
                                 end
-                            until tick() - startTime > 12 or not entitylib.isAlive
-                            activeCannonLaunch = false
+                            until tick() - startTime > 10 or not entitylib.isAlive
                         end)
                     end
                 end)
@@ -15029,7 +15020,6 @@ run(function()
                     return call
                 end
             else
-                activeCannonLaunch = false
                 clearTrajectoryVisuals()
                 if bedwars and bedwars.CannonHandController then
                     bedwars.CannonHandController.launchSelf = old
