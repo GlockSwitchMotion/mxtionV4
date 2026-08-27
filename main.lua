@@ -1,16 +1,21 @@
 local license = ... or {}
-repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
 -- AUTO UPDATE LOGIC
 local function getLatestCommit()
+	if shared.mxtion_checked then
+		return readfile("mxtionv4/profiles/commit.txt")
+	end
 	local suc, res = pcall(function()
 		return game:HttpGet("https://api.github.com/repos/GlockSwitchMotion/mxtionV4/commits/main")
 	end)
 	if suc and res then
 		local sha = res:match('"sha":"(.-)"')
-		if sha then return sha end
+		if sha then 
+			shared.mxtion_checked = true
+			return sha 
+		end
 	end
 	return "main"
 end
@@ -46,7 +51,10 @@ local function handleUpdates()
 		end
 	end
 end
-handleUpdates()
+
+if not shared.vapereload then
+	handleUpdates()
+end
 
 local vape
 local loadstring = function(...)
@@ -162,6 +170,9 @@ if hookmetamethod and not getgenv().run then
 end
 
 if not shared.VapeIndependent then
+	if not game:IsLoaded() then
+		repeat task.wait() until game:IsLoaded()
+	end
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
 	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
 		local fileContent = readfile('mxtionv4/games/'..game.PlaceId..'.lua')
