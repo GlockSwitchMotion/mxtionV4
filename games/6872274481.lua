@@ -19276,8 +19276,7 @@ run(function()
 
     local lastPlaced = 0
 
-    -- Standard Vape target settings window integration (matches your screenshot)
-    local targetSetting = AutoConqueror and AutoConqueror.CreateTargetWindow and AutoConqueror:CreateTargetWindow({}) or {
+    local targetSetting = {
         Players = true,
         Mobs = true,
         Walls = false,
@@ -19297,18 +19296,14 @@ run(function()
                 local allowed = (isPlayer and targetSetting.Players) or (not isPlayer and targetSetting.Mobs)
 
                 if allowed then
-                    if targetSetting.Invisible and v.TargetInvisible then
-                        -- skip invisible if toggled
-                    else
-                        local dist = (v.RootPart.Position - rootPos).Magnitude
-                        if dist <= shortestDist then
-                            if targetSetting.Walls then
-                                local ray = Workspace:Raycast(rootPos, v.RootPart.Position - rootPos, RaycastParams.new({FilterType = Enum.RaycastFilterType.Exclude, IgnoreWater = true}))
-                                if ray then continue end
-                            end
-                            shortestDist = dist
-                            chosenTarget = v.RootPart.Position
+                    local dist = (v.RootPart.Position - rootPos).Magnitude
+                    if dist <= shortestDist then
+                        if targetSetting.Walls then
+                            local ray = Workspace:Raycast(rootPos, v.RootPart.Position - rootPos, RaycastParams.new())
+                            if ray then continue end
                         end
+                        shortestDist = dist
+                        chosenTarget = v.RootPart.Position
                     end
                 end
             end
@@ -19317,23 +19312,27 @@ run(function()
         return chosenTarget
     end
 
-    local function getEquippedOrInventoryBanner()
+    local function getSelectedBannerInfo()
         local selected = BannerType.Value
-        local targetName = "heal_banner"
+        local blockName = "heal_banner"
         
-        if selected == "Banner - Heal" then targetName = "heal_banner"
-        elseif selected == "Banner - Damage" or selected == "Fire" then targetName = "damage_banner"
-        elseif selected == "Banner - Defense" then targetName = "defense_banner" end
-
-        -- Check if already held / equipped
-        if store.hand.tool and store.hand.tool.Name:lower():find(targetName:sub(1, 4)) then
-            return targetName
+        if selected == "Banner - Heal" then 
+            blockName = "heal_banner"
+        elseif selected == "Banner - Damage" or selected == "Fire" then 
+            blockName = "damage_banner"
+        elseif selected == "Banner - Defense" then 
+            blockName = "defense_banner" 
         end
 
-        -- Look into inventory and auto-equip if found
+        -- Check hotbar/hand first
+        if store.hand.tool and store.hand.tool.Name:lower() == blockName then
+            return blockName
+        end
+
+        -- Look through inventory and auto-equip slot if configured
         if store.inventory and store.inventory.inventory and store.inventory.inventory.items then
             for slot, item in pairs(store.inventory.inventory.items) do
-                if item and item.itemType and item.itemType:lower():find(targetName:sub(1, 4)) then
+                if item and item.itemType and item.itemType == blockName then
                     if LegitSwitch.Enabled then
                         task.spawn(function()
                             if bedwars.ClientHandlerStore then
@@ -19345,30 +19344,43 @@ run(function()
                             task.wait(SwitchDelay.Value)
                         end)
                     end
-                    return item.itemType
+                    return blockName
                 end
             end
         end
 
-        return targetName
+        return blockName
     end
 
     local function placeBanner(targetPos)
         if not PlaceBlockEvent then return end
         if tick() - lastPlaced < Cooldown.Value then return end
 
-        local blockName = getEquippedOrInventoryBanner()
-        local placementPos = Vector3.new(
+        local blockName = getSelectedBannerInfo()
+        
+        -- Calculate precise floor positions based on your remote capture structure
+        local placePos = Vector3.new(
             math.floor(targetPos.X + 0.5),
             math.floor(targetPos.Y + 0.5),
             math.floor(targetPos.Z + 0.5)
         )
+        local blockRefPos = Vector3.new(placePos.X, placePos.Y - 1, placePos.Z)
 
         pcall(function()
             PlaceBlockEvent:InvokeServer({
+                position = placePos,
                 blockType = blockName,
-                position = placementPos,
-                blockData = 0
+                blockData = 0,
+                mouseBlockInfo = {
+                    target = {
+                        blockRef = {
+                            blockPosition = blockRefPos
+                        },
+                        hitPosition = targetPos,
+                        hitNormal = Vector3.new(0, 1, 0)
+                    },
+                    placementPosition = placePos
+                }
             })
             lastPlaced = tick()
         end)
@@ -19393,10 +19405,9 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically equips and places tactical banners near targets.'
+        Tooltip = 'Automatically equips and places tactical banners near targets using exact server remotes.'
     })
 
-    -- Replaces the dropdown text menu with the standard Vape target settings popup window element matching your UI image
     if AutoConqueror.CreateTargetWindow then
         targetSetting = AutoConqueror:CreateTargetWindow({})
     end
