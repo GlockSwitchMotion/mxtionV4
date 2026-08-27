@@ -14862,61 +14862,40 @@ run(function()
         return true
     end
 
-    -- Strict Cannon-Only Anti-Fall Logic
+    -- Direct State-Interception Anti-Fall for Cannon
     local function handleCannonNoFall()
         if not NoFallToggle.Enabled then return end
 
         task.spawn(function()
             local groundHit = bedwars.Handler:Get('GroundHit')
+            local character = entitylib.character and entitylib.character.Character
+            if not character then return end
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            if not humanoid or not rootPart then return end
+
+            local reachedPeak = false
             local connection
-            local startTime = tick()
-            local maxFallVelocity = 0
-            local launchedFromCannon = false
+            local stateConnection
 
-            -- Give a brief window to confirm cannon state initialization
-            task.wait(0.1)
-            if entitylib.isAlive and entitylib.character.RootPart then
-                -- Checking if high initial downward/outward velocity indicates the cannon launch event
-                launchedFromCannon = true
-            end
-
-            if not launchedFromCannon then return end
-
-            connection = RunService.PostSimulation:Connect(function()
-                if not entitylib.isAlive or not NoFallToggle.Enabled then
-                    if connection then connection:Disconnect() end
-                    return
-                end
-
-                local root = entitylib.character.RootPart
-                if not root then return end
-                local velo = root.Velocity
-
-                if velo.Y < maxFallVelocity then
-                    maxFallVelocity = velo.Y
-                end
-
-                -- Only trigger if we fell hard from the cannon launch and are now touching/nearing ground level
-                if maxFallVelocity < -30 and velo.Y > -10 then
-                    root.Velocity = Vector3.new(0, 2.5, 0)
-                    if entitylib.character.Humanoid then
-                        entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
-                    end
-                    
+            stateConnection = humanoid.StateChanged:Connect(function(oldState, newState)
+                if newState == Enum.HumanoidStateType.Freefall then
+                    reachedPeak = true
+                elseif reachedPeak and (newState == Enum.HumanoidStateType.Running or newState == Enum.HumanoidStateType.Landed) then
+                    -- Spoof safe landing payload instantly upon ground impact
                     if groundHit then
                         pcall(function()
-                            groundHit:Fire('SendToServer', nil, Vector3.new(0, maxFallVelocity, 0), workspace:GetServerTimeNow())
+                            groundHit:Fire('SendToServer', nil, Vector3.new(0, -50, 0), workspace:GetServerTimeNow())
                         end)
                     end
-
-                    if connection then connection:Disconnect() end
-                    return
-                end
-
-                -- Safety cleanup timeout after 10 seconds
-                if tick() - startTime > 10 then
+                    if stateConnection then stateConnection:Disconnect() end
                     if connection then connection:Disconnect() end
                 end
+            end)
+
+            -- Fallback safety timer in case state changes lag
+            connection = task.delay(12, function()
+                if stateConnection then stateConnection:Disconnect() end
             end)
         end)
     end
