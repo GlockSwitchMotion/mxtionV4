@@ -19284,29 +19284,14 @@ run(function()
         local chosenTarget = nil
         local shortestDist = Range.Value
 
-        if TargetMode.Value:find("Players") then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    local hrp = player.Character.HumanoidRootPart
-                    local dist = (hrp.Position - rootPos).Magnitude
+        if TargetMode.Value ~= 'Ignore none' then
+            -- Match standard targeting pattern used across other modules
+            for _, v in pairs(entitylib.entityList) do
+                if v.Alive and (TargetMode.Value:find("Players") and v.Player or TargetMode.Value:find("NPCs") and not v.Player) then
+                    local dist = (v.RootPart.Position - rootPos).Magnitude
                     if dist <= shortestDist then
                         shortestDist = dist
-                        chosenTarget = hrp.Position
-                    end
-                end
-            end
-        end
-
-        if TargetMode.Value:find("NPCs") and workspace:FindFirstChild("Living") then
-            for _, npc in ipairs(workspace.Living:GetChildren()) do
-                if npc ~= lplr.Character and npc:FindFirstChild("HumanoidRootPart") and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
-                    if not Players:GetPlayerFromCharacter(npc) then
-                        local hrp = npc.HumanoidRootPart
-                        local dist = (hrp.Position - rootPos).Magnitude
-                        if dist <= shortestDist then
-                            shortestDist = dist
-                            chosenTarget = hrp.Position
-                        end
+                        chosenTarget = v.RootPart.Position
                     end
                 end
             end
@@ -19315,18 +19300,37 @@ run(function()
         return chosenTarget
     end
 
+    local function getEquippedOrInventoryBanner()
+        local selected = BannerType.Value
+        if selected == "Auto Detect" then
+            if store.hand.tool then
+                local name = store.hand.tool.Name:lower()
+                if name:find("heal") then return "heal_banner" end
+                if name:find("fire") or name:find("damage") then return "damage_banner" end
+                if name:find("defense") then return "defense_banner" end
+            end
+            for _, item in pairs(store.inventory.inventory.items or {}) do
+                local name = item.itemType:lower()
+                if name:find("banner") then
+                    return item.itemType
+                end
+            end
+            return "heal_banner"
+        elseif selected == "Banner - Heal" then
+            return "heal_banner"
+        elseif selected == "Fire" or selected == "Banner - Damage" then
+            return "damage_banner"
+        elseif selected == "Defense" or selected == "Banner - Defense" then
+            return "defense_banner"
+        end
+        return "heal_banner"
+    end
+
     local function placeBanner(targetPos)
         if not PlaceBlockEvent then return end
         if tick() - lastPlaced < Cooldown.Value then return end
 
-        local blockName = "heal_banner"
-        local bannerVal = BannerType.Value
-        if bannerVal == "Fire" or bannerVal == "Banner - Damage" then
-            blockName = "damage_banner"
-        elseif bannerVal == "Defense" or bannerVal == "Banner - Defense" then
-            blockName = "defense_banner"
-        end
-
+        local blockName = getEquippedOrInventoryBanner()
         local placementPos = Vector3.new(
             math.floor(targetPos.X + 0.5),
             math.floor(targetPos.Y + 0.5),
@@ -19371,10 +19375,10 @@ run(function()
         Default = 'Players, NPCs'
     })
 
-    BannerType = AutoConqueror:CreateDropdown({
+    BannerType = AutoConqueror::CreateDropdown({
         Name = 'Banner',
-        List = {'Banner - Heal', 'Fire', 'Defense'},
-        Default = 'Banner - Heal'
+        List = {'Auto Detect', 'Banner - Heal', 'Fire', 'Defense'},
+        Default = 'Auto Detect'
     })
 
     PlaceOn = AutoConqueror:CreateDropdown({
