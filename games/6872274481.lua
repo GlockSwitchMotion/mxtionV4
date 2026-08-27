@@ -19295,26 +19295,27 @@ run(function()
         return raycastResult == nil
     end
 
-    local function sendPlaceRemote(targetPos)
+    local function sendPlaceRemote()
         if not PlaceBlockEvent then
             print("[AutoConqueror] Error: PlaceBlockEvent not found!")
             return
         end
         if tick() - lastPlaced < Cooldown.Value then return end
+        if not entitylib.isAlive or not entitylib.character.RootPart then return end
 
         local selectedBanner = BannerType.Value
+        local currentPos = entitylib.character.RootPart.Position
         
-        -- Align coordinates to block grid based on your captured remotes
+        -- Align coordinates to block grid directly at your current standing position
         local placePos = Vector3.new(
-            math.floor(targetPos.X + 0.5),
-            math.floor(targetPos.Y + 0.5),
-            math.floor(targetPos.Z + 0.5)
+            math.floor(currentPos.X + 0.5),
+            math.floor(currentPos.Y + 0.5),
+            math.floor(currentPos.Z + 0.5)
         )
         local blockRefPos = Vector3.new(placePos.X, placePos.Y - 1, placePos.Z)
 
         local remotePayload = nil
 
-        -- Construct the exact raw remote payload matching the specific banner selected
         if selectedBanner == "Damage" then
             remotePayload = {
                 position = placePos,
@@ -19325,7 +19326,7 @@ run(function()
                         blockRef = {
                             blockPosition = blockRefPos
                         },
-                        hitPosition = targetPos,
+                        hitPosition = currentPos,
                         hitNormal = Vector3.yAxis
                     },
                     placementPosition = placePos
@@ -19341,7 +19342,7 @@ run(function()
                         blockRef = {
                             blockPosition = blockRefPos
                         },
-                        hitPosition = targetPos,
+                        hitPosition = currentPos,
                         hitNormal = Vector3.yAxis
                     },
                     placementPosition = placePos
@@ -19357,7 +19358,7 @@ run(function()
                         blockRef = {
                             blockPosition = blockRefPos
                         },
-                        hitPosition = targetPos,
+                        hitPosition = currentPos,
                         hitNormal = Vector3.yAxis
                     },
                     placementPosition = placePos
@@ -19366,7 +19367,7 @@ run(function()
         end
 
         if remotePayload then
-            print("[AutoConqueror] Firing Remote for Banner: " .. selectedBanner .. " at position: " .. tostring(placePos))
+            print("[AutoConqueror] Firing Remote for Banner: " + selectedBanner + " at player position: " + tostring(placePos))
             pcall(function()
                 PlaceBlockEvent:InvokeServer(remotePayload)
                 lastPlaced = tick()
@@ -19393,13 +19394,11 @@ run(function()
                             })
 
                             if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
-                                local targetPos = ent.RootPart.Position
-
                                 if PlaceMode.Value == "On near" then
-                                    sendPlaceRemote(targetPos)
+                                    sendPlaceRemote()
                                 elseif PlaceMode.Value == "On attack" then
                                     if ent.Humanoid and ent.Humanoid.Health < (ent.MaxHealth or ent.Humanoid.MaxHealth) then
-                                        sendPlaceRemote(targetPos)
+                                        sendPlaceRemote()
                                     end
                                 end
                             end
@@ -19409,7 +19408,7 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places selected tactical banners near targets.'
+        Tooltip = 'Automatically places selected tactical banners at your location when targets are detected.'
     })
 
     Targets = AutoConqueror:CreateTargets({
