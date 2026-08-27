@@ -19270,7 +19270,6 @@ run(function()
     local Players = game:GetService("Players")
     local lplr = Players.LocalPlayer
 
-    -- Reliable remote path for PlaceBlock
     local PlaceBlockEvent = ReplicatedStorage:WaitForChild("rbxts_include", 99)
         and ReplicatedStorage.rbxts_include:WaitForChild("node_modules", 99)
         and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
@@ -19298,63 +19297,37 @@ run(function()
     local function sendPlaceRemote()
         if not PlaceBlockEvent then
             print("[AutoConqueror] Error: PlaceBlockEvent not found!")
-            return
+            return false
         end
-        if tick() - lastPlaced < Cooldown.Value then return end
-        if not entitylib.isAlive or not entitylib.character.RootPart then return end
+        if tick() - lastPlaced < Cooldown.Value then return false end
+        if not entitylib.isAlive or not entitylib.character.RootPart then return false end
 
         local selectedBanner = BannerType.Value
         local currentPos = entitylib.character.RootPart.Position
         
-        -- Place banner beside player (offset by 3 studs on X axis)
         local placePos = Vector3.new(
             math.floor(currentPos.X + 3.5),
             math.floor(currentPos.Y + 0.5),
             math.floor(currentPos.Z + 0.5)
         )
         local blockRefPos = Vector3.new(placePos.X, placePos.Y - 1, placePos.Z)
-        
-        -- hitPosition uses the actual block coordinates (important for server validation)
-        local hitPos = Vector3.new(placePos.X * 16.5, placePos.Y * 16.5, placePos.Z * 16.5)
+        local hitPos = Vector3.new(currentPos.X, currentPos.Y + 0.5, currentPos.Z)
 
         local remotePayload = nil
+        local blockType = nil
 
         if selectedBanner == "Damage" then
-            remotePayload = {
-                position = placePos,
-                blockType = "damage_banner",
-                blockData = 0,
-                mouseBlockInfo = {
-                    target = {
-                        blockRef = {
-                            blockPosition = blockRefPos
-                        },
-                        hitPosition = hitPos,
-                        hitNormal = Vector3.new(0, 1, 0)
-                    },
-                    placementPosition = placePos
-                }
-            }
+            blockType = "damage_banner"
         elseif selectedBanner == "Defense" then
-            remotePayload = {
-                position = placePos,
-                blockType = "defense_banner",
-                blockData = 0,
-                mouseBlockInfo = {
-                    target = {
-                        blockRef = {
-                            blockPosition = blockRefPos
-                        },
-                        hitPosition = hitPos,
-                        hitNormal = Vector3.new(0, 1, 0)
-                    },
-                    placementPosition = placePos
-                }
-            }
+            blockType = "defense_banner"
         elseif selectedBanner == "Heal" then
+            blockType = "heal_banner"
+        end
+
+        if blockType then
             remotePayload = {
                 position = placePos,
-                blockType = "heal_banner",
+                blockType = blockType,
                 blockData = 0,
                 mouseBlockInfo = {
                     target = {
@@ -19370,12 +19343,14 @@ run(function()
         end
 
         if remotePayload then
-            print("[AutoConqueror] Firing Remote for Banner: " .. selectedBanner .. " at position: " .. tostring(placePos))
+            print("[AutoConqueror] Placing " .. selectedBanner .. " at " .. tostring(placePos))
             pcall(function()
                 PlaceBlockEvent:InvokeServer(remotePayload)
                 lastPlaced = tick()
             end)
+            return true
         end
+        return false
     end
 
     AutoConqueror = vape.Categories.Kits:CreateModule({
@@ -19384,7 +19359,7 @@ run(function()
             if callback then
                 task.spawn(function()
                     repeat
-                        if entitylib.isAlive then
+                        if entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
                             local localPosition = entitylib.character.RootPart.Position
 
                             local ent = entitylib.EntityPosition({
@@ -19396,13 +19371,20 @@ run(function()
                                 Sort = sortmethods[TargetMode.Value]
                             })
 
-                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
+                            if ent and ent.RootPart then
+                                local canPlace = false
+                                
                                 if PlaceMode.Value == "On near" then
-                                    sendPlaceRemote()
+                                    canPlace = isVisible(localPosition, ent.RootPart)
                                 elseif PlaceMode.Value == "On attack" then
-                                    if ent.Humanoid and ent.Humanoid.Health < (ent.MaxHealth or ent.Humanoid.MaxHealth) then
-                                        sendPlaceRemote()
+                                    if ent.Humanoid then
+                                        local maxHealth = ent.MaxHealth or ent.Humanoid.MaxHealth or 100
+                                        canPlace = (ent.Humanoid.Health < maxHealth) and isVisible(localPosition, ent.RootPart)
                                     end
+                                end
+                                
+                                if canPlace then
+                                    sendPlaceRemote()
                                 end
                             end
                         end
@@ -19416,7 +19398,7 @@ run(function()
 
     Targets = AutoConqueror:CreateTargets({
         Players = true,
-        NPCs = false,
+        NPCs = true,
     })
 
     local methods = {'Damage', 'Distance'}
@@ -19446,7 +19428,7 @@ run(function()
 
     WallCheck = AutoConqueror:CreateToggle({
         Name = 'Wall Check',
-        Default = true,
+        Default = false,
         Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
 
@@ -19464,12 +19446,12 @@ run(function()
     Cooldown = AutoConqueror:CreateSlider({
         Name = 'Cooldown',
         Min = 0,
-        Max = 30,
-        Default = 0,
+        Max = 5,
+        Default = 0.5,
         Suffix = function(val)
             return val > 1 and 'secs' or 'sec'
         end,
-        Decimal = 5
+        Decimal = 1
     })
 end)
 
