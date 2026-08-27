@@ -1,4 +1,5 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local run = function(func)
 	xpcall(func, warn)
 end
@@ -17694,7 +17695,7 @@ end)
 run(function()
     local AutoNyx
     local Targets
-   
+    
     AutoNyx = vape.Categories.Kits:CreateModule({
         Name = 'AutoNyx',
         Function = function(call)
@@ -17706,22 +17707,12 @@ run(function()
                         Players = Targets.Players.Enabled,
                         NPCs = Targets.NPCs.Enabled
                     }) and bedwars.AbilityController:canUseAbility('midnight', {disableBlockedAbilityAlert = true}) then
-                        
-                        -- Get the damaged entity and check its health
-                        local damagedEntity = damageTable.toEntity
-                        if damagedEntity then
-                            local health = bedwars.EntityController:getEntityHealth(damagedEntity)
-                            
-                            -- Only trigger if health is 65 or above
-                            if health and health >= 65 then
-                                bedwars.AbilityController:useAbility('midnight')
-                            end
-                        end
+                        bedwars.AbilityController:useAbility('midnight')
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically uses the "midnight" ability when meleeing a target with 65+ health'
+        Tooltip = 'Automatically uses the "midnight" ability when meleeing a target'
     })
     Targets = AutoNyx:CreateTargets({
         Players = true,
