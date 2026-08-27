@@ -4026,7 +4026,7 @@ run(function()
 		Max = 100,
 		Default = 0,
 		Suffix = '%',
-		Tooltip = 'change how much damage it should do to you'
+		Tooltip = 'Change how much damage you take'
 	})
 	
 end)
@@ -16009,7 +16009,8 @@ run(function()
     local Range
     local HealthTrigger
     local Delay
-    local Targets
+    
+    local Legit = getFunctionRange(bedwars.GrimReaperController.registerSoulInteractions) or 0
     
     AutoGrim = vape.Categories.Kits:CreateModule({
         Name = 'AutoGrimReaper',
@@ -16029,8 +16030,7 @@ run(function()
                                 local isChanneling = lplr.Character:GetAttribute('GrimReaperChannel')
                                 local delayPassed = (Delay.Value <= 0 or tick() - cooldown >= Delay.Value)
 
-                                -- Only trigger if health is AT OR ABOVE the threshold
-                                if healthPercent >= HealthTrigger.Value and not isChanneling and delayPassed then
+                                if healthPercent <= HealthTrigger.Value and not isChanneling and delayPassed then
                                     local localPosition = entitylib.character.RootPart.Position
                                     local souls = bedwars.GrimReaperController.soulsByPosition
                                     
@@ -16040,12 +16040,9 @@ run(function()
                                                 local secret = v:GetAttribute('GrimReaperSoulSecret')
                                                 if secret then
                                                     pcall(function()
-                                                        local args = {
-                                                            [1] = {
-                                                                ["secret"] = secret
-                                                            }
-                                                        }
-                                                        game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("ConsumeGrimReaperSoul"):InvokeServer(unpack(args))
+                                                        bedwars.Handler:Get('ConsumeGrimReaperSoul'):Fire('CallServer', {
+                                                            secret = secret
+                                                        })
                                                     end)
                                                     cooldown = tick()
                                                     break
@@ -16061,7 +16058,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically consumes nearby souls when your health is at or above the slider threshold'
+        Tooltip = 'Automatically consumes nearby souls when your health drops below a specified threshold'
     })
 
     Range = AutoGrim:CreateSlider({
@@ -16082,7 +16079,14 @@ run(function()
         Suffix = function(val)
             return '%'
         end,
-        Tooltip = 'Health percentage threshold to trigger soul consumption - ability activates when health is AT OR ABOVE this value'
+        Tooltip = 'Health percentage threshold to trigger soul consumption'
+    })
+
+    AutoGrim:CreateButton({
+        Name = 'Sync to legit range',
+        Function = function()
+            Range:SetValue(Legit)
+        end
     })
 
     Delay = AutoGrim:CreateSlider({
@@ -16895,77 +16899,165 @@ run(function()
     local AutoSkoll
     local Targets
     local RangeSlider
-    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-    
-    local markedTarget = nil
-    
+    local DetonateRangeSlider
+    local WallCheckToggle
+
     AutoSkoll = vape.Categories.Kits:CreateModule({
         Name = 'AutoSkoll',
-        Function = function(call)
-            if call then
-                -- Track when we use the initial mark ability
-                AutoSkoll:Clean(remotes.useAbility.OnClientEvent:Connect(function(abilityName)
-                    -- If needed, track server confirmations here
-                end))
+        Function = function(callback)
+            if callback then
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 
-                -- Main check loop for range tracking and detonate
-                AutoSkoll:Clean(task.spawn(function()
-                    while task.wait(0.1) do
-                        if AutoSkoll.Enabled then
-                            -- Check if we have a marked target or need to check entities in range
-                            local currentRange = RangeSlider.Value
+                local netManaged = ReplicatedStorage:FindFirstChild("rbxts_include") 
+                    and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules") 
+                    and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts") 
+                    and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net 
+                    and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out 
+                    and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged
+
+                if not netManaged then
+                    warn("[AutoSkoll Debug] NetManaged folder missing!")
+                    return
+                end
+
+                local markRequestEvent = netManaged:FindFirstChild("VoidHunter_MarkAbilityRequest")
+                local markUsedEvent = netManaged:FindFirstChild("VoidHunter_MarkAbilityUsed")
+                local detonateEvent = netManaged:FindFirstChild("VoidHunter_TargetDetonated")
+
+                if not markRequestEvent or not markUsedEvent or not detonateEvent then
+                    warn("[AutoSkoll Debug] VoidHunter remotes missing!")
+                    return
+                end
+
+                local activeMarkedTarget = nil
+                local lastFireTick = 0
+
+                AutoSkoll:Clean(runService.Heartbeat:Connect(function()
+                    if not entitylib.isAlive or not entitylib.character.RootPart then return end
+                    
+                    local myRoot = entitylib.character.RootPart
+                    local maxRange = RangeSlider.Value
+                    local detonateDistance = DetonateRangeSlider.Value
+
+                    -- Find best target
+                    local closestTarget = nil
+                    local closestDist = maxRange + 1
+
+                    for _, ent in ipairs(entitylib.List) do
+                        if ent and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
+                            local isPlayer = ent.Player ~= nil
+                            local isNpc = not isPlayer
                             
-                            -- If we want to automatically mark targets in range
-                            if not markedTarget then
-                                local target = entitylib.GetClosestEntity({
-                                    Range = currentRange,
-                                    Part = 'RootPart',
-                                    Players = Targets.Players.Enabled,
-                                    NPCs = Targets.NPCs.Enabled
-                                })
-                                
-                                if target then
-                                    markedTarget = target
-                                    remotes:WaitForChild("useAbility"):FireServer({"void_hunter_mark"})
-                                end
-                            else
-                                -- If we already have a target, check if they walked out of range
-                                local isStillInRange = false
-                                if markedTarget.Character and markedTarget.Character:FindFirstChild("HumanoidRootPart") and lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") then
-                                    local dist = (markedTarget.Character.HumanoidRootPart.Position - lplr.Character.HumanoidRootPart.Position).Magnitude
-                                    if dist <= currentRange then
-                                        isStillInRange = true
+                            if (isPlayer and Targets.Players.Enabled) or (isNpc and Targets.NPCs.Enabled) then
+                                local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
+                                if dist <= maxRange and dist < closestDist then
+                                    if WallCheckToggle.Enabled then
+                                        local rayParams = RaycastParams.new()
+                                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                                        rayParams.FilterDescendantsInstances = {lplr.Character, ent.Character}
+                                        local ray = workspace:Raycast(myRoot.Position, ent.RootPart.Position - myRoot.Position, rayParams)
+                                        if not ray then
+                                            closestDist = dist
+                                            closestTarget = ent
+                                        end
+                                    else
+                                        closestDist = dist
+                                        closestTarget = ent
                                     end
-                                end
-                                
-                                -- Trigger detonate if they got out of range or died/left
-                                if not isStillInRange or not markedTarget.Character or markedTarget.Character:FindFirstChildOfClass("Humanoid").Health <= 0 then
-                                    remotes:WaitForChild("useAbility"):FireServer({"void_hunter_detonate"})
-                                    markedTarget = nil
                                 end
                             end
                         end
                     end
+
+                    -- Auto Detonate logic
+                    if activeMarkedTarget then
+                        local targetValid = false
+                        if activeMarkedTarget.RootPart and activeMarkedTarget.Humanoid and activeMarkedTarget.Humanoid.Health > 0 then
+                            local currentDist = (activeMarkedTarget.RootPart.Position - myRoot.Position).Magnitude
+                            if currentDist > detonateDistance then
+                                targetValid = true
+                            end
+                        else
+                            targetValid = true
+                        end
+
+                        if targetValid then
+                            print("[AutoSkoll Debug] Detonating target!")
+                            pcall(function()
+                                detonateEvent:FireServer({
+                                    targetEntityInstance = activeMarkedTarget.Character or activeMarkedTarget.RootPart,
+                                    userPlayer = lplr
+                                })
+                            end)
+                            activeMarkedTarget = nil
+                        end
+                    end
+
+                    -- Auto Mark / Use Ability (with 1.5s internal cooldown)
+                    if closestTarget and not activeMarkedTarget and (tick() - lastFireTick > 1.5) then
+                        lastFireTick = tick()
+                        activeMarkedTarget = closestTarget
+                        local originPos = myRoot.Position
+                        local targetPart = closestTarget.RootPart
+                        local dir = (targetPart.Position - originPos).Unit
+                        local targetInst = closestTarget.Character or targetPart
+                        local generatedUuid = HttpService and HttpService:GenerateGUID(false) or "uuid_skoll_" .. math.random(1000,9999)
+
+                        print("[AutoSkoll Debug] Firing Mark Request & Used events at target:", closestTarget.Name)
+
+                        -- 1. Fire the Request remote first (matching your new screenshot)
+                        pcall(function()
+                            markRequestEvent:FireServer({
+                                originPosition = originPos,
+                                direction = dir
+                            })
+                        end)
+
+                        -- 2. Fire the MarkAbilityUsed event right after
+                        pcall(function()
+                            markUsedEvent:FireServer({
+                                uuid = generatedUuid,
+                                userPlayer = lplr,
+                                direction = dir,
+                                startTime = workspace:GetServerTimeNow(),
+                                targetEntityInstance = targetInst,
+                                originPosition = originPos
+                            })
+                        end)
+                    end
                 end))
-            else
-                markedTarget = nil
             end
         end,
-        Tooltip = 'Automatically marks targets in range and detonates when they move out of range'
+        Tooltip = 'Automatically uses VoidHunter mark ability on targets in range and detonates when they leave range.'
     })
-    
+
     Targets = AutoSkoll:CreateTargets({
         Players = true,
         NPCs = false
     })
-    
+
     RangeSlider = AutoSkoll:CreateSlider({
         Name = 'Range',
         Min = 5,
-        Max = 30,
-        Default = 15,
-        Step = 1,
-        Tooltip = 'Distance threshold for marking and detonating'
+        Max = 100,
+        Default = 40,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
+        Tooltip = 'Maximum range to trigger the ability on a target'
+    })
+
+    DetonateRangeSlider = AutoSkoll:CreateSlider({
+        Name = 'Auto Detonate Range',
+        Min = 5,
+        Max = 120,
+        Default = 60,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
+        Tooltip = 'Distance at which the marked target triggers an automatic detonation'
+    })
+
+    WallCheckToggle = AutoSkoll:CreateToggle({
+        Name = 'Wall Check',
+        Default = true,
+        Tooltip = 'Prevents targeting players behind walls'
     })
 end)
 
@@ -17692,31 +17784,31 @@ run(function()
 end)
 
 run(function()
-    local AutoNyx
-    local Targets
-    
-    AutoNyx = vape.Categories.Kits:CreateModule({
-        Name = 'AutoNyx',
-        Function = function(call)
-            if call then
-                AutoNyx:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    if damageTable.damageType == 0 and damageTable.fromEntity and damageTable.fromEntity.Name == lplr.Name and entitylib.EntityPosition({
-                        Range = 14.4,
-                        Part = 'RootPart',
-                        Players = Targets.Players.Enabled,
-                        NPCs = Targets.NPCs.Enabled
-                    }) and bedwars.AbilityController:canUseAbility('midnight', {disableBlockedAbilityAlert = true}) then
-                        bedwars.AbilityController:useAbility('midnight')
-                    end
-                end))
-            end
-        end,
-        Tooltip = 'Automatically uses the "midnight" ability when meleeing a target'
-    })
-    Targets = AutoNyx:CreateTargets({
-        Players = true,
-        NPCs = false
-    })
+	local AutoNyx
+	local Targets
+	
+	AutoNyx = vape.Categories.Kits:CreateModule({
+		Name = 'AutoNyx',
+		Function = function(call)
+			if call then
+				AutoNyx:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+					if damageTable.damageType == 0 and damageTable.fromEntity and damageTable.fromEntity.Name == lplr.Name and entitylib.EntityPosition({
+						Range = 14.4,
+						Part = 'RootPart',
+						Players = Targets.Players.Enabled,
+						NPCs = Targets.NPCs.Enabled
+					}) and bedwars.AbilityController:canUseAbility('midnight', {disableBlockedAbilityAlert = true}) then
+						bedwars.AbilityController:useAbility('midnight')
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Automatically uses the "midnight" ability when meleeing a target'
+	})
+	Targets = AutoNyx:CreateTargets({
+		Players = true,
+		NPCs = false
+	})
 end)
 
 run(function()
@@ -17789,91 +17881,88 @@ run(function()
 end)
 
 run(function()
-    local AutoRamil
-    local Range
-    local Sorts
-    local Targets
-    local TornadoMode
-    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-    
-    AutoRamil = vape.Categories.Kits:CreateModule({
-        Name = 'AutoRamil',
-        Function = function(callback)
-            if callback then
-                repeat
-                    if entitylib.isAlive then
-                        local localPosition = entitylib.character.RootPart.Position
-                        local ent = entitylib.EntityPosition({
-                            Origin = localPosition,
-                            Range = Range.Value,
-                            Wallcheck = Targets.Walls.Enabled,
-                            Players = Targets.Players.Enabled,
-                            NPCs = Targets.NPCs.Enabled,
-                            Sort = sortmethods[Sorts.Value]
-                        })
-                        
-                        if ent then
-                            local mag = (localPosition - ent.RootPart.Position).Magnitude
-                            
-                            if mag <= Range.Value then
-                                local mode = TornadoMode.Value
-                                local useAbilityRemote = remotes:FindFirstChild("useAbility")
-                                
-                                if useAbilityRemote then
-                                    if mode == 'Normal Tornado' then
-                                        useAbilityRemote:FireServer("airbender_tornado")
-                                    elseif mode == 'Moving Tornado' then
-                                        useAbilityRemote:FireServer("airbender_moving_tornado")
-                                    elseif mode == 'Double Spawn' then
-                                        useAbilityRemote:FireServer("airbender_tornado")
-                                        task.wait(0.05) -- Small delay between spawns
-                                        useAbilityRemote:FireServer("airbender_moving_tornado")
-                                    end
-                                end
-                            end
-                        end
-                    end
-                    task.wait(0.1)
-                until not AutoRamil.Enabled
-            end
-        end,
-        Tooltip = 'Automatically fires Airbender tornado remotes when targets are within range.'
-    })
-    
-    Targets = AutoRamil:CreateTargets({
-        Players = true,
-        NPCs = false
-    })
-    
-    local methods = {'Damage', 'Distance'}
-    for i in sortmethods do
-        if not table.find(methods, i) then
-            table.insert(methods, i)
-        end
-    end
-    
-    Sorts = AutoRamil:CreateDropdown({
-        Name = 'Target Mode',
-        List = methods,
-        Default = 'Distance'
-    })
-    
-    Range = AutoRamil:CreateSlider({
-        Name = 'Range',
-        Min = 1,
-        Max = 35,
-        Default = 25,
-        Suffix = function(val)
-            return val >= 1 and 'studs' or 'stud'
-        end
-    })
-    
-    TornadoMode = AutoRamil:CreateDropdown({
-        Name = 'Tornado Mode',
-        List = {'Normal Tornado', 'Moving Tornado', 'Double Spawn'},
-        Default = 'Normal Tornado',
-        Tooltip = 'Choose which tornado ability remote to fire'
-    })
+	local AutoRamil
+	local Range
+	local Sorts
+	local Targets
+	local UseTornado
+	local TornadoRange
+	
+	AutoRamil = vape.Categories.Kits:CreateModule({
+		Name = 'AutoRamil',
+		Function = function(callback)
+			if callback then
+				repeat
+					if entitylib.isAlive and store.equippedKit == 'airbender' then
+						local localPosition = entitylib.character.RootPart.Position
+						local ent = entitylib.EntityPosition({
+							Origin = localPosition,
+							Range = UseTornado.Enabled and TornadoRange.Value > Range.Value and TornadoRange.Value or Range.Value,
+							Wallcheck = Targets.Walls.Enabled,
+							Players = Targets.Players.Enabled,
+							NPCs = Targets.NPCs.Enabled,
+							Sort = sortmethods[Sorts.Value]
+						})
+						local mag = ent and (localPosition - ent.RootPart.Position).Magnitude or math.huge
+	
+						if mag <= Range.Value and bedwars.AbilityController:canUseAbility('airbender_tornado', {disableBlockedAbilityAlert = true}) then
+							bedwars.AbilityController:useAbility('airbender_tornado')
+						end
+	
+						if UseTornado.Enabled and mag <= TornadoRange.Value and bedwars.AbilityController:canUseAbility('airbender_moving_tornado', {disableBlockedAbilityAlert = true}) then
+							bedwars.AbilityController:useAbility('airbender_moving_tornado')
+						end
+					end
+					task.wait()
+				until not AutoRamil.Enabled
+			end
+		end,
+		Tooltip = 'Automatically use ramil abilities on certain conditions.'
+	})
+	Targets = AutoRamil:CreateTargets({
+		Players = true,
+		NPCs = false
+	})
+	local methods = {'Damage', 'Distance'}
+	for i in sortmethods do
+		if not table.find(methods, i) then
+			table.insert(methods, i)
+		end
+	end
+	
+	Sorts = AutoRamil:CreateDropdown({
+		Name = 'Target Mode',
+		List = methods,
+		Default = 'Distance'
+	})
+	Range = AutoRamil:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 25,
+		Default = 25,
+		Suffix = function(val)
+			return val >= 1 and 'studs' or 'stud'
+		end
+	})
+	UseTornado = AutoRamil:CreateToggle({
+		Name = 'Use Moving Tornado',
+		Function = function(call)
+			if TornadoRange then
+				TornadoRange.Object.Visible = call
+			end
+		end
+	})
+	TornadoRange = AutoRamil:CreateSlider({
+		Name = 'Tornado Range',
+		Min = 1,
+		Max = 35,
+		Default = 25,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val >= 1 and 'studs' or 'stud'
+		end
+	})
 end)
 
 run(function()
@@ -19219,133 +19308,165 @@ end)
 
 run(function()
     local AutoConqueror
-    local Range
-    local BannerMode
-    local SpawnMode
-    local Cooldown
     local Targets
-    local lastBannerTime = 0
-    
+    local TargetMode
+    local BannerType
+    local Range
+    local Cooldown
+    local WallCheck
+
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local lplr = Players.LocalPlayer
+
+    -- Direct Cobalt-extracted remote path
+    local PlaceBlockEvent = ReplicatedStorage:WaitForChild("rbxts_include", 99)
+        and ReplicatedStorage.rbxts_include:WaitForChild("node_modules", 99)
+        and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
+
+    local lastPlaced = 0
+
+    local function isVisible(origin, targetPart)
+        if not WallCheck.Enabled then return true end
+
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        
+        local ignoreList = {entitylib.character.Character}
+        if targetPart and targetPart.Parent then
+            table.insert(ignoreList, targetPart.Parent)
+        end
+        raycastParams.FilterDescendantsInstances = ignoreList
+
+        local direction = targetPart.Position - origin
+        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+
+        return raycastResult == nil
+    end
+
+    local function sendBannerRemote(blockName, targetPos)
+        if not PlaceBlockEvent then return end
+        
+        -- Align coordinates to block grid directly at your standing position or near target position
+        local placePos = Vector3.new(
+            math.floor(targetPos.X + 0.5),
+            math.floor(targetPos.Y + 0.5),
+            math.floor(targetPos.Z + 0.5)
+        )
+
+        pcall(function()
+            PlaceBlockEvent:InvokeServer({
+                blockType = blockName,
+                position = placePos,
+                blockData = 0
+            })
+        end)
+    end
+
+    local function triggerBanners(targetPos)
+        if tick() - lastPlaced < Cooldown.Value then return end
+        
+        local selected = BannerType.Value
+
+        if selected == "Heal" then
+            sendBannerRemote("heal_banner", targetPos)
+        elseif selected == "Defense" then
+            sendBannerRemote("defense_banner", targetPos)
+        elseif selected == "Fire" then
+            sendBannerRemote("damage_banner", targetPos)
+        elseif selected == "All" then
+            sendBannerRemote("heal_banner", targetPos)
+            task.wait(0.05)
+            sendBannerRemote("defense_banner", targetPos)
+            task.wait(0.05)
+            sendBannerRemote("damage_banner", targetPos)
+        end
+
+        lastPlaced = tick()
+    end
+
     AutoConqueror = vape.Categories.Kits:CreateModule({
         Name = 'AutoConqueror',
         Function = function(callback)
             if callback then
-                AutoConqueror:Clean(task.spawn(function()
+                task.spawn(function()
                     repeat
-                        if entitylib.isAlive and lplr.Character then
-                            local localPosition = lplr.Character.RootPart.Position
-                            local mode = SpawnMode.Value
-                            local currentTime = tick()
-                            
-                            if mode == 'On Near' then
-                                -- Detect enemies within range
-                                local ent = entitylib.EntityPosition({
-                                    Origin = localPosition,
-                                    Range = Range.Value,
-                                    Players = Targets.Players.Enabled,
-                                    NPCs = Targets.NPCs.Enabled
-                                })
-                                
-                                if ent and (currentTime - lastBannerTime) >= Cooldown.Value then
-                                    spawnBanner(localPosition, BannerMode.Value)
-                                    lastBannerTime = currentTime
-                                end
+                        if entitylib.isAlive then
+                            local localPosition = entitylib.character.RootPart.Position
+
+                            local ent = entitylib.EntityPosition({
+                                Origin = localPosition,
+                                Range = Range.Value,
+                                Part = 'RootPart',
+                                Players = Targets.Players.Enabled,
+                                NPCs = Targets.NPCs.Enabled,
+                                Sort = sortmethods[TargetMode.Value]
+                            })
+
+                            -- Fires strictly "On near" when a valid target is detected within range & line of sight
+                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
+                                triggerBanners(localPosition)
                             end
                         end
-                        task.wait(0.1)
+                        task.wait(0.2)
                     until not AutoConqueror.Enabled
-                end))
-                
-                -- Listen for damage events for "On Attack" mode
-                AutoConqueror:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    if SpawnMode.Value == 'On Attack' then
-                        if damageTable.damageType == 0 and damageTable.fromEntity and damageTable.fromEntity.Name == lplr.Name then
-                            local currentTime = tick()
-                            if (currentTime - lastBannerTime) >= Cooldown.Value then
-                                local localPosition = lplr.Character.RootPart.Position
-                                spawnBanner(localPosition, BannerMode.Value)
-                                lastBannerTime = currentTime
-                            end
-                        end
-                    end
-                end))
+                end)
             end
         end,
-        Tooltip = 'Automatically spawns banners based on spawn mode and banner type'
+        Tooltip = 'Automatically places selected banners at your location when targets are near.'
     })
-    
+
     Targets = AutoConqueror:CreateTargets({
         Players = true,
-        NPCs = false
+        NPCs = false,
     })
-    
-    BannerMode = AutoConqueror:CreateDropdown({
+
+    local methods = {'Damage', 'Distance'}
+    for i in sortmethods do
+        if not table.find(methods, i) then
+            table.insert(methods, i)
+        end
+    end
+
+    TargetMode = AutoConqueror:CreateDropdown({
+        Name = 'Target Mode',
+        List = methods,
+        Default = 'Distance'
+    })
+
+    BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner Mode',
-        List = {'Damage', 'Defence', 'Heal'},
-        Default = 'Damage',
-        Tooltip = 'Choose which banner type to spawn'
+        List = {'Heal', 'Defense', 'Fire', 'All'},
+        Default = 'Heal'
     })
-    
-    SpawnMode = AutoConqueror:CreateDropdown({
-        Name = 'Spawn Mode',
-        List = {'On Near', 'On Attack'},
-        Default = 'On Near',
-        Tooltip = 'On Near: Spawn when enemies are in range | On Attack: Spawn when attacking'
+
+    WallCheck = AutoConqueror:CreateToggle({
+        Name = 'Wall Check',
+        Default = true,
+        Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
-    
+
     Range = AutoConqueror:CreateSlider({
         Name = 'Range',
         Min = 5,
         Max = 50,
-        Default = 25,
+        Default = 30,
         Suffix = function(val)
-            return val <= 1 and 'stud' or 'studs'
+            return val > 1 and 'studs' or 'stud'
         end,
-        Tooltip = 'Detection range for "On Near" mode'
+        Decimal = 5
     })
-    
+
     Cooldown = AutoConqueror:CreateSlider({
         Name = 'Cooldown',
         Min = 0,
         Max = 30,
         Default = 1,
-        Decimal = 10,
-        Suffix = 'seconds',
-        Tooltip = 'Wait time between banner spawns'
+        Suffix = function(val)
+            return val > 1 and 'secs' or 'sec'
+        end,
+        Decimal = 5
     })
-    
-    function spawnBanner(spawnPosition, bannerType)
-        local blockType = ''
-        if bannerType == 'Damage' then
-            blockType = 'damage_banner'
-        elseif bannerType == 'Defence' then
-            blockType = 'defense_banner'
-        elseif bannerType == 'Heal' then
-            blockType = 'heal_banner'
-        end
-        
-        -- Offset position slightly to spawn beside player
-        local offsetPosition = spawnPosition + Vector3.new(3, 0, 0)
-        
-        pcall(function()
-            local Event = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
-            Event:InvokeServer({
-                position = offsetPosition,
-                blockType = blockType,
-                blockData = 0,
-                mouseBlockInfo = {
-                    target = {
-                        blockRef = {
-                            blockPosition = offsetPosition - Vector3.new(0, 1, 0)
-                        },
-                        hitPosition = offsetPosition,
-                        hitNormal = Vector3.new(0, 1, 0)
-                    },
-                    placementPosition = offsetPosition
-                }
-            })
-        end)
-    end
 end)
 
 run(function()
