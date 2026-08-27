@@ -14661,6 +14661,7 @@ run(function()
     local RunService = game:GetService("RunService")
     local Workspace = game:GetService("Workspace")
     local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local lplr = Players.LocalPlayer
 
     local old, oldAim
@@ -14862,9 +14863,9 @@ run(function()
         return true
     end
 
-    -- Hook into the Network Handler to intercept and drop/block GroundHit when launched from Davey's cannon
+    -- Hook into Network Handler & listen to CannonFired to block GroundHit
     local activeCannonLaunch = false
-    local function setupNetworkInterception()
+    local function setupInterceptions()
         pcall(function()
             local handler = bedwars.Handler
             if handler and handler.Get then
@@ -14874,12 +14875,35 @@ run(function()
                     local oldFire = groundHitRemote.Fire
                     groundHitRemote.Fire = function(self, method, ...)
                         if activeCannonLaunch and NoFallToggle.Enabled then
-                            -- Completely drop/bypass sending the ground hit packet during cannon flight/landing
-                            return
+                            return -- Drop the ground hit packet entirely to avoid fall damage calculation
                         end
                         return oldFire(self, method, ...)
                     end
                 end
+            end
+
+            local cannonFiredEvent = ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.CannonFired
+            if cannonFiredEvent and not cannonFiredEvent._hooked then
+                cannonFiredEvent._hooked = true
+                cannonFiredEvent.OnClientEvent:Connect(function(data)
+                    if type(data) == "table" and data.player == lplr then
+                        activeCannonLaunch = true
+
+                        -- Automatically reset after landing/timeout
+                        task.spawn(function()
+                            local startTime = tick()
+                            repeat
+                                task.wait(0.2)
+                                local root = entitylib.character and entitylib.character.RootPart
+                                if root and root.Velocity.Y > -5 then
+                                    task.wait(0.3)
+                                    break
+                                end
+                            until tick() - startTime > 12 or not entitylib.isAlive
+                            activeCannonLaunch = false
+                        end)
+                    end
+                end)
             end
         end)
     end
@@ -14888,7 +14912,7 @@ run(function()
         Name = 'AutoDavey',
         Function = function(callback)
             if callback then
-                setupNetworkInterception()
+                setupInterceptions()
 
                 oldAim = bedwars.CannonController.startAiming
                 bedwars.CannonController.startAiming = function(self, block, ...)
@@ -14984,25 +15008,7 @@ run(function()
                 old = bedwars.CannonHandController.launchSelf
                 bedwars.CannonHandController.launchSelf = function(self, block, ...)
                     clearTrajectoryVisuals()
-                    
-                    -- Mark that we are using the cannon launch to bypass GroundHit packet transmission
-                    activeCannonLaunch = true
-
                     local call = old(self, block, ...)
-
-                    -- Automatically re-enable normal ground hits after landing/timeout
-                    task.spawn(function()
-                        local startTime = tick()
-                        repeat
-                            task.wait(0.2)
-                            local root = entitylib.character and entitylib.character.RootPart
-                            if root and root.Velocity.Y > -5 then
-                                task.wait(0.3) -- extra buffer on touch down
-                                break
-                            end
-                        until tick() - startTime > 12 or not entitylib.isAlive
-                        activeCannonLaunch = false
-                    end)
 
                     if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
                         task.spawn(function()
