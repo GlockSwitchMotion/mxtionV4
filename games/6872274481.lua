@@ -19258,7 +19258,6 @@ end)
 
 run(function()
     local AutoConqueror
-    local TargetMode
     local BannerType
     local PlaceOn
     local Range
@@ -19277,6 +19276,14 @@ run(function()
 
     local lastPlaced = 0
 
+    -- Standard Vape target settings window integration (matches your screenshot)
+    local targetSetting = AutoConqueror and AutoConqueror.CreateTargetWindow and AutoConqueror:CreateTargetWindow({}) or {
+        Players = true,
+        Mobs = true,
+        Walls = false,
+        Invisible = false
+    }
+
     local function getTargetPosition()
         if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
         local rootPos = entitylib.character.RootPart.Position
@@ -19284,16 +19291,21 @@ run(function()
         local chosenTarget = nil
         local shortestDist = Range.Value
 
-        if TargetMode.Value ~= 'Ignore none' then
-            for _, v in pairs(entitylib.entityList) do
-                if v.Alive and v.RootPart then
-                    local isPlayer = v.Player ~= nil
-                    local targetPlayers = TargetMode.Value:find("Players") ~= nil
-                    local targetNPCs = TargetMode.Value:find("NPCs") ~= nil
+        for _, v in pairs(entitylib.entityList) do
+            if v.Alive and v.RootPart then
+                local isPlayer = v.Player ~= nil
+                local allowed = (isPlayer and targetSetting.Players) or (not isPlayer and targetSetting.Mobs)
 
-                    if (isPlayer and targetPlayers) or (not isPlayer and targetNPCs) then
+                if allowed then
+                    if targetSetting.Invisible and v.TargetInvisible then
+                        -- skip invisible if toggled
+                    else
                         local dist = (v.RootPart.Position - rootPos).Magnitude
                         if dist <= shortestDist then
+                            if targetSetting.Walls then
+                                local ray = Workspace:Raycast(rootPos, v.RootPart.Position - rootPos, RaycastParams.new({FilterType = Enum.RaycastFilterType.Exclude, IgnoreWater = true}))
+                                if ray then continue end
+                            end
                             shortestDist = dist
                             chosenTarget = v.RootPart.Position
                         end
@@ -19307,32 +19319,38 @@ run(function()
 
     local function getEquippedOrInventoryBanner()
         local selected = BannerType.Value
-        if selected == "Auto Detect" then
-            if store.hand.tool then
-                local name = store.hand.tool.Name:lower()
-                if name:find("heal") then return "heal_banner" end
-                if name:find("fire") or name:find("damage") then return "damage_banner" end
-                if name:find("defense") then return "defense_banner" end
-            end
-            if store.inventory and store.inventory.inventory and store.inventory.inventory.items then
-                for _, item in pairs(store.inventory.inventory.items) do
-                    if item and item.itemType then
-                        local name = item.itemType:lower()
-                        if name:find("banner") then
-                            return item.itemType
-                        end
+        local targetName = "heal_banner"
+        
+        if selected == "Banner - Heal" then targetName = "heal_banner"
+        elseif selected == "Banner - Damage" or selected == "Fire" then targetName = "damage_banner"
+        elseif selected == "Banner - Defense" then targetName = "defense_banner" end
+
+        -- Check if already held / equipped
+        if store.hand.tool and store.hand.tool.Name:lower():find(targetName:sub(1, 4)) then
+            return targetName
+        end
+
+        -- Look into inventory and auto-equip if found
+        if store.inventory and store.inventory.inventory and store.inventory.inventory.items then
+            for slot, item in pairs(store.inventory.inventory.items) do
+                if item and item.itemType and item.itemType:lower():find(targetName:sub(1, 4)) then
+                    if LegitSwitch.Enabled then
+                        task.spawn(function()
+                            if bedwars.ClientHandlerStore then
+                                bedwars.ClientHandlerStore:dispatch({
+                                    type = "InventorySelectHotbarSlot",
+                                    slot = slot
+                                })
+                            end
+                            task.wait(SwitchDelay.Value)
+                        end)
                     end
+                    return item.itemType
                 end
             end
-            return "heal_banner"
-        elseif selected == "Banner - Heal" then
-            return "heal_banner"
-        elseif selected == "Fire" or selected == "Banner - Damage" then
-            return "damage_banner"
-        elseif selected == "Defense" or selected == "Banner - Defense" then
-            return "defense_banner"
         end
-        return "heal_banner"
+
+        return targetName
     end
 
     local function placeBanner(targetPos)
@@ -19375,19 +19393,18 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places tactical banners near targets.'
+        Tooltip = 'Automatically equips and places tactical banners near targets.'
     })
 
-    TargetMode = AutoConqueror:CreateDropdown({
-        Name = 'Target',
-        List = {'Players, NPCs', 'Players', 'NPCs', 'Ignore none'},
-        Default = 'Players, NPCs'
-    })
+    -- Replaces the dropdown text menu with the standard Vape target settings popup window element matching your UI image
+    if AutoConqueror.CreateTargetWindow then
+        targetSetting = AutoConqueror:CreateTargetWindow({})
+    end
 
     BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner',
-        List = {'Auto Detect', 'Banner - Heal', 'Fire', 'Defense'},
-        Default = 'Auto Detect'
+        List = {'Banner - Heal', 'Banner - Damage', 'Banner - Defense'},
+        Default = 'Banner - Heal'
     })
 
     PlaceOn = AutoConqueror:CreateDropdown({
