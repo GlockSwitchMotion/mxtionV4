@@ -2951,9 +2951,9 @@ run(function()
 	CPS = TriggerBot:CreateTwoSlider({
 		Name = 'CPS',
 		Min = 1,
-		Max = 9,
-		DefaultMin = 7,
-		DefaultMax = 7
+		Max = 14,
+		DefaultMin = 11,
+		DefaultMax = 13,
 	})
 end)
 
@@ -19254,6 +19254,164 @@ run(function()
 		Default = 1,
 		Tooltip = 'Enemies in range before roaring'
 	})
+end)
+
+run(function()
+    local AutoConqueror
+    local TargetMode
+    local BannerType
+    local PlaceOn
+    local Range
+    local Cooldown
+    local LegitSwitch
+    local SwitchDelay
+
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local lplr = Players.LocalPlayer
+
+    -- Easy-games block placement remote path
+    local PlaceBlockEvent = ReplicatedStorage:FindFirstChild("rbxts_include") 
+        and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules") 
+        and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
+
+    local lastPlaced = 0
+
+    local function getTargetPosition()
+        if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
+        local rootPos = entitylib.character.RootPart.Position
+        
+        local chosenTarget = nil
+        local shortestDist = Range.Value
+
+        if TargetMode.Value:find("Players") then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= lplr and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = player.Character.HumanoidRootPart
+                    local dist = (hrp.Position - rootPos).Magnitude
+                    if dist <= shortestDist then
+                        shortestDist = dist
+                        chosenTarget = hrp.Position
+                    end
+                end
+            end
+        end
+
+        if TargetMode.Value:find("NPCs") and workspace:FindFirstChild("Living") then
+            for _, npc in ipairs(workspace.Living:GetChildren()) do
+                if npc ~= lplr.Character and npc:FindFirstChild("HumanoidRootPart") and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                    if not Players:GetPlayerFromCharacter(npc) then
+                        local hrp = npc.HumanoidRootPart
+                        local dist = (hrp.Position - rootPos).Magnitude
+                        if dist <= shortestDist then
+                            shortestDist = dist
+                            chosenTarget = hrp.Position
+                        end
+                    end
+                end
+            end
+        end
+
+        return chosenTarget
+    end
+
+    local function placeBanner(targetPos)
+        if not PlaceBlockEvent then return end
+        if tick() - lastPlaced < Cooldown.Value then return end
+
+        local blockName = "heal_banner"
+        local bannerVal = BannerType.Value
+        if bannerVal == "Fire" or bannerVal == "Banner - Damage" then
+            blockName = "damage_banner"
+        elseif bannerVal == "Defense" or bannerVal == "Banner - Defense" then
+            blockName = "defense_banner"
+        end
+
+        local placementPos = Vector3.new(
+            math.floor(targetPos.X + 0.5),
+            math.floor(targetPos.Y + 0.5),
+            math.floor(targetPos.Z + 0.5)
+        )
+
+        pcall(function()
+            PlaceBlockEvent:InvokeServer({
+                blockType = blockName,
+                position = placementPos,
+                blockData = 0
+            })
+            lastPlaced = tick()
+        end)
+    end
+
+    AutoConqueror = vape.Categories.Kits:CreateModule({
+        Name = 'AutoConqueror',
+        Function = function(callback)
+            if callback then
+                task.spawn(function()
+                    while AutoConqueror.Enabled do
+                        task.wait(0.2)
+                        if entitylib.isAlive then
+                            local targetPos = getTargetPosition()
+                            if targetPos then
+                                if PlaceOn.Value == 'On attack' or PlaceOn.Value == 'On near' then
+                                    placeBanner(targetPos)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end,
+        Tooltip = 'Automatically places tactical banners near targets.'
+    })
+
+    TargetMode = AutoConqueror:CreateDropdown({
+        Name = 'Target',
+        List = {'Players, NPCs', 'Players', 'NPCs', 'Ignore none'},
+        Default = 'Players, NPCs'
+    })
+
+    BannerType = AutoConqueror:CreateDropdown({
+        Name = 'Banner',
+        List = {'Banner - Heal', 'Fire', 'Defense'},
+        Default = 'Banner - Heal'
+    })
+
+    PlaceOn = AutoConqueror:CreateDropdown({
+        Name = 'Place on',
+        List = {'On near', 'On attack'},
+        Default = 'On near'
+    })
+
+    Range = AutoConqueror:CreateSlider({
+        Name = 'Range',
+        Min = 5,
+        Max = 50,
+        Default = 30,
+        Suffix = function(val) return val <= 1 and 'stud' or 'studs' end
+    })
+
+    Cooldown = AutoConqueror:CreateSlider({
+        Name = 'Cooldown',
+        Min = 0,
+        Max = 30,
+        Default = 15,
+        Suffix = function(val) return val <= 1 and 'second' or 'seconds' end
+    })
+
+    LegitSwitch = AutoConqueror:CreateToggle({
+        Name = 'Legit switch',
+        Default = false
+    })
+
+    SwitchDelay = AutoConqueror:CreateSlider({
+        Name = 'Switch delay',
+        Min = 0,
+        Max = 0.5,
+        Default = 0.08,
+        Decimal = 100,
+        Suffix = function(val) return 'seconds' end
+    })
 end)
 
 run(function()
