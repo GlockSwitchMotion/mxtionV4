@@ -19297,16 +19297,16 @@ run(function()
     local function sendPlaceRemote()
         if not PlaceBlockEvent then
             print("[AutoConqueror] Error: PlaceBlockEvent not found!")
-            return false
+            return
         end
-        if tick() - lastPlaced < Cooldown.Value then return false end
-        if not entitylib.isAlive or not entitylib.character.RootPart then return false end
+        if tick() - lastPlaced < Cooldown.Value then return end
+        if not entitylib.isAlive or not entitylib.character.RootPart then return end
 
         local selectedBanner = BannerType.Value
         local currentPos = entitylib.character.RootPart.Position
         
         local placePos = Vector3.new(
-            math.floor(currentPos.X + 3.5),
+            math.floor(currentPos.X + 2.5),
             math.floor(currentPos.Y + 0.5),
             math.floor(currentPos.Z + 0.5)
         )
@@ -19340,17 +19340,13 @@ run(function()
                     placementPosition = placePos
                 }
             }
-        end
 
-        if remotePayload then
             print("[AutoConqueror] Placing " .. selectedBanner .. " at " .. tostring(placePos))
             pcall(function()
                 PlaceBlockEvent:InvokeServer(remotePayload)
                 lastPlaced = tick()
             end)
-            return true
         end
-        return false
     end
 
     AutoConqueror = vape.Categories.Kits:CreateModule({
@@ -19360,31 +19356,59 @@ run(function()
                 task.spawn(function()
                     repeat
                         if entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
-                            local localPosition = entitylib.character.RootPart.Position
+                            local playerPos = entitylib.character.RootPart.Position
+                            local found = false
 
-                            local ent = entitylib.EntityPosition({
-                                Origin = localPosition,
-                                Range = Range.Value,
-                                Part = 'RootPart',
-                                Players = Targets.Players.Enabled,
-                                NPCs = Targets.NPCs.Enabled,
-                                Sort = sortmethods[TargetMode.Value]
-                            })
+                            -- Check for players
+                            if Targets.Players.Enabled then
+                                for _, player in pairs(Players:GetPlayers()) do
+                                    if player ~= lplr and player.Character and player.Character:FindFirstChild("RootPart") and player.Character:FindFirstChild("Humanoid") then
+                                        local targetRootPart = player.Character.RootPart
+                                        local targetHumanoid = player.Character.Humanoid
+                                        local distance = (playerPos - targetRootPart.Position).Magnitude
 
-                            if ent and ent.RootPart then
-                                local canPlace = false
-                                
-                                if PlaceMode.Value == "On near" then
-                                    canPlace = isVisible(localPosition, ent.RootPart)
-                                elseif PlaceMode.Value == "On attack" then
-                                    if ent.Humanoid then
-                                        local maxHealth = ent.MaxHealth or ent.Humanoid.MaxHealth or 100
-                                        canPlace = (ent.Humanoid.Health < maxHealth) and isVisible(localPosition, ent.RootPart)
+                                        if distance <= Range.Value and targetHumanoid.Health > 0 then
+                                            if isVisible(playerPos, targetRootPart) then
+                                                if PlaceMode.Value == "On near" then
+                                                    sendPlaceRemote()
+                                                    found = true
+                                                    break
+                                                elseif PlaceMode.Value == "On attack" and targetHumanoid.Health < targetHumanoid.MaxHealth then
+                                                    sendPlaceRemote()
+                                                    found = true
+                                                    break
+                                                end
+                                            end
+                                        end
                                     end
                                 end
-                                
-                                if canPlace then
-                                    sendPlaceRemote()
+                            end
+
+                            -- Check for NPCs if not found
+                            if not found and Targets.NPCs.Enabled then
+                                local npcFolder = workspace:FindFirstChild("NPCs")
+                                if npcFolder then
+                                    for _, npc in pairs(npcFolder:GetChildren()) do
+                                        if npc:FindFirstChild("RootPart") and npc:FindFirstChild("Humanoid") then
+                                            local targetRootPart = npc.RootPart
+                                            local targetHumanoid = npc.Humanoid
+                                            local distance = (playerPos - targetRootPart.Position).Magnitude
+
+                                            if distance <= Range.Value and targetHumanoid.Health > 0 then
+                                                if isVisible(playerPos, targetRootPart) then
+                                                    if PlaceMode.Value == "On near" then
+                                                        sendPlaceRemote()
+                                                        found = true
+                                                        break
+                                                    elseif PlaceMode.Value == "On attack" and targetHumanoid.Health < targetHumanoid.MaxHealth then
+                                                        sendPlaceRemote()
+                                                        found = true
+                                                        break
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
                                 end
                             end
                         end
@@ -19393,12 +19417,12 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places selected tactical banners beside you when targets are detected.'
+        Tooltip = 'Automatically places selected tactical banners at your location when targets are detected.'
     })
 
     Targets = AutoConqueror:CreateTargets({
         Players = true,
-        NPCs = true,
+        NPCs = false,
     })
 
     local methods = {'Damage', 'Distance'}
@@ -19428,7 +19452,7 @@ run(function()
 
     WallCheck = AutoConqueror:CreateToggle({
         Name = 'Wall Check',
-        Default = false,
+        Default = true,
         Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
 
@@ -19446,12 +19470,12 @@ run(function()
     Cooldown = AutoConqueror:CreateSlider({
         Name = 'Cooldown',
         Min = 0,
-        Max = 5,
-        Default = 0.5,
+        Max = 30,
+        Default = 0,
         Suffix = function(val)
             return val > 1 and 'secs' or 'sec'
         end,
-        Decimal = 1
+        Decimal = 5
     })
 end)
 
