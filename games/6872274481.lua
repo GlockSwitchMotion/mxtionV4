@@ -19258,10 +19258,13 @@ end)
 
 run(function()
     local AutoConqueror
+    local Targets
+    local TargetMode
     local BannerType
     local PlaceMode
     local Range
     local Cooldown
+    local WallCheck
 
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
@@ -19273,15 +19276,24 @@ run(function()
         and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
 
     local lastPlaced = 0
-    local lastAttackedEntity = nil
 
-    -- Standard Vape target window config (Players / Mobs + Team Check)
-    local targetSetting = AutoConqueror and AutoConqueror.CreateTargetWindow and AutoConqueror:CreateTargetWindow({}) or {
-        Players = true,
-        Mobs = true,
-        Walls = false,
-        Invisible = false
-    }
+    local function isVisible(origin, targetPart)
+        if not WallCheck.Enabled then return true end
+
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        
+        local ignoreList = {entitylib.character.Character}
+        if targetPart and targetPart.Parent then
+            table.insert(ignoreList, targetPart.Parent)
+        end
+        raycastParams.FilterDescendantsInstances = ignoreList
+
+        local direction = targetPart.Position - origin
+        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+
+        return raycastResult == nil
+    end
 
     local function getBlockType()
         local selected = BannerType.Value
@@ -19296,11 +19308,11 @@ run(function()
 
     local function sendPlaceRemote(targetPos)
         if not PlaceBlockEvent then return end
-        if tick() - lastPlaced < (Cooldown.Value or 15) then return end
+        if tick() - lastPlaced < Cooldown.Value then return end
 
         local blockName = getBlockType()
         
-        -- Generate placement coordinates and block reference positions based on your exact remote templates
+        -- Align coordinates to block grid based on your captured remotes
         local placePos = Vector3.new(
             math.floor(targetPos.X + 0.5),
             math.floor(targetPos.Y + 0.5),
@@ -19330,62 +19342,64 @@ run(function()
         end)
     end
 
-    local function checkAndPlace()
-        if not entitylib.isAlive or not entitylib.character.RootPart then return end
-        local rootPos = entitylib.character.RootPart.Position
-        local maxRange = Range.Value
-
-        for _, v in pairs(entitylib.entityList) do
-            if v.Alive and v.RootPart then
-                local isPlayer = v.Player ~= nil
-                
-                -- Team check: Skip if it's a player on our team
-                local isTeamMate = false
-                if isPlayer and v.Player.Team == lplr.Team then
-                    isTeamMate = true
-                end
-
-                if not isTeamMate then
-                    local allowed = (isPlayer and targetSetting.Players) or (not isPlayer and targetSetting.Mobs)
-                    if allowed then
-                        local dist = (v.RootPart.Position - rootPos).Magnitude
-                        if dist <= maxRange then
-                            if PlaceMode.Value == "On near" then
-                                sendPlaceRemote(v.RootPart.Position)
-                                return
-                            elseif PlaceMode.Value == "On attack" then
-                                -- Hook into attack detection (checks if entity health drops or target is actively being swung at)
-                                if v.Humanoid and v.Humanoid.Health < (v.MaxHealth or v.Humanoid.MaxHealth) then
-                                    sendPlaceRemote(v.RootPart.Position)
-                                    return
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
     AutoConqueror = vape.Categories.Kits:CreateModule({
         Name = 'AutoConqueror',
         Function = function(callback)
             if callback then
                 task.spawn(function()
-                    while AutoConqueror.Enabled do
+                    repeat
+                        if entitylib.isAlive then
+                            local localPosition = entitylib.character.RootPart.Position
+
+                            -- Standard entity scanning matching your reference template
+                            local ent = entitylib.EntityPosition({
+                                Origin = localPosition,
+                                Range = Range.Value,
+                                Part = 'RootPart',
+                                Players = Targets.Players.Enabled,
+                                NPCs = Targets.NPCs.Enabled,
+                                Sort = sortmethods[TargetMode.Value]
+                            })
+
+                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
+                                local targetPos = ent.RootPart.Position
+
+                                if PlaceMode.Value == "On near" then
+                                    sendPlaceRemote(targetPos)
+                                elseif PlaceMode.Value == "On attack" then
+                                    -- Triggers if target health decreases or if they are actively being attacked/targeted
+                                    if ent.Humanoid and ent.Humanoid.Health < (ent.MaxHealth or ent.Humanoid.MaxHealth) then
+                                        sendPlaceRemote(targetPos)
+                                    end
+                                end
+                            end
+                        end
                         task.wait(0.2)
-                        checkAndPlace()
-                    end
+                    until not AutoConqueror.Enabled
                 end)
             end
         end,
-        Tooltip = 'Automatically places tactical banners near targets using accurate block remotes.'
+        Tooltip = 'Automatically places tactical banners near targets.'
     })
 
-    -- UI Setup matching your requested options
-    if AutoConqueror.CreateTargetWindow then
-        targetSetting = AutoConqueror:CreateTargetWindow({})
+    -- Target selection UI elements matching your reference style
+    Targets = AutoConqueror:CreateTargets({
+        Players = true,
+        NPCs = false,
+    })
+
+    local methods = {'Damage', 'Distance'}
+    for i in sortmethods do
+        if not table.find(methods, i) then
+            table.insert(methods, i)
+        end
     end
+
+    TargetMode = AutoConqueror:CreateDropdown({
+        Name = 'Target Mode',
+        List = methods,
+        Default = 'Distance'
+    })
 
     BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner',
@@ -19399,12 +19413,21 @@ run(function()
         Default = 'On near'
     })
 
+    WallCheck = AutoConqueror:CreateToggle({
+        Name = 'Wall Check',
+        Default = true,
+        Tooltip = 'Ignores targets hidden behind blocks/walls.'
+    })
+
     Range = AutoConqueror:CreateSlider({
         Name = 'Range',
         Min = 5,
         Max = 50,
-        Default = 20,
-        Suffix = function(val) return val <= 1 and 'stud' or 'studs' end
+        Default = 30,
+        Suffix = function(val)
+            return val > 1 and 'studs' or 'stud'
+        end,
+        Decimal = 5
     })
 
     Cooldown = AutoConqueror:CreateSlider({
@@ -19412,7 +19435,10 @@ run(function()
         Min = 0,
         Max = 30,
         Default = 2,
-        Suffix = function(val) return val <= 1 and 'second' or 'seconds' end
+        Suffix = function(val)
+            return val > 1 and 'secs' or 'sec'
+        end,
+        Decimal = 5
     })
 end)
 
