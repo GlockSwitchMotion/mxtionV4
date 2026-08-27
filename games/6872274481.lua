@@ -19306,9 +19306,9 @@ run(function()
         local selectedBanner = BannerType.Value
         local currentPos = entitylib.character.RootPart.Position
         
-        -- Align coordinates to block grid directly at your current standing position
+        -- Place banner beside player (offset by 2 studs on X axis)
         local placePos = Vector3.new(
-            math.floor(currentPos.X + 0.5),
+            math.floor(currentPos.X + 2.5),
             math.floor(currentPos.Y + 0.5),
             math.floor(currentPos.Z + 0.5)
         )
@@ -19327,7 +19327,7 @@ run(function()
                             blockPosition = blockRefPos
                         },
                         hitPosition = currentPos,
-                        hitNormal = Vector3.yAxis
+                        hitNormal = Vector3.new(0, 1, 0)
                     },
                     placementPosition = placePos
                 }
@@ -19343,7 +19343,7 @@ run(function()
                             blockPosition = blockRefPos
                         },
                         hitPosition = currentPos,
-                        hitNormal = Vector3.yAxis
+                        hitNormal = Vector3.new(0, 1, 0)
                     },
                     placementPosition = placePos
                 }
@@ -19359,7 +19359,7 @@ run(function()
                             blockPosition = blockRefPos
                         },
                         hitPosition = currentPos,
-                        hitNormal = Vector3.yAxis
+                        hitNormal = Vector3.new(0, 1, 0)
                     },
                     placementPosition = placePos
                 }
@@ -19367,7 +19367,7 @@ run(function()
         end
 
         if remotePayload then
-            print("[AutoConqueror] Firing Remote for Banner: " + selectedBanner + " at player position: " + tostring(placePos))
+            print("[AutoConqueror] Firing Remote for Banner: " .. selectedBanner .. " at position: " .. tostring(placePos))
             pcall(function()
                 PlaceBlockEvent:InvokeServer(remotePayload)
                 lastPlaced = tick()
@@ -19408,7 +19408,7 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places selected tactical banners at your location when targets are detected.'
+        Tooltip = 'Automatically places selected tactical banners beside you when targets are detected.'
     })
 
     Targets = AutoConqueror:CreateTargets({
