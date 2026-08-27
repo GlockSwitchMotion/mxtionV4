@@ -17694,6 +17694,7 @@ run(function()
     local AutoNyx
     local Targets
     local HealthThreshold
+    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
     
     AutoNyx = vape.Categories.Kits:CreateModule({
         Name = 'AutoNyx',
@@ -17704,14 +17705,24 @@ run(function()
                         local targetEntity = damageTable.toEntity or damageTable.entity
                         if targetEntity and targetEntity.Character then
                             local humanoid = targetEntity.Character:FindFirstChildOfClass('Humanoid')
-                            if humanoid and humanoid.Health >= HealthThreshold.Value then
-                                if entitylib.EntityPosition({
-                                    Range = 14.4,
-                                    Part = 'RootPart',
-                                    Players = Targets.Players.Enabled,
-                                    NPCs = Targets.NPCs.Enabled
-                                }) and bedwars.AbilityController:canUseAbility('midnight', {disableBlockedAbilityAlert = true}) then
-                                    bedwars.AbilityController:useAbility('midnight')
+                            if humanoid then
+                                local currentHealth = humanoid.Health
+                                local maxHealth = humanoid.MaxHealth
+                                local healthPercent = maxHealth > 0 and (currentHealth / maxHealth) * 100 or currentHealth
+                                
+                                -- Triggers only when enemy health is >= 75 AND ignores when below 50
+                                if healthPercent >= 75 and currentHealth >= 50 then
+                                    if entitylib.EntityPosition({
+                                        Range = 14.4,
+                                        Part = 'RootPart',
+                                        Players = Targets.Players.Enabled,
+                                        NPCs = Targets.NPCs.Enabled
+                                    }) then
+                                        local args = {
+                                            [1] = "midnight"
+                                        }
+                                        remotes:WaitForChild("useAbility"):FireServer(unpack(args))
+                                    end
                                 end
                             end
                         end
@@ -17719,7 +17730,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically uses the "midnight" ability when meleeing a target with health above threshold'
+        Tooltip = 'Automatically uses the "midnight" ability when meleeing a target matching the health constraints'
     })
     
     Targets = AutoNyx:CreateTargets({
@@ -17728,12 +17739,12 @@ run(function()
     })
     
     HealthThreshold = AutoNyx:CreateSlider({
-        Name = 'Min Health',
-        Min = 0,
+        Name = 'Min Health %',
+        Min = 50,
         Max = 100,
         Default = 75,
         Step = 1,
-        Tooltip = 'Only triggers if enemy health is at or above this value'
+        Tooltip = 'Only triggers if enemy health percent is at or above this value, ignores below 50'
     })
 end)
 
@@ -17819,7 +17830,7 @@ run(function()
         Function = function(callback)
             if callback then
                 repeat
-                    if entitylib.isAlive and store.equippedKit == 'airbender' then
+                    if entitylib.isAlive then
                         local localPosition = entitylib.character.RootPart.Position
                         local ent = entitylib.EntityPosition({
                             Origin = localPosition,
@@ -17834,28 +17845,32 @@ run(function()
                         if mag <= Range.Value then
                             local mode = TornadoMode.Value
                             if mode == 'Normal Tornado' then
-                                if bedwars.AbilityController:canUseAbility('airbender_tornado', {disableBlockedAbilityAlert = true}) then
-                                    remotes:WaitForChild("useAbility"):FireServer({"airbender_tornado"})
-                                end
+                                local args = {
+                                    [1] = "airbender_tornado"
+                                }
+                                remotes:WaitForChild("useAbility"):FireServer(unpack(args))
                             elseif mode == 'Moving Tornado' then
-                                if bedwars.AbilityController:canUseAbility('airbender_moving_tornado', {disableBlockedAbilityAlert = true}) then
-                                    remotes:WaitForChild("useAbility"):FireServer({"airbender_moving_tornado"})
-                                end
+                                local args = {
+                                    [1] = "airbender_moving_tornado"
+                                }
+                                remotes:WaitForChild("useAbility"):FireServer(unpack(args))
                             elseif mode == 'Double Spawn' then
-                                local can1 = bedwars.AbilityController:canUseAbility('airbender_tornado', {disableBlockedAbilityAlert = true})
-                                local can2 = bedwars.AbilityController:canUseAbility('airbender_moving_tornado', {disableBlockedAbilityAlert = true})
-                                if can1 or can2 then
-                                    remotes:WaitForChild("useAbility"):FireServer({"airbender_tornado"})
-                                    remotes:WaitForChild("useAbility"):FireServer({"airbender_moving_tornado"})
-                                end
+                                local args1 = {
+                                    [1] = "airbender_tornado"
+                                }
+                                local args2 = {
+                                    [1] = "airbender_moving_tornado"
+                                }
+                                remotes:WaitForChild("useAbility"):FireServer(unpack(args1))
+                                remotes:WaitForChild("useAbility"):FireServer(unpack(args2))
                             end
                         end
                     end
-                    task.wait()
+                    task.wait(0.1)
                 until not AutoRamil.Enabled
             end
         end,
-        Tooltip = 'Automatically uses Airbender tornado abilities using network remotes.'
+        Tooltip = 'Automatically fires Airbender tornado remotes when targets are within range.'
     })
     
     Targets = AutoRamil:CreateTargets({
@@ -17890,7 +17905,7 @@ run(function()
         Name = 'Tornado Mode',
         List = {'Normal Tornado', 'Moving Tornado', 'Double Spawn'},
         Default = 'Normal Tornado',
-        Tooltip = 'Choose which tornado ability or combination to trigger'
+        Tooltip = 'Choose which tornado ability remote to fire'
     })
 end)
 
