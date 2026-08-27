@@ -19285,13 +19285,18 @@ run(function()
         local shortestDist = Range.Value
 
         if TargetMode.Value ~= 'Ignore none' then
-            -- Match standard targeting pattern used across other modules
             for _, v in pairs(entitylib.entityList) do
-                if v.Alive and (TargetMode.Value:find("Players") and v.Player or TargetMode.Value:find("NPCs") and not v.Player) then
-                    local dist = (v.RootPart.Position - rootPos).Magnitude
-                    if dist <= shortestDist then
-                        shortestDist = dist
-                        chosenTarget = v.RootPart.Position
+                if v.Alive and v.RootPart then
+                    local isPlayer = v.Player ~= nil
+                    local targetPlayers = TargetMode.Value:find("Players") ~= nil
+                    local targetNPCs = TargetMode.Value:find("NPCs") ~= nil
+
+                    if (isPlayer and targetPlayers) or (not isPlayer and targetNPCs) then
+                        local dist = (v.RootPart.Position - rootPos).Magnitude
+                        if dist <= shortestDist then
+                            shortestDist = dist
+                            chosenTarget = v.RootPart.Position
+                        end
                     end
                 end
             end
@@ -19309,10 +19314,14 @@ run(function()
                 if name:find("fire") or name:find("damage") then return "damage_banner" end
                 if name:find("defense") then return "defense_banner" end
             end
-            for _, item in pairs(store.inventory.inventory.items or {}) do
-                local name = item.itemType:lower()
-                if name:find("banner") then
-                    return item.itemType
+            if store.inventory and store.inventory.inventory and store.inventory.inventory.items then
+                for _, item in pairs(store.inventory.inventory.items) do
+                    if item and item.itemType then
+                        local name = item.itemType:lower()
+                        if name:find("banner") then
+                            return item.itemType
+                        end
+                    end
                 end
             end
             return "heal_banner"
@@ -19375,7 +19384,7 @@ run(function()
         Default = 'Players, NPCs'
     })
 
-    BannerType = AutoConqueror::CreateDropdown({
+    BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner',
         List = {'Auto Detect', 'Banner - Heal', 'Fire', 'Defense'},
         Default = 'Auto Detect'
