@@ -19259,11 +19259,9 @@ end)
 run(function()
     local AutoConqueror
     local Targets
-    local TargetMode
     local BannerType
     local Range
     local Cooldown
-    local WallCheck
 
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
@@ -19275,71 +19273,23 @@ run(function()
 
     local lastPlaced = 0
 
-    local function isVisible(origin, targetPart)
-        if not WallCheck.Enabled then return true end
-
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        local ignoreList = {entitylib.character.Character}
-        if targetPart and targetPart.Parent then
-            table.insert(ignoreList, targetPart.Parent)
-        end
-        raycastParams.FilterDescendantsInstances = ignoreList
-
-        local direction = targetPart.Position - origin
-        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
-
-        return raycastResult == nil
-    end
-
-    local function placeBanner(bannerType)
-        if not PlaceBlockEvent then
-            print("[AutoConqueror] Error: PlaceBlockEvent not found!")
-            return
-        end
+    local function sendRemote(bannerType)
         if tick() - lastPlaced < Cooldown.Value then return end
         if not entitylib.isAlive or not entitylib.character.RootPart then return end
 
         local currentPos = entitylib.character.RootPart.Position
-        
         local placePos = Vector3.new(
             math.floor(currentPos.X + 2.5),
             math.floor(currentPos.Y + 0.5),
             math.floor(currentPos.Z + 0.5)
         )
 
-        local remotePayload = {
+        PlaceBlockEvent:InvokeServer({
             blockType = bannerType,
             position = placePos,
             blockData = 0
-        }
-
-        print("[AutoConqueror] Placing " .. bannerType .. " at " .. tostring(placePos))
-        pcall(function()
-            PlaceBlockEvent:InvokeServer(remotePayload)
-        end)
+        })
         lastPlaced = tick()
-    end
-
-    local function sendPlaceRemote()
-        if not entitylib.isAlive or not entitylib.character.RootPart then return end
-
-        local selectedBanner = BannerType.Value
-
-        if selectedBanner == "Damage" then
-            placeBanner("damage_banner")
-        elseif selectedBanner == "Defense" then
-            placeBanner("defense_banner")
-        elseif selectedBanner == "Heal" then
-            placeBanner("heal_banner")
-        elseif selectedBanner == "All" then
-            placeBanner("damage_banner")
-            task.wait(0.1)
-            placeBanner("defense_banner")
-            task.wait(0.1)
-            placeBanner("heal_banner")
-        end
     end
 
     AutoConqueror = vape.Categories.Kits:CreateModule({
@@ -19352,17 +19302,25 @@ run(function()
                             local playerPos = entitylib.character.RootPart.Position
                             local found = false
 
-                            -- Check for players
                             if Targets.Players.Enabled then
                                 for _, player in pairs(Players:GetPlayers()) do
-                                    if player ~= lplr and player.Character and player.Character:FindFirstChild("RootPart") and player.Character:FindFirstChild("Humanoid") then
-                                        local targetRootPart = player.Character.RootPart
-                                        local targetHumanoid = player.Character.Humanoid
-                                        local distance = (playerPos - targetRootPart.Position).Magnitude
+                                    if player ~= lplr and player.Character and player.Character:FindFirstChild("RootPart") then
+                                        local distance = (playerPos - player.Character.RootPart.Position).Magnitude
+                                        if distance <= Range.Value then
+                                            found = true
+                                            break
+                                        end
+                                    end
+                                end
+                            end
 
-                                        if distance <= Range.Value and targetHumanoid.Health > 0 then
-                                            if isVisible(playerPos, targetRootPart) then
-                                                sendPlaceRemote()
+                            if not found and Targets.NPCs.Enabled then
+                                local npcFolder = workspace:FindFirstChild("NPCs")
+                                if npcFolder then
+                                    for _, npc in pairs(npcFolder:GetChildren()) do
+                                        if npc:FindFirstChild("RootPart") then
+                                            local distance = (playerPos - npc.RootPart.Position).Magnitude
+                                            if distance <= Range.Value then
                                                 found = true
                                                 break
                                             end
@@ -19371,25 +19329,20 @@ run(function()
                                 end
                             end
 
-                            -- Check for NPCs if not found
-                            if not found and Targets.NPCs.Enabled then
-                                local npcFolder = workspace:FindFirstChild("NPCs")
-                                if npcFolder then
-                                    for _, npc in pairs(npcFolder:GetChildren()) do
-                                        if npc:FindFirstChild("RootPart") and npc:FindFirstChild("Humanoid") then
-                                            local targetRootPart = npc.RootPart
-                                            local targetHumanoid = npc.Humanoid
-                                            local distance = (playerPos - targetRootPart.Position).Magnitude
-
-                                            if distance <= Range.Value and targetHumanoid.Health > 0 then
-                                                if isVisible(playerPos, targetRootPart) then
-                                                    sendPlaceRemote()
-                                                    found = true
-                                                    break
-                                                end
-                                            end
-                                        end
-                                    end
+                            if found then
+                                local banner = BannerType.Value
+                                if banner == "Damage" then
+                                    sendRemote("damage_banner")
+                                elseif banner == "Heal" then
+                                    sendRemote("heal_banner")
+                                elseif banner == "Defense" then
+                                    sendRemote("defense_banner")
+                                elseif banner == "All" then
+                                    sendRemote("damage_banner")
+                                    task.wait(0.1)
+                                    sendRemote("defense_banner")
+                                    task.wait(0.1)
+                                    sendRemote("heal_banner")
                                 end
                             end
                         end
@@ -19398,7 +19351,7 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places selected tactical banners when targets are detected.'
+        Tooltip = 'Automatically places banners when targets are nearby.'
     })
 
     Targets = AutoConqueror:CreateTargets({
@@ -19406,29 +19359,10 @@ run(function()
         NPCs = false,
     })
 
-    local methods = {'Damage', 'Distance'}
-    for i in sortmethods do
-        if not table.find(methods, i) then
-            table.insert(methods, i)
-        end
-    end
-
-    TargetMode = AutoConqueror:CreateDropdown({
-        Name = 'Target Mode',
-        List = methods,
-        Default = 'Distance'
-    })
-
     BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner',
         List = {'Damage', 'Heal', 'Defense', 'All'},
         Default = 'Heal'
-    })
-
-    WallCheck = AutoConqueror:CreateToggle({
-        Name = 'Wall Check',
-        Default = true,
-        Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
 
     Range = AutoConqueror:CreateSlider({
