@@ -19295,22 +19295,14 @@ run(function()
         return raycastResult == nil
     end
 
-    local function getBlockType()
-        local selected = BannerType.Value
-        if selected == "Damage" then
-            return "damage_banner"
-        elseif selected == "Defense" then
-            return "defense_banner"
-        else
-            return "heal_banner"
-        end
-    end
-
     local function sendPlaceRemote(targetPos)
-        if not PlaceBlockEvent then return end
+        if not PlaceBlockEvent then
+            print("[AutoConqueror] Error: PlaceBlockEvent not found!")
+            return
+        end
         if tick() - lastPlaced < Cooldown.Value then return end
 
-        local blockName = getBlockType()
+        local selectedBanner = BannerType.Value
         
         -- Align coordinates to block grid based on your captured remotes
         local placePos = Vector3.new(
@@ -19320,26 +19312,66 @@ run(function()
         )
         local blockRefPos = Vector3.new(placePos.X, placePos.Y - 1, placePos.Z)
 
-        pcall(function()
-            PlaceBlockEvent:InvokeServer({
-                [1] = {
-                    position = placePos,
-                    blockType = blockName,
-                    blockData = 0,
-                    mouseBlockInfo = {
-                        target = {
-                            blockRef = {
-                                blockPosition = blockRefPos
-                            },
-                            hitPosition = targetPos,
-                            hitNormal = Vector3.yAxis
+        local remotePayload = nil
+
+        -- Construct the exact raw remote payload matching the specific banner selected
+        if selectedBanner == "Damage" then
+            remotePayload = {
+                position = placePos,
+                blockType = "damage_banner",
+                blockData = 0,
+                mouseBlockInfo = {
+                    target = {
+                        blockRef = {
+                            blockPosition = blockRefPos
                         },
-                        placementPosition = placePos
-                    }
+                        hitPosition = targetPos,
+                        hitNormal = Vector3.yAxis
+                    },
+                    placementPosition = placePos
                 }
-            })
-            lastPlaced = tick()
-        end)
+            }
+        elseif selectedBanner == "Defense" then
+            remotePayload = {
+                position = placePos,
+                blockType = "defense_banner",
+                blockData = 0,
+                mouseBlockInfo = {
+                    target = {
+                        blockRef = {
+                            blockPosition = blockRefPos
+                        },
+                        hitPosition = targetPos,
+                        hitNormal = Vector3.yAxis
+                    },
+                    placementPosition = placePos
+                }
+            }
+        elseif selectedBanner == "Heal" then
+            remotePayload = {
+                position = placePos,
+                blockType = "heal_banner",
+                blockData = 0,
+                mouseBlockInfo = {
+                    target = {
+                        blockRef = {
+                            blockPosition = blockRefPos
+                        },
+                        hitPosition = targetPos,
+                        hitNormal = Vector3.yAxis
+                    },
+                    placementPosition = placePos
+                }
+            }
+        end
+
+        if remotePayload then
+            print("[AutoConqueror] Firing Remote for Banner: " .. selectedBanner .. " at position: " .. tostring(placePos))
+            pcall(function()
+                PlaceBlockEvent:InvokeServer(remotePayload)
+                lastPlaced = tick()
+            end)
+        end
     end
 
     AutoConqueror = vape.Categories.Kits:CreateModule({
@@ -19351,7 +19383,6 @@ run(function()
                         if entitylib.isAlive then
                             local localPosition = entitylib.character.RootPart.Position
 
-                            -- Standard entity scanning matching your reference template
                             local ent = entitylib.EntityPosition({
                                 Origin = localPosition,
                                 Range = Range.Value,
@@ -19367,7 +19398,6 @@ run(function()
                                 if PlaceMode.Value == "On near" then
                                     sendPlaceRemote(targetPos)
                                 elseif PlaceMode.Value == "On attack" then
-                                    -- Triggers if target health decreases or if they are actively being attacked/targeted
                                     if ent.Humanoid and ent.Humanoid.Health < (ent.MaxHealth or ent.Humanoid.MaxHealth) then
                                         sendPlaceRemote(targetPos)
                                     end
@@ -19379,10 +19409,9 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places tactical banners near targets.'
+        Tooltip = 'Automatically places selected tactical banners near targets.'
     })
 
-    -- Target selection UI elements matching your reference style
     Targets = AutoConqueror:CreateTargets({
         Players = true,
         NPCs = false,
@@ -19434,7 +19463,7 @@ run(function()
         Name = 'Cooldown',
         Min = 0,
         Max = 30,
-        Default = 2,
+        Default = 0,
         Suffix = function(val)
             return val > 1 and 'secs' or 'sec'
         end,
