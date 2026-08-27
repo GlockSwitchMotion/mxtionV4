@@ -14669,7 +14669,8 @@ run(function()
     rayCheck.RespectCanCollide = true
 
     local function getLaunchVelocity(delta, velocity, time)
-        return (delta + Vector3.new(0, Workspace.Gravity * time * time * 0.5, 0)) / time - velocity
+        -- Reduced velocity calculation by 55% (multiplying by 0.45)
+        return ((delta + Vector3.new(0, Workspace.Gravity * time * time * 0.5, 0)) / time - velocity) * 0.45
     end
 
     local function getCannon()
@@ -14703,8 +14704,8 @@ run(function()
     end
 
     local function getLaunchTime(origin, delta, velocity, ceiling)
-        local low, up = 0.0001, 20
-        for _ = 1, 50 do
+        local low, up = 0.1, 15
+        for _ = 1, 40 do
             local first, second = low + (up - low) / 3, up - (up - low) / 3
             if getLaunchVelocity(delta, velocity, first).Magnitude < getLaunchVelocity(delta, velocity, second).Magnitude then
                 up = second
@@ -14713,16 +14714,7 @@ run(function()
             end
         end
         local middle = (low + up) / 2
-        if getLaunchVelocity(delta, velocity, middle).Magnitude > ceiling then return end
-        if not isPathBlocked(origin, getLaunchVelocity(delta, Vector3.zero, middle), middle) then return middle end
-        for i = 1, 20 do
-            for _, time in ipairs({middle * (1 + i * 0.15), middle * (1 - i * 0.045)}) do
-                if getLaunchVelocity(delta, velocity, time).Magnitude <= ceiling and not isPathBlocked(origin, Vector3.zero, time) then
-                    return time
-                end
-            end
-        end
-        return middle
+        return math.clamp(middle, 0.5, 5)
     end
 
     local function makeVisual(target, blockPosition)
@@ -14773,15 +14765,15 @@ run(function()
     local function aimCannon(cannon, direction)
         local blockPosition = bedwars.BlockController:getBlockPosition(cannon.Position)
         local aimed = false
-        local timeout = tick() + 1
+        local timeout = tick() + 0.8
         repeat
             bedwars.Handler:Get('AimCannon'):Fire('SendToServer', {
                 cannonBlockPos = blockPosition,
-                lookVector = direction
+                lookVector = direction.Unit
             })
-            task.wait(0.15)
+            task.wait(0.1)
             local look = cannon:GetAttribute('LookVector')
-            aimed = look and (look - direction).Magnitude < 0.0001
+            aimed = look and (look - direction.Unit).Magnitude < 0.01
         until aimed or tick() > timeout or not cannon.Parent
         return aimed
     end
@@ -14977,9 +14969,9 @@ run(function()
                             if not ray then return end
 
                             local localPosition = entitylib.character.RootPart.Position
-                            local target = ray.Position + Vector3.new(0, entitylib.character.HipHeight, 0)
+                            local target = ray.Position
                             local velocity = entitylib.character.RootPart.AssemblyLinearVelocity
-                            local time = getLaunchTime(localPosition, target - localPosition, velocity, math.sqrt(520 * Workspace.Gravity))
+                            local time = getLaunchTime(localPosition, target - localPosition, velocity, 300)
                             if not time then return end
 
                             local launchDirection = getLaunchVelocity(target - localPosition, velocity, time).Unit
@@ -14990,17 +14982,10 @@ run(function()
                             end
 
                             if AimMode.Value == 'Aim And Launch' then
-                                cannon.AimPrompt:InputHoldBegin()
-                                task.wait(cannon.AimPrompt.HoldDuration)
-
-                                local timeout = tick() + 0.3
-                                repeat
-                                    gameCamera.CFrame = gameCamera.CFrame:Lerp(CFrame.lookAt(gameCamera.CFrame.Position, gameCamera.CFrame.Position + launchDirection), 22 * RunService.PostSimulation:Wait())
-                                    bedwars.Handler:Get('AimCannon'):Fire('SendToServer', {
-                                        cannonBlockPos = blockPosition,
-                                        lookVector = gameCamera.CFrame.LookVector
-                                    })
-                                until tick() > timeout
+                                if cannon.AimPrompt and cannon.AimPrompt.HoldDuration then
+                                    pcall(function() cannon.AimPrompt:InputHoldBegin() end)
+                                    task.wait(cannon.AimPrompt.HoldDuration + 0.05)
+                                end
                             end
 
                             if not aimCannon(cannon, launchDirection) then
@@ -15010,7 +14995,7 @@ run(function()
 
                             if AimMode.Value == 'Aim Only' then
                                 if visual then
-                                    task.delay(2, function()
+                                    task.delay(3, function()
                                         if visual then visual:Destroy() end
                                     end)
                                 end
@@ -15018,13 +15003,14 @@ run(function()
                             end
 
                             if AimMode.Value == 'Aim And Launch' then
-                                cannon.StopAimingPrompt:InputHoldBegin()
-                            end
-                            task.wait((cannon.StopAimingPrompt.HoldDuration + 0.2) + RunService.PostSimulation:Wait())
-
-                            if AimMode.Value == 'Aim And Launch' then
-                                cannon.LaunchSelfPrompt:InputHoldBegin()
-                                task.wait(cannon.LaunchSelfPrompt.HoldDuration + RunService.PostSimulation:Wait())
+                                if cannon.StopAimingPrompt then
+                                    pcall(function() cannon.StopAimingPrompt:InputHoldBegin() end)
+                                    task.wait((cannon.StopAimingPrompt.HoldDuration or 0.2) + 0.05)
+                                end
+                                if cannon.LaunchSelfPrompt then
+                                    pcall(function() cannon.LaunchSelfPrompt:InputHoldBegin() end)
+                                    task.wait((cannon.LaunchSelfPrompt.HoldDuration or 0.2) + 0.05)
+                                end
                             else
                                 bedwars.CannonHandController:launchSelf(cannon)
                             end
@@ -15168,7 +15154,7 @@ run(function()
 
     Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
     Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
-    Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
+    Switch = AutoDuty and AutoDavey:CreateToggle({Name = 'Legit switch'}) or AutoDavey:CreateToggle({Name = 'Legit switch'})
     LimitItem = AutoDavey:CreateToggle({
         Name = 'Limit to items',
         Tooltip = 'Only breaks when tools are held'
