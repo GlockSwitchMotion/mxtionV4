@@ -19261,7 +19261,6 @@ run(function()
     local Targets
     local TargetMode
     local BannerType
-    local PlaceMode
     local Range
     local Cooldown
     local WallCheck
@@ -19294,7 +19293,7 @@ run(function()
         return raycastResult == nil
     end
 
-    local function sendPlaceRemote()
+    local function placeBanner(bannerType)
         if not PlaceBlockEvent then
             print("[AutoConqueror] Error: PlaceBlockEvent not found!")
             return
@@ -19302,7 +19301,6 @@ run(function()
         if tick() - lastPlaced < Cooldown.Value then return end
         if not entitylib.isAlive or not entitylib.character.RootPart then return end
 
-        local selectedBanner = BannerType.Value
         local currentPos = entitylib.character.RootPart.Position
         
         local placePos = Vector3.new(
@@ -19310,42 +19308,37 @@ run(function()
             math.floor(currentPos.Y + 0.5),
             math.floor(currentPos.Z + 0.5)
         )
-        local blockRefPos = Vector3.new(placePos.X, placePos.Y - 1, placePos.Z)
-        local hitPos = Vector3.new(currentPos.X, currentPos.Y + 0.5, currentPos.Z)
 
-        local remotePayload = nil
-        local blockType = nil
+        local remotePayload = {
+            blockType = bannerType,
+            position = placePos,
+            blockData = 0
+        }
+
+        print("[AutoConqueror] Placing " .. bannerType .. " at " .. tostring(placePos))
+        pcall(function()
+            PlaceBlockEvent:InvokeServer(remotePayload)
+        end)
+        lastPlaced = tick()
+    end
+
+    local function sendPlaceRemote()
+        if not entitylib.isAlive or not entitylib.character.RootPart then return end
+
+        local selectedBanner = BannerType.Value
 
         if selectedBanner == "Damage" then
-            blockType = "damage_banner"
+            placeBanner("damage_banner")
         elseif selectedBanner == "Defense" then
-            blockType = "defense_banner"
+            placeBanner("defense_banner")
         elseif selectedBanner == "Heal" then
-            blockType = "heal_banner"
-        end
-
-        if blockType then
-            remotePayload = {
-                position = placePos,
-                blockType = blockType,
-                blockData = 0,
-                mouseBlockInfo = {
-                    target = {
-                        blockRef = {
-                            blockPosition = blockRefPos
-                        },
-                        hitPosition = hitPos,
-                        hitNormal = Vector3.new(0, 1, 0)
-                    },
-                    placementPosition = placePos
-                }
-            }
-
-            print("[AutoConqueror] Placing " .. selectedBanner .. " at " .. tostring(placePos))
-            pcall(function()
-                PlaceBlockEvent:InvokeServer(remotePayload)
-                lastPlaced = tick()
-            end)
+            placeBanner("heal_banner")
+        elseif selectedBanner == "All" then
+            placeBanner("damage_banner")
+            task.wait(0.1)
+            placeBanner("defense_banner")
+            task.wait(0.1)
+            placeBanner("heal_banner")
         end
     end
 
@@ -19369,15 +19362,9 @@ run(function()
 
                                         if distance <= Range.Value and targetHumanoid.Health > 0 then
                                             if isVisible(playerPos, targetRootPart) then
-                                                if PlaceMode.Value == "On near" then
-                                                    sendPlaceRemote()
-                                                    found = true
-                                                    break
-                                                elseif PlaceMode.Value == "On attack" and targetHumanoid.Health < targetHumanoid.MaxHealth then
-                                                    sendPlaceRemote()
-                                                    found = true
-                                                    break
-                                                end
+                                                sendPlaceRemote()
+                                                found = true
+                                                break
                                             end
                                         end
                                     end
@@ -19396,15 +19383,9 @@ run(function()
 
                                             if distance <= Range.Value and targetHumanoid.Health > 0 then
                                                 if isVisible(playerPos, targetRootPart) then
-                                                    if PlaceMode.Value == "On near" then
-                                                        sendPlaceRemote()
-                                                        found = true
-                                                        break
-                                                    elseif PlaceMode.Value == "On attack" and targetHumanoid.Health < targetHumanoid.MaxHealth then
-                                                        sendPlaceRemote()
-                                                        found = true
-                                                        break
-                                                    end
+                                                    sendPlaceRemote()
+                                                    found = true
+                                                    break
                                                 end
                                             end
                                         end
@@ -19417,7 +19398,7 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places selected tactical banners at your location when targets are detected.'
+        Tooltip = 'Automatically places selected tactical banners when targets are detected.'
     })
 
     Targets = AutoConqueror:CreateTargets({
@@ -19440,14 +19421,8 @@ run(function()
 
     BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner',
-        List = {'Damage', 'Heal', 'Defense'},
+        List = {'Damage', 'Heal', 'Defense', 'All'},
         Default = 'Heal'
-    })
-
-    PlaceMode = AutoConqueror:CreateDropdown({
-        Name = 'Place mode',
-        List = {'On near', 'On attack'},
-        Default = 'On near'
     })
 
     WallCheck = AutoConqueror:CreateToggle({
