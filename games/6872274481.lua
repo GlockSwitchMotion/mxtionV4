@@ -19258,95 +19258,49 @@ end)
 
 run(function()
     local AutoConqueror
-    local TargetMode
     local BannerType
-    local PlaceOn
+    local PlaceMode
     local Range
     local Cooldown
-    local LegitSwitch
-    local SwitchDelay
 
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
     local lplr = Players.LocalPlayer
 
-    -- Easy-games block placement remote path
-    local PlaceBlockEvent = ReplicatedStorage:FindFirstChild("rbxts_include") 
-        and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules") 
+    -- Reliable remote path for PlaceBlock
+    local PlaceBlockEvent = ReplicatedStorage:WaitForChild("rbxts_include", 99)
+        and ReplicatedStorage.rbxts_include:WaitForChild("node_modules", 99)
         and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
 
     local lastPlaced = 0
+    local lastAttackedEntity = nil
 
-    local function getTargetPosition()
-        if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
-        local rootPos = entitylib.character.RootPart.Position
-        
-        local chosenTarget = nil
-        local shortestDist = Range.Value
+    -- Standard Vape target window config (Players / Mobs + Team Check)
+    local targetSetting = AutoConqueror and AutoConqueror.CreateTargetWindow and AutoConqueror:CreateTargetWindow({}) or {
+        Players = true,
+        Mobs = true,
+        Walls = false,
+        Invisible = false
+    }
 
-        if TargetMode.Value ~= 'Ignore none' then
-            for _, v in pairs(entitylib.entityList) do
-                if v.Alive and v.RootPart then
-                    local isPlayer = v.Player ~= nil
-                    local targetPlayers = TargetMode.Value:find("Players") ~= nil
-                    local targetNPCs = TargetMode.Value:find("NPCs") ~= nil
-
-                    if (isPlayer and targetPlayers) or (not isPlayer and targetNPCs) then
-                        local dist = (v.RootPart.Position - rootPos).Magnitude
-                        if dist <= shortestDist then
-                            shortestDist = dist
-                            chosenTarget = v.RootPart.Position
-                        end
-                    end
-                end
-            end
-        end
-
-        return chosenTarget
-    end
-
-    local function getEquippedOrInventoryBanner()
+    local function getBlockType()
         local selected = BannerType.Value
-        local blockName = "heal_banner"
-        
-        if selected == "Banner - Heal" then 
-            blockName = "heal_banner"
-        elseif selected == "Banner - Damage" then 
-            blockName = "damage_banner"
-        elseif selected == "Banner - Defense" then 
-            blockName = "defense_banner" 
+        if selected == "Damage" then
+            return "damage_banner"
+        elseif selected == "Defense" then
+            return "defense_banner"
+        else
+            return "heal_banner"
         end
-
-        -- Auto-equip logic if found in inventory/hotbar and Legit Switch is active
-        if store.inventory and store.inventory.inventory and store.inventory.inventory.items then
-            for slot, item in pairs(store.inventory.inventory.items) do
-                if item and item.itemType and item.itemType == blockName then
-                    if LegitSwitch.Value then
-                        task.spawn(function()
-                            if bedwars.ClientHandlerStore then
-                                bedwars.ClientHandlerStore:dispatch({
-                                    type = "InventorySelectHotbarSlot",
-                                    slot = slot
-                                })
-                            end
-                            task.wait(SwitchDelay.Value)
-                        end)
-                    end
-                    break
-                end
-            end
-        end
-
-        return blockName
     end
 
-    local function placeBanner(targetPos)
+    local function sendPlaceRemote(targetPos)
         if not PlaceBlockEvent then return end
-        if tick() - lastPlaced < Cooldown.Value then return end
+        if tick() - lastPlaced < (Cooldown.Value or 15) then return end
 
-        local blockName = getEquippedOrInventoryBanner()
+        local blockName = getBlockType()
         
-        -- Map target coordinates into block grid positions using your exact remote format
+        -- Generate placement coordinates and block reference positions based on your exact remote templates
         local placePos = Vector3.new(
             math.floor(targetPos.X + 0.5),
             math.floor(targetPos.Y + 0.5),
@@ -19356,22 +19310,61 @@ run(function()
 
         pcall(function()
             PlaceBlockEvent:InvokeServer({
-                position = placePos,
-                blockType = blockName,
-                blockData = 0,
-                mouseBlockInfo = {
-                    target = {
-                        blockRef = {
-                            blockPosition = blockRefPos
+                [1] = {
+                    position = placePos,
+                    blockType = blockName,
+                    blockData = 0,
+                    mouseBlockInfo = {
+                        target = {
+                            blockRef = {
+                                blockPosition = blockRefPos
+                            },
+                            hitPosition = targetPos,
+                            hitNormal = Vector3.yAxis
                         },
-                        hitPosition = targetPos,
-                        hitNormal = Vector3.new(0, 1, 0)
-                    },
-                    placementPosition = placePos
+                        placementPosition = placePos
+                    }
                 }
             })
             lastPlaced = tick()
         end)
+    end
+
+    local function checkAndPlace()
+        if not entitylib.isAlive or not entitylib.character.RootPart then return end
+        local rootPos = entitylib.character.RootPart.Position
+        local maxRange = Range.Value
+
+        for _, v in pairs(entitylib.entityList) do
+            if v.Alive and v.RootPart then
+                local isPlayer = v.Player ~= nil
+                
+                -- Team check: Skip if it's a player on our team
+                local isTeamMate = false
+                if isPlayer and v.Player.Team == lplr.Team then
+                    isTeamMate = true
+                end
+
+                if not isTeamMate then
+                    local allowed = (isPlayer and targetSetting.Players) or (not isPlayer and targetSetting.Mobs)
+                    if allowed then
+                        local dist = (v.RootPart.Position - rootPos).Magnitude
+                        if dist <= maxRange then
+                            if PlaceMode.Value == "On near" then
+                                sendPlaceRemote(v.RootPart.Position)
+                                return
+                            elseif PlaceMode.Value == "On attack" then
+                                -- Hook into attack detection (checks if entity health drops or target is actively being swung at)
+                                if v.Humanoid and v.Humanoid.Health < (v.MaxHealth or v.Humanoid.MaxHealth) then
+                                    sendPlaceRemote(v.RootPart.Position)
+                                    return
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
     end
 
     AutoConqueror = vape.Categories.Kits:CreateModule({
@@ -19381,36 +19374,27 @@ run(function()
                 task.spawn(function()
                     while AutoConqueror.Enabled do
                         task.wait(0.2)
-                        if entitylib.isAlive then
-                            local targetPos = getTargetPosition()
-                            if targetPos then
-                                if PlaceOn.Value == 'On attack' or PlaceOn.Value == 'On near' then
-                                    placeBanner(targetPos)
-                                end
-                            end
-                        end
+                        checkAndPlace()
                     end
                 end)
             end
         end,
-        Tooltip = 'Automatically places selected tactical banners near players or NPCs.'
+        Tooltip = 'Automatically places tactical banners near targets using accurate block remotes.'
     })
 
-    -- Target selection dropdown matching Players, NPCs, or both
-    TargetMode = AutoConqueror:CreateDropdown({
-        Name = 'Target',
-        List = {'Players, NPCs', 'Players', 'NPCs', 'Ignore none'},
-        Default = 'Players, NPCs'
-    })
+    -- UI Setup matching your requested options
+    if AutoConqueror.CreateTargetWindow then
+        targetSetting = AutoConqueror:CreateTargetWindow({})
+    end
 
     BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner',
-        List = {'Banner - Heal', 'Banner - Damage', 'Banner - Defense'},
-        Default = 'Banner - Heal'
+        List = {'Damage', 'Heal', 'Defense'},
+        Default = 'Heal'
     })
 
-    PlaceOn = AutoConqueror:CreateDropdown({
-        Name = 'Place on',
+    PlaceMode = AutoConqueror:CreateDropdown({
+        Name = 'Place mode',
         List = {'On near', 'On attack'},
         Default = 'On near'
     })
@@ -19419,7 +19403,7 @@ run(function()
         Name = 'Range',
         Min = 5,
         Max = 50,
-        Default = 30,
+        Default = 20,
         Suffix = function(val) return val <= 1 and 'stud' or 'studs' end
     })
 
@@ -19427,22 +19411,8 @@ run(function()
         Name = 'Cooldown',
         Min = 0,
         Max = 30,
-        Default = 15,
+        Default = 2,
         Suffix = function(val) return val <= 1 and 'second' or 'seconds' end
-    })
-
-    LegitSwitch = AutoConqueror:CreateToggle({
-        Name = 'Legit switch',
-        Default = false
-    })
-
-    SwitchDelay = AutoConqueror:CreateSlider({
-        Name = 'Switch delay',
-        Min = 0,
-        Max = 0.5,
-        Default = 0.08,
-        Decimal = 100,
-        Suffix = function(val) return 'seconds' end
     })
 end)
 
