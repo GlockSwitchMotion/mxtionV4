@@ -14648,6 +14648,7 @@ run(function()
     local Switch
     local Break
     local Jump
+    local NoFallToggle
     local LimitItem
     local BreakDelay
     local DrawTrajectory
@@ -14799,7 +14800,6 @@ run(function()
         if not camera then return end
 
         local lookVector = camera.CFrame.LookVector
-        -- Flatter look vector clamp to prevent looking straight up into the sky
         local flatDirection = Vector3.new(lookVector.X, math.clamp(lookVector.Y, -0.2, 0.4), lookVector.Z).Unit
         local startPos = block.Position + Vector3.new(0, 2.5, 0) + (flatDirection * 3)
         local maxDist = 160
@@ -14862,6 +14862,53 @@ run(function()
         return true
     end
 
+    -- Dynamic Anti-Fall Logic triggered on Cannon Launch
+    local function handleCannonNoFall()
+        if not NoFallToggle.Enabled then return end
+
+        task.spawn(function()
+            local groundHit = bedwars.Handler:Get('GroundHit')
+            local tracked = 0
+            local connection
+            local startTime = tick()
+
+            connection = RunService.PostSimulation:Connect(function()
+                if not entitylib.isAlive or store.matchState ~= 1 then
+                    if connection then connection:Disconnect() end
+                    return
+                end
+
+                local root = entitylib.character.RootPart
+                if not root then return end
+                local velo = root.Velocity
+
+                -- Only trigger if falling fast after being launched (with a timeout safety net of 8 seconds)
+                if tracked < -45 then
+                    root.Velocity = Vector3.new(0, 2.5, 0)
+                    if entitylib.character.Humanoid then
+                        entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+                    end
+                    RunService.PreRender:Wait()
+                    root.Velocity = velo
+                    if groundHit then
+                        pcall(function()
+                            groundHit:Fire('SendToServer', nil, Vector3.new(0, tracked, 0), workspace:GetServerTimeNow())
+                        end)
+                    end
+                    if connection then connection:Disconnect() end
+                    return
+                end
+
+                tracked = velo.Y
+
+                -- Safety timeout if landing takes too long
+                if tick() - startTime > 8 then
+                    if connection then connection:Disconnect() end
+                end
+            end)
+        end)
+    end
+
     AutoDavey = vape.Categories.Kits:CreateModule({
         Name = 'AutoDavey',
         Function = function(callback)
@@ -14879,7 +14926,6 @@ run(function()
                             local camera = Workspace.CurrentCamera
                             if not camera then return end
                             
-                            -- Completely flat/clamped aiming direction to stop it from aiming high up
                             local lookVector = camera.CFrame.LookVector
                             local clampedDirection = Vector3.new(lookVector.X, math.clamp(lookVector.Y, -0.2, 0.4), lookVector.Z).Unit
 
@@ -14961,6 +15007,10 @@ run(function()
                 old = bedwars.CannonHandController.launchSelf
                 bedwars.CannonHandController.launchSelf = function(self, block, ...)
                     clearTrajectoryVisuals()
+                    
+                    -- Trigger anti-fall damage logic specifically on launch
+                    handleCannonNoFall()
+
                     local call = old(self, block, ...)
 
                     if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
@@ -14991,7 +15041,7 @@ run(function()
                 end
             end
         end,
-        Tooltip = 'Smoothly breaks only your own cannon/jump on launch, displays landing trajectory, and includes auto-aim.'
+        Tooltip = 'Smoothly breaks only your own cannon/jump on launch, displays landing trajectory, auto-aims, and prevents cannon fall damage.'
     })
 
     -- Settings
@@ -15048,6 +15098,7 @@ run(function()
 
     Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
     Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
+    NoFallToggle = AutoDavey:CreateToggle({Name = 'No fall damage', Default = true, Tooltip = 'Prevents fall damage specifically when launched from a cannon'})
     Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
     LimitItem = AutoDavey:CreateToggle({
         Name = 'Limit to items',
