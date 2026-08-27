@@ -16029,7 +16029,8 @@ run(function()
                                 local isChanneling = lplr.Character:GetAttribute('GrimReaperChannel')
                                 local delayPassed = (Delay.Value <= 0 or tick() - cooldown >= Delay.Value)
 
-                                if healthPercent <= HealthTrigger.Value and not isChanneling and delayPassed then
+                                -- Only trigger if health is AT OR ABOVE the threshold
+                                if healthPercent >= HealthTrigger.Value and not isChanneling and delayPassed then
                                     local localPosition = entitylib.character.RootPart.Position
                                     local souls = bedwars.GrimReaperController.soulsByPosition
                                     
@@ -16060,7 +16061,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically consumes nearby souls when your health drops to or below the slider threshold'
+        Tooltip = 'Automatically consumes nearby souls when your health is at or above the slider threshold'
     })
 
     Range = AutoGrim:CreateSlider({
@@ -16081,7 +16082,7 @@ run(function()
         Suffix = function(val)
             return '%'
         end,
-        Tooltip = 'Health percentage threshold to trigger soul consumption'
+        Tooltip = 'Health percentage threshold to trigger soul consumption - ability activates when health is AT OR ABOVE this value'
     })
 
     Delay = AutoGrim:CreateSlider({
@@ -17693,58 +17694,38 @@ end)
 run(function()
     local AutoNyx
     local Targets
-    local HealthThreshold
-    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-    
+   
     AutoNyx = vape.Categories.Kits:CreateModule({
         Name = 'AutoNyx',
         Function = function(call)
             if call then
                 AutoNyx:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    if damageTable.damageType == 0 and damageTable.fromEntity and damageTable.fromEntity.Name == lplr.Name then
-                        local targetEntity = damageTable.toEntity or damageTable.entity
-                        if targetEntity and targetEntity.Character then
-                            local humanoid = targetEntity.Character:FindFirstChildOfClass('Humanoid')
-                            if humanoid then
-                                local currentHealth = humanoid.Health
-                                local maxHealth = humanoid.MaxHealth
-                                local healthPercent = maxHealth > 0 and (currentHealth / maxHealth) * 100 or currentHealth
-                                
-                                -- Triggers only when enemy health is >= 75 AND ignores when below 50
-                                if healthPercent >= 75 and currentHealth >= 50 then
-                                    if entitylib.EntityPosition({
-                                        Range = 14.4,
-                                        Part = 'RootPart',
-                                        Players = Targets.Players.Enabled,
-                                        NPCs = Targets.NPCs.Enabled
-                                    }) then
-                                        local args = {
-                                            [1] = "midnight"
-                                        }
-                                        remotes:WaitForChild("useAbility"):FireServer(unpack(args))
-                                    end
-                                end
+                    if damageTable.damageType == 0 and damageTable.fromEntity and damageTable.fromEntity.Name == lplr.Name and entitylib.EntityPosition({
+                        Range = 14.4,
+                        Part = 'RootPart',
+                        Players = Targets.Players.Enabled,
+                        NPCs = Targets.NPCs.Enabled
+                    }) and bedwars.AbilityController:canUseAbility('midnight', {disableBlockedAbilityAlert = true}) then
+                        
+                        -- Get the damaged entity and check its health
+                        local damagedEntity = damageTable.toEntity
+                        if damagedEntity then
+                            local health = bedwars.EntityController:getEntityHealth(damagedEntity)
+                            
+                            -- Only trigger if health is 65 or above
+                            if health and health >= 65 then
+                                bedwars.AbilityController:useAbility('midnight')
                             end
                         end
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically uses the "midnight" ability when meleeing a target matching the health constraints'
+        Tooltip = 'Automatically uses the "midnight" ability when meleeing a target with 65+ health'
     })
-    
     Targets = AutoNyx:CreateTargets({
         Players = true,
         NPCs = false
-    })
-    
-    HealthThreshold = AutoNyx:CreateSlider({
-        Name = 'Min Health %',
-        Min = 50,
-        Max = 100,
-        Default = 75,
-        Step = 1,
-        Tooltip = 'Only triggers if enemy health percent is at or above this value, ignores below 50'
     })
 end)
 
@@ -17840,29 +17821,25 @@ run(function()
                             NPCs = Targets.NPCs.Enabled,
                             Sort = sortmethods[Sorts.Value]
                         })
-                        local mag = ent and (localPosition - ent.RootPart.Position).Magnitude or math.huge
-    
-                        if mag <= Range.Value then
-                            local mode = TornadoMode.Value
-                            if mode == 'Normal Tornado' then
-                                local args = {
-                                    [1] = "airbender_tornado"
-                                }
-                                remotes:WaitForChild("useAbility"):FireServer(unpack(args))
-                            elseif mode == 'Moving Tornado' then
-                                local args = {
-                                    [1] = "airbender_moving_tornado"
-                                }
-                                remotes:WaitForChild("useAbility"):FireServer(unpack(args))
-                            elseif mode == 'Double Spawn' then
-                                local args1 = {
-                                    [1] = "airbender_tornado"
-                                }
-                                local args2 = {
-                                    [1] = "airbender_moving_tornado"
-                                }
-                                remotes:WaitForChild("useAbility"):FireServer(unpack(args1))
-                                remotes:WaitForChild("useAbility"):FireServer(unpack(args2))
+                        
+                        if ent then
+                            local mag = (localPosition - ent.RootPart.Position).Magnitude
+                            
+                            if mag <= Range.Value then
+                                local mode = TornadoMode.Value
+                                local useAbilityRemote = remotes:FindFirstChild("useAbility")
+                                
+                                if useAbilityRemote then
+                                    if mode == 'Normal Tornado' then
+                                        useAbilityRemote:FireServer("airbender_tornado")
+                                    elseif mode == 'Moving Tornado' then
+                                        useAbilityRemote:FireServer("airbender_moving_tornado")
+                                    elseif mode == 'Double Spawn' then
+                                        useAbilityRemote:FireServer("airbender_tornado")
+                                        task.wait(0.05) -- Small delay between spawns
+                                        useAbilityRemote:FireServer("airbender_moving_tornado")
+                                    end
+                                end
                             end
                         end
                     end
@@ -19252,165 +19229,133 @@ end)
 
 run(function()
     local AutoConqueror
-    local Targets
-    local TargetMode
-    local BannerType
     local Range
+    local BannerMode
+    local SpawnMode
     local Cooldown
-    local WallCheck
-
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local lplr = Players.LocalPlayer
-
-    -- Direct Cobalt-extracted remote path
-    local PlaceBlockEvent = ReplicatedStorage:WaitForChild("rbxts_include", 99)
-        and ReplicatedStorage.rbxts_include:WaitForChild("node_modules", 99)
-        and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
-
-    local lastPlaced = 0
-
-    local function isVisible(origin, targetPart)
-        if not WallCheck.Enabled then return true end
-
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        local ignoreList = {entitylib.character.Character}
-        if targetPart and targetPart.Parent then
-            table.insert(ignoreList, targetPart.Parent)
-        end
-        raycastParams.FilterDescendantsInstances = ignoreList
-
-        local direction = targetPart.Position - origin
-        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
-
-        return raycastResult == nil
-    end
-
-    local function sendBannerRemote(blockName, targetPos)
-        if not PlaceBlockEvent then return end
-        
-        -- Align coordinates to block grid directly at your standing position or near target position
-        local placePos = Vector3.new(
-            math.floor(targetPos.X + 0.5),
-            math.floor(targetPos.Y + 0.5),
-            math.floor(targetPos.Z + 0.5)
-        )
-
-        pcall(function()
-            PlaceBlockEvent:InvokeServer({
-                blockType = blockName,
-                position = placePos,
-                blockData = 0
-            })
-        end)
-    end
-
-    local function triggerBanners(targetPos)
-        if tick() - lastPlaced < Cooldown.Value then return end
-        
-        local selected = BannerType.Value
-
-        if selected == "Heal" then
-            sendBannerRemote("heal_banner", targetPos)
-        elseif selected == "Defense" then
-            sendBannerRemote("defense_banner", targetPos)
-        elseif selected == "Fire" then
-            sendBannerRemote("damage_banner", targetPos)
-        elseif selected == "All" then
-            sendBannerRemote("heal_banner", targetPos)
-            task.wait(0.05)
-            sendBannerRemote("defense_banner", targetPos)
-            task.wait(0.05)
-            sendBannerRemote("damage_banner", targetPos)
-        end
-
-        lastPlaced = tick()
-    end
-
+    local Targets
+    local lastBannerTime = 0
+    
     AutoConqueror = vape.Categories.Kits:CreateModule({
         Name = 'AutoConqueror',
         Function = function(callback)
             if callback then
-                task.spawn(function()
+                AutoConqueror:Clean(task.spawn(function()
                     repeat
-                        if entitylib.isAlive then
-                            local localPosition = entitylib.character.RootPart.Position
-
-                            local ent = entitylib.EntityPosition({
-                                Origin = localPosition,
-                                Range = Range.Value,
-                                Part = 'RootPart',
-                                Players = Targets.Players.Enabled,
-                                NPCs = Targets.NPCs.Enabled,
-                                Sort = sortmethods[TargetMode.Value]
-                            })
-
-                            -- Fires strictly "On near" when a valid target is detected within range & line of sight
-                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
-                                triggerBanners(localPosition)
+                        if entitylib.isAlive and lplr.Character then
+                            local localPosition = lplr.Character.RootPart.Position
+                            local mode = SpawnMode.Value
+                            local currentTime = tick()
+                            
+                            if mode == 'On Near' then
+                                -- Detect enemies within range
+                                local ent = entitylib.EntityPosition({
+                                    Origin = localPosition,
+                                    Range = Range.Value,
+                                    Players = Targets.Players.Enabled,
+                                    NPCs = Targets.NPCs.Enabled
+                                })
+                                
+                                if ent and (currentTime - lastBannerTime) >= Cooldown.Value then
+                                    spawnBanner(localPosition, BannerMode.Value)
+                                    lastBannerTime = currentTime
+                                end
                             end
                         end
-                        task.wait(0.2)
+                        task.wait(0.1)
                     until not AutoConqueror.Enabled
-                end)
+                end))
+                
+                -- Listen for damage events for "On Attack" mode
+                AutoConqueror:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+                    if SpawnMode.Value == 'On Attack' then
+                        if damageTable.damageType == 0 and damageTable.fromEntity and damageTable.fromEntity.Name == lplr.Name then
+                            local currentTime = tick()
+                            if (currentTime - lastBannerTime) >= Cooldown.Value then
+                                local localPosition = lplr.Character.RootPart.Position
+                                spawnBanner(localPosition, BannerMode.Value)
+                                lastBannerTime = currentTime
+                            end
+                        end
+                    end
+                end))
             end
         end,
-        Tooltip = 'Automatically places selected banners at your location when targets are near.'
+        Tooltip = 'Automatically spawns banners based on spawn mode and banner type'
     })
-
+    
     Targets = AutoConqueror:CreateTargets({
         Players = true,
-        NPCs = false,
+        NPCs = false
     })
-
-    local methods = {'Damage', 'Distance'}
-    for i in sortmethods do
-        if not table.find(methods, i) then
-            table.insert(methods, i)
-        end
-    end
-
-    TargetMode = AutoConqueror:CreateDropdown({
-        Name = 'Target Mode',
-        List = methods,
-        Default = 'Distance'
-    })
-
-    BannerType = AutoConqueror:CreateDropdown({
+    
+    BannerMode = AutoConqueror:CreateDropdown({
         Name = 'Banner Mode',
-        List = {'Heal', 'Defense', 'Fire', 'All'},
-        Default = 'Heal'
+        List = {'Damage', 'Defence', 'Heal'},
+        Default = 'Damage',
+        Tooltip = 'Choose which banner type to spawn'
     })
-
-    WallCheck = AutoConqueror:CreateToggle({
-        Name = 'Wall Check',
-        Default = true,
-        Tooltip = 'Ignores targets hidden behind blocks/walls.'
+    
+    SpawnMode = AutoConqueror:CreateDropdown({
+        Name = 'Spawn Mode',
+        List = {'On Near', 'On Attack'},
+        Default = 'On Near',
+        Tooltip = 'On Near: Spawn when enemies are in range | On Attack: Spawn when attacking'
     })
-
+    
     Range = AutoConqueror:CreateSlider({
         Name = 'Range',
         Min = 5,
         Max = 50,
-        Default = 30,
+        Default = 25,
         Suffix = function(val)
-            return val > 1 and 'studs' or 'stud'
+            return val <= 1 and 'stud' or 'studs'
         end,
-        Decimal = 5
+        Tooltip = 'Detection range for "On Near" mode'
     })
-
+    
     Cooldown = AutoConqueror:CreateSlider({
         Name = 'Cooldown',
         Min = 0,
         Max = 30,
         Default = 1,
-        Suffix = function(val)
-            return val > 1 and 'secs' or 'sec'
-        end,
-        Decimal = 5
+        Decimal = 10,
+        Suffix = 'seconds',
+        Tooltip = 'Wait time between banner spawns'
     })
+    
+    function spawnBanner(spawnPosition, bannerType)
+        local blockType = ''
+        if bannerType == 'Damage' then
+            blockType = 'damage_banner'
+        elseif bannerType == 'Defence' then
+            blockType = 'defense_banner'
+        elseif bannerType == 'Heal' then
+            blockType = 'heal_banner'
+        end
+        
+        -- Offset position slightly to spawn beside player
+        local offsetPosition = spawnPosition + Vector3.new(3, 0, 0)
+        
+        pcall(function()
+            local Event = game:GetService("ReplicatedStorage").rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
+            Event:InvokeServer({
+                position = offsetPosition,
+                blockType = blockType,
+                blockData = 0,
+                mouseBlockInfo = {
+                    target = {
+                        blockRef = {
+                            blockPosition = offsetPosition - Vector3.new(0, 1, 0)
+                        },
+                        hitPosition = offsetPosition,
+                        hitNormal = Vector3.new(0, 1, 0)
+                    },
+                    placementPosition = offsetPosition
+                }
+            })
+        end)
+    end
 end)
 
 run(function()
