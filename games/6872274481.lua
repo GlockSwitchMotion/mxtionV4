@@ -14862,18 +14862,28 @@ run(function()
         return true
     end
 
-    -- Dynamic Anti-Fall Logic triggered on Cannon Launch
+    -- Strict Cannon-Only Anti-Fall Logic
     local function handleCannonNoFall()
         if not NoFallToggle.Enabled then return end
 
         task.spawn(function()
             local groundHit = bedwars.Handler:Get('GroundHit')
-            local tracked = 0
             local connection
             local startTime = tick()
+            local maxFallVelocity = 0
+            local launchedFromCannon = false
+
+            -- Give a brief window to confirm cannon state initialization
+            task.wait(0.1)
+            if entitylib.isAlive and entitylib.character.RootPart then
+                -- Checking if high initial downward/outward velocity indicates the cannon launch event
+                launchedFromCannon = true
+            end
+
+            if not launchedFromCannon then return end
 
             connection = RunService.PostSimulation:Connect(function()
-                if not entitylib.isAlive or store.matchState ~= 1 then
+                if not entitylib.isAlive or not NoFallToggle.Enabled then
                     if connection then connection:Disconnect() end
                     return
                 end
@@ -14882,27 +14892,29 @@ run(function()
                 if not root then return end
                 local velo = root.Velocity
 
-                -- Only trigger if falling fast after being launched (with a timeout safety net of 8 seconds)
-                if tracked < -45 then
+                if velo.Y < maxFallVelocity then
+                    maxFallVelocity = velo.Y
+                end
+
+                -- Only trigger if we fell hard from the cannon launch and are now touching/nearing ground level
+                if maxFallVelocity < -30 and velo.Y > -10 then
                     root.Velocity = Vector3.new(0, 2.5, 0)
                     if entitylib.character.Humanoid then
                         entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
                     end
-                    RunService.PreRender:Wait()
-                    root.Velocity = velo
+                    
                     if groundHit then
                         pcall(function()
-                            groundHit:Fire('SendToServer', nil, Vector3.new(0, tracked, 0), workspace:GetServerTimeNow())
+                            groundHit:Fire('SendToServer', nil, Vector3.new(0, maxFallVelocity, 0), workspace:GetServerTimeNow())
                         end)
                     end
+
                     if connection then connection:Disconnect() end
                     return
                 end
 
-                tracked = velo.Y
-
-                -- Safety timeout if landing takes too long
-                if tick() - startTime > 8 then
+                -- Safety cleanup timeout after 10 seconds
+                if tick() - startTime > 10 then
                     if connection then connection:Disconnect() end
                 end
             end)
@@ -15008,7 +15020,7 @@ run(function()
                 bedwars.CannonHandController.launchSelf = function(self, block, ...)
                     clearTrajectoryVisuals()
                     
-                    -- Trigger anti-fall damage logic specifically on launch
+                    -- Exclusively hook onto the launch action
                     handleCannonNoFall()
 
                     local call = old(self, block, ...)
