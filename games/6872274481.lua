@@ -19258,6 +19258,7 @@ end)
 
 run(function()
     local AutoConqueror
+    local TargetMode
     local BannerType
     local PlaceOn
     local Range
@@ -19276,13 +19277,6 @@ run(function()
 
     local lastPlaced = 0
 
-    local targetSetting = {
-        Players = true,
-        Mobs = true,
-        Walls = false,
-        Invisible = false
-    }
-
     local function getTargetPosition()
         if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
         local rootPos = entitylib.character.RootPart.Position
@@ -19290,20 +19284,19 @@ run(function()
         local chosenTarget = nil
         local shortestDist = Range.Value
 
-        for _, v in pairs(entitylib.entityList) do
-            if v.Alive and v.RootPart then
-                local isPlayer = v.Player ~= nil
-                local allowed = (isPlayer and targetSetting.Players) or (not isPlayer and targetSetting.Mobs)
+        if TargetMode.Value ~= 'Ignore none' then
+            for _, v in pairs(entitylib.entityList) do
+                if v.Alive and v.RootPart then
+                    local isPlayer = v.Player ~= nil
+                    local targetPlayers = TargetMode.Value:find("Players") ~= nil
+                    local targetNPCs = TargetMode.Value:find("NPCs") ~= nil
 
-                if allowed then
-                    local dist = (v.RootPart.Position - rootPos).Magnitude
-                    if dist <= shortestDist then
-                        if targetSetting.Walls then
-                            local ray = Workspace:Raycast(rootPos, v.RootPart.Position - rootPos, RaycastParams.new())
-                            if ray then continue end
+                    if (isPlayer and targetPlayers) or (not isPlayer and targetNPCs) then
+                        local dist = (v.RootPart.Position - rootPos).Magnitude
+                        if dist <= shortestDist then
+                            shortestDist = dist
+                            chosenTarget = v.RootPart.Position
                         end
-                        shortestDist = dist
-                        chosenTarget = v.RootPart.Position
                     end
                 end
             end
@@ -19312,28 +19305,23 @@ run(function()
         return chosenTarget
     end
 
-    local function getSelectedBannerInfo()
+    local function getEquippedOrInventoryBanner()
         local selected = BannerType.Value
         local blockName = "heal_banner"
         
         if selected == "Banner - Heal" then 
             blockName = "heal_banner"
-        elseif selected == "Banner - Damage" or selected == "Fire" then 
+        elseif selected == "Banner - Damage" then 
             blockName = "damage_banner"
         elseif selected == "Banner - Defense" then 
             blockName = "defense_banner" 
         end
 
-        -- Check hotbar/hand first
-        if store.hand.tool and store.hand.tool.Name:lower() == blockName then
-            return blockName
-        end
-
-        -- Look through inventory and auto-equip slot if configured
+        -- Auto-equip logic if found in inventory/hotbar and Legit Switch is active
         if store.inventory and store.inventory.inventory and store.inventory.inventory.items then
             for slot, item in pairs(store.inventory.inventory.items) do
                 if item and item.itemType and item.itemType == blockName then
-                    if LegitSwitch.Enabled then
+                    if LegitSwitch.Value then
                         task.spawn(function()
                             if bedwars.ClientHandlerStore then
                                 bedwars.ClientHandlerStore:dispatch({
@@ -19344,7 +19332,7 @@ run(function()
                             task.wait(SwitchDelay.Value)
                         end)
                     end
-                    return blockName
+                    break
                 end
             end
         end
@@ -19356,9 +19344,9 @@ run(function()
         if not PlaceBlockEvent then return end
         if tick() - lastPlaced < Cooldown.Value then return end
 
-        local blockName = getSelectedBannerInfo()
+        local blockName = getEquippedOrInventoryBanner()
         
-        -- Calculate precise floor positions based on your remote capture structure
+        -- Map target coordinates into block grid positions using your exact remote format
         local placePos = Vector3.new(
             math.floor(targetPos.X + 0.5),
             math.floor(targetPos.Y + 0.5),
@@ -19405,12 +19393,15 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically equips and places tactical banners near targets using exact server remotes.'
+        Tooltip = 'Automatically places selected tactical banners near players or NPCs.'
     })
 
-    if AutoConqueror.CreateTargetWindow then
-        targetSetting = AutoConqueror:CreateTargetWindow({})
-    end
+    -- Target selection dropdown matching Players, NPCs, or both
+    TargetMode = AutoConqueror:CreateDropdown({
+        Name = 'Target',
+        List = {'Players, NPCs', 'Players', 'NPCs', 'Ignore none'},
+        Default = 'Players, NPCs'
+    })
 
     BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner',
