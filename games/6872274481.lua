@@ -19259,36 +19259,79 @@ end)
 run(function()
     local AutoConqueror
     local Targets
+    local TargetMode
     local BannerType
     local Range
     local Cooldown
+    local WallCheck
 
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
     local lplr = Players.LocalPlayer
 
+    -- Direct Cobalt-extracted remote path
     local PlaceBlockEvent = ReplicatedStorage:WaitForChild("rbxts_include", 99)
         and ReplicatedStorage.rbxts_include:WaitForChild("node_modules", 99)
         and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
 
     local lastPlaced = 0
 
-    local function sendRemote(bannerType)
-        if tick() - lastPlaced < Cooldown.Value then return end
-        if not entitylib.isAlive or not entitylib.character.RootPart then return end
+    local function isVisible(origin, targetPart)
+        if not WallCheck.Enabled then return true end
 
-        local currentPos = entitylib.character.RootPart.Position
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        
+        local ignoreList = {entitylib.character.Character}
+        if targetPart and targetPart.Parent then
+            table.insert(ignoreList, targetPart.Parent)
+        end
+        raycastParams.FilterDescendantsInstances = ignoreList
+
+        local direction = targetPart.Position - origin
+        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+
+        return raycastResult == nil
+    end
+
+    local function sendBannerRemote(blockName, targetPos)
+        if not PlaceBlockEvent then return end
+        
+        -- Align coordinates to block grid directly at your standing position or near target position
         local placePos = Vector3.new(
-            math.floor(currentPos.X + 2.5),
-            math.floor(currentPos.Y + 0.5),
-            math.floor(currentPos.Z + 0.5)
+            math.floor(targetPos.X + 0.5),
+            math.floor(targetPos.Y + 0.5),
+            math.floor(targetPos.Z + 0.5)
         )
 
-        PlaceBlockEvent:InvokeServer({
-            blockType = bannerType,
-            position = placePos,
-            blockData = 0
-        })
+        pcall(function()
+            PlaceBlockEvent:InvokeServer({
+                blockType = blockName,
+                position = placePos,
+                blockData = 0
+            })
+        end)
+    end
+
+    local function triggerBanners(targetPos)
+        if tick() - lastPlaced < Cooldown.Value then return end
+        
+        local selected = BannerType.Value
+
+        if selected == "Heal" then
+            sendBannerRemote("heal_banner", targetPos)
+        elseif selected == "Defense" then
+            sendBannerRemote("defense_banner", targetPos)
+        elseif selected == "Fire" then
+            sendBannerRemote("damage_banner", targetPos)
+        elseif selected == "All" then
+            sendBannerRemote("heal_banner", targetPos)
+            task.wait(0.05)
+            sendBannerRemote("defense_banner", targetPos)
+            task.wait(0.05)
+            sendBannerRemote("damage_banner", targetPos)
+        end
+
         lastPlaced = tick()
     end
 
@@ -19298,52 +19341,21 @@ run(function()
             if callback then
                 task.spawn(function()
                     repeat
-                        if entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
-                            local playerPos = entitylib.character.RootPart.Position
-                            local found = false
+                        if entitylib.isAlive then
+                            local localPosition = entitylib.character.RootPart.Position
 
-                            if Targets.Players.Enabled then
-                                for _, player in pairs(Players:GetPlayers()) do
-                                    if player ~= lplr and player.Character and player.Character:FindFirstChild("RootPart") then
-                                        local distance = (playerPos - player.Character.RootPart.Position).Magnitude
-                                        if distance <= Range.Value then
-                                            found = true
-                                            break
-                                        end
-                                    end
-                                end
-                            end
+                            local ent = entitylib.EntityPosition({
+                                Origin = localPosition,
+                                Range = Range.Value,
+                                Part = 'RootPart',
+                                Players = Targets.Players.Enabled,
+                                NPCs = Targets.NPCs.Enabled,
+                                Sort = sortmethods[TargetMode.Value]
+                            })
 
-                            if not found and Targets.NPCs.Enabled then
-                                local npcFolder = workspace:FindFirstChild("NPCs")
-                                if npcFolder then
-                                    for _, npc in pairs(npcFolder:GetChildren()) do
-                                        if npc:FindFirstChild("RootPart") then
-                                            local distance = (playerPos - npc.RootPart.Position).Magnitude
-                                            if distance <= Range.Value then
-                                                found = true
-                                                break
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-
-                            if found then
-                                local banner = BannerType.Value
-                                if banner == "Damage" then
-                                    sendRemote("damage_banner")
-                                elseif banner == "Heal" then
-                                    sendRemote("heal_banner")
-                                elseif banner == "Defense" then
-                                    sendRemote("defense_banner")
-                                elseif banner == "All" then
-                                    sendRemote("damage_banner")
-                                    task.wait(0.1)
-                                    sendRemote("defense_banner")
-                                    task.wait(0.1)
-                                    sendRemote("heal_banner")
-                                end
+                            -- Fires strictly "On near" when a valid target is detected within range & line of sight
+                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
+                                triggerBanners(localPosition)
                             end
                         end
                         task.wait(0.2)
@@ -19351,7 +19363,7 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically places banners when targets are nearby.'
+        Tooltip = 'Automatically places selected banners at your location when targets are near.'
     })
 
     Targets = AutoConqueror:CreateTargets({
@@ -19359,10 +19371,29 @@ run(function()
         NPCs = false,
     })
 
+    local methods = {'Damage', 'Distance'}
+    for i in sortmethods do
+        if not table.find(methods, i) then
+            table.insert(methods, i)
+        end
+    end
+
+    TargetMode = AutoConqueror:CreateDropdown({
+        Name = 'Target Mode',
+        List = methods,
+        Default = 'Distance'
+    })
+
     BannerType = AutoConqueror:CreateDropdown({
-        Name = 'Banner',
-        List = {'Damage', 'Heal', 'Defense', 'All'},
+        Name = 'Banner Mode',
+        List = {'Heal', 'Defense', 'Fire', 'All'},
         Default = 'Heal'
+    })
+
+    WallCheck = AutoConqueror:CreateToggle({
+        Name = 'Wall Check',
+        Default = true,
+        Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
 
     Range = AutoConqueror:CreateSlider({
@@ -19380,7 +19411,7 @@ run(function()
         Name = 'Cooldown',
         Min = 0,
         Max = 30,
-        Default = 0,
+        Default = 1,
         Suffix = function(val)
             return val > 1 and 'secs' or 'sec'
         end,
