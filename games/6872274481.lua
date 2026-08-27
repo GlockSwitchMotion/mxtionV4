@@ -19306,15 +19306,16 @@ run(function()
         local selectedBanner = BannerType.Value
         local currentPos = entitylib.character.RootPart.Position
         
-        -- Place banner beside player
+        -- Place banner beside player (offset by 3 studs on X axis)
         local placePos = Vector3.new(
-            math.floor(currentPos.X + 2.5),
+            math.floor(currentPos.X + 3.5),
             math.floor(currentPos.Y + 0.5),
             math.floor(currentPos.Z + 0.5)
         )
         local blockRefPos = Vector3.new(placePos.X, placePos.Y - 1, placePos.Z)
-        -- hitPosition should be the placement position, not player position
-        local hitPos = Vector3.new(placePos.X + 0.5, placePos.Y + 0.5, placePos.Z + 0.5)
+        
+        -- hitPosition uses the actual block coordinates (important for server validation)
+        local hitPos = Vector3.new(placePos.X * 16.5, placePos.Y * 16.5, placePos.Z * 16.5)
 
         local remotePayload = nil
 
