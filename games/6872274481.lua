@@ -2703,6 +2703,46 @@ run(function()
 end)
 
 run(function()
+    local LuciaSPY
+    
+    LuciaSPY = vape.Categories.Utility:CreateModule({
+        Name = 'LuciaSPY',
+        Function = function(callback)
+            if callback then
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                local netManaged = replicatedStorage:FindFirstChild('rbxts_include') 
+                    and replicatedStorage.rbxts_include:FindFirstChild('node_modules') 
+                    and replicatedStorage.rbxts_include.node_modules:FindFirstChild('@rbxts') 
+                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net 
+                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out 
+                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out._NetManaged 
+                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out._NetManaged:FindFirstChild('PiggyBankPop')
+                
+                if netManaged and netManaged:IsA('RemoteEvent') then
+                    LuciaSPY:Clean(netManaged.OnClientEvent:Connect(function(data)
+                        if type(data) == 'table' then
+                            local player = data.awardedPlayer
+                            local playerName = typeof(player) == 'Instance' and player.Name or tostring(player or 'Unknown')
+                            
+                            for key, value in data do
+                                if type(key) == 'string' and (key:lower():find('coin') or key:lower():find('candy') or key:lower():find('amount') or key:lower():find('val')) then
+                                    vape:CreateNotification('LuciaSPY', playerName + ' claimed ' + tostring(value) + ' ' + key + '!', 5)
+                                end
+                            end
+                            
+                            if data.coins then
+                                -- Handled by general loop or fallback
+                            end
+                        end
+                    end))
+                end
+            end
+        end,
+        Tooltip = 'Listens for PiggyBankPop remote events and sends vape notifications'
+    })
+end)
+
+run(function()
 	local SilentAim
 	local Targets
 	local TargetPart
@@ -2806,7 +2846,7 @@ run(function()
 	end
 	
 	SilentAim = vape.Categories.Combat:CreateModule({
-		Name = 'SilentAim',
+		Name = 'ProjectileTeleport',
 		Function = function(callback)
 			hookVersion += 1
 			if callback and not namecall then
