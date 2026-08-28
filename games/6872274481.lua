@@ -17008,19 +17008,18 @@ run(function()
                     return
                 end
                 
-                -- Hook into outgoing/incoming sword hit events depending on how the client fires it,
-                -- or intercept when the client fires SwordHit to the server.
-                -- Note: SwordHit is typically a client-to-server remote (`FireServer`), 
-                -- so we hook via a metatable hook or look for when the player attacks.
-                
+                local lastActivation = 0
                 local oldNamecall
                 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                     local method = getnamecallmethod()
                     if AutoSkoll.Enabled and self == swordHitRemote and method == "FireServer" then
-                        local args = {
-                            [1] = "void_hunter_mark"
-                        }
-                        useAbilityRemote:FireServer(unpack(args))
+                        if tick() - lastActivation >= 7 then
+                            lastActivation = tick()
+                            local args = {
+                                [1] = "void_hunter_mark"
+                            }
+                            useAbilityRemote:FireServer(unpack(args))
+                        end
                     end
                     return oldNamecall(self, ...)
                 end)
@@ -17030,7 +17029,7 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically fires the Void Hunter ability whenever your SwordHit remote is fired.'
+        Tooltip = 'Automatically triggers the Void Hunter ability on sword hits with a 7-second cooldown.'
     })
 end)
 
