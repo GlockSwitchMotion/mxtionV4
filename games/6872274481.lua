@@ -16980,23 +16980,21 @@ end)
 
 run(function()
     local AutoSkoll
+    local Range
+    local Targets
     
-    AutoSkoll = vape.Categories.Combat:CreateModule({
+    AutoSkoll = vape.Categories.Kits:CreateModule({
         Name = 'AutoSkoll',
         Function = function(callback)
             if callback then
                 local replicatedStorage = game:GetService('ReplicatedStorage')
                 local runService = game:GetService('RunService')
-                local players = game:GetService('Players')
-                local lplr = players.LocalPlayer
                 
-                -- Locate the useAbility remote for Skoll / Void Hunter ability
                 local useAbilityRemote
                 pcall(function()
                     useAbilityRemote = replicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events", 2):WaitForChild("useAbility", 2)
                 end)
                 
-                -- Fallback lookup if path differs
                 if not useAbilityRemote then
                     for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
                         if descendant.Name == 'useAbility' and descendant:IsA('RemoteEvent') then
@@ -17011,21 +17009,51 @@ run(function()
                     return
                 end
                 
-                -- Auto-fire loop checking for targets or conditions
+                local lastFire = 0
                 AutoSkoll:Clean(runService.Heartbeat:Connect(function()
                     if not AutoSkoll.Enabled then return end
+                    if tick() - lastFire < 0.5 then return end -- cooldown check to prevent spam
                     
-                    -- Example auto-trigger logic for Skoll ability
-                    pcall(function()
-                        local args = {
-                            [1] = "void_hunter_mark"
-                        }
-                        useAbilityRemote:FireServer(unpack(args))
-                    end)
+                    if entitylib.isAlive then
+                        local localPosition = entitylib.character.RootPart.Position
+                        local ent = entitylib.EntityPosition({
+                            Origin = localPosition,
+                            Range = Range.Value,
+                            Wallcheck = Targets.Walls.Enabled,
+                            Players = Targets.Players.Enabled,
+                            NPCs = Targets.NPCs.Enabled
+                        })
+                        
+                        if ent then
+                            local mag = (localPosition - ent.RootPart.Position).Magnitude
+                            if mag <= Range.Value then
+                                lastFire = tick()
+                                local args = {
+                                    [1] = "void_hunter_mark"
+                                }
+                                useAbilityRemote:FireServer(unpack(args))
+                            end
+                        end
+                    end
                 end))
             end
         end,
-        Tooltip = 'Automatically fires Void Hunter ability actions.'
+        Tooltip = 'Automatically fires the Void Hunter mark ability when targets are within range.'
+    })
+    
+    Targets = AutoSkoll:CreateTargets({
+        Players = true,
+        NPCs = false
+    })
+    
+    Range = AutoSkoll:CreateSlider({
+        Name = 'Range',
+        Min = 0,
+        Max = 60,
+        Default = 25,
+        Suffix = function(val)
+            return val >= 1 and 'studs' or 'stud'
+        end
     })
 end)
 
