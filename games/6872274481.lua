@@ -16982,37 +16982,12 @@ run(function()
     local AutoSkoll
     local Targets
     local RangeSlider
-    local DetonateRangeSlider
-    local WallCheckToggle
 
     AutoSkoll = vape.Categories.Kits:CreateModule({
         Name = 'AutoSkoll',
         Function = function(callback)
             if callback then
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                
-                local netManaged = ReplicatedStorage:FindFirstChild("rbxts_include") 
-                    and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules") 
-                    and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts") 
-                    and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net 
-                    and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out 
-                    and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged
-
-                if not netManaged then
-                    warn("[AutoSkoll Debug] NetManaged folder missing!")
-                    return
-                end
-
-                local markRequestEvent = netManaged:FindFirstChild("VoidHunter_MarkAbilityRequest")
-                local markUsedEvent = netManaged:FindFirstChild("VoidHunter_MarkAbilityUsed")
-                local detonateEvent = netManaged:FindFirstChild("VoidHunter_TargetDetonated")
-
-                if not markRequestEvent or not markUsedEvent or not detonateEvent then
-                    warn("[AutoSkoll Debug] VoidHunter remotes missing!")
-                    return
-                end
-
-                local activeMarkedTarget = nil
                 local lastFireTick = 0
 
                 AutoSkoll:Clean(runService.Heartbeat:Connect(function()
@@ -17020,7 +16995,6 @@ run(function()
                     
                     local myRoot = entitylib.character.RootPart
                     local maxRange = RangeSlider.Value
-                    local detonateDistance = DetonateRangeSlider.Value
 
                     -- Find best target
                     local closestTarget = nil
@@ -17034,84 +17008,26 @@ run(function()
                             if (isPlayer and Targets.Players.Enabled) or (isNpc and Targets.NPCs.Enabled) then
                                 local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
                                 if dist <= maxRange and dist < closestDist then
-                                    if WallCheckToggle.Enabled then
-                                        local rayParams = RaycastParams.new()
-                                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-                                        rayParams.FilterDescendantsInstances = {lplr.Character, ent.Character}
-                                        local ray = workspace:Raycast(myRoot.Position, ent.RootPart.Position - myRoot.Position, rayParams)
-                                        if not ray then
-                                            closestDist = dist
-                                            closestTarget = ent
-                                        end
-                                    else
-                                        closestDist = dist
-                                        closestTarget = ent
-                                    end
+                                    closestDist = dist
+                                    closestTarget = ent
                                 end
                             end
                         end
                     end
 
-                    -- Auto Detonate logic
-                    if activeMarkedTarget then
-                        local targetValid = false
-                        if activeMarkedTarget.RootPart and activeMarkedTarget.Humanoid and activeMarkedTarget.Humanoid.Health > 0 then
-                            local currentDist = (activeMarkedTarget.RootPart.Position - myRoot.Position).Magnitude
-                            if currentDist > detonateDistance then
-                                targetValid = true
-                            end
-                        else
-                            targetValid = true
-                        end
-
-                        if targetValid then
-                            print("[AutoSkoll Debug] Detonating target!")
-                            pcall(function()
-                                detonateEvent:FireServer({
-                                    targetEntityInstance = activeMarkedTarget.Character or activeMarkedTarget.RootPart,
-                                    userPlayer = lplr
-                                })
-                            end)
-                            activeMarkedTarget = nil
-                        end
-                    end
-
-                    -- Auto Mark / Use Ability (with 1.5s internal cooldown)
-                    if closestTarget and not activeMarkedTarget and (tick() - lastFireTick > 1.5) then
+                    -- Fire ability if target in range
+                    if closestTarget and (tick() - lastFireTick > 0.5) then
                         lastFireTick = tick()
-                        activeMarkedTarget = closestTarget
-                        local originPos = myRoot.Position
-                        local targetPart = closestTarget.RootPart
-                        local dir = (targetPart.Position - originPos).Unit
-                        local targetInst = closestTarget.Character or targetPart
-                        local generatedUuid = HttpService and HttpService:GenerateGUID(false) or "uuid_skoll_" .. math.random(1000,9999)
-
-                        print("[AutoSkoll Debug] Firing Mark Request & Used events at target:", closestTarget.Name)
-
-                        -- 1. Fire the Request remote first (matching your new screenshot)
+                        
                         pcall(function()
-                            markRequestEvent:FireServer({
-                                originPosition = originPos,
-                                direction = dir
-                            })
-                        end)
-
-                        -- 2. Fire the MarkAbilityUsed event right after
-                        pcall(function()
-                            markUsedEvent:FireServer({
-                                uuid = generatedUuid,
-                                userPlayer = lplr,
-                                direction = dir,
-                                startTime = workspace:GetServerTimeNow(),
-                                targetEntityInstance = targetInst,
-                                originPosition = originPos
-                            })
+                            local Event = ReplicatedStorage["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].useAbility
+                            Event:FireServer("void_hunter_mark")
                         end)
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically uses VoidHunter mark ability on targets in range and detonates when they leave range.'
+        Tooltip = 'Automatically uses void hunter mark ability on targets in range'
     })
 
     Targets = AutoSkoll:CreateTargets({
@@ -17126,21 +17042,6 @@ run(function()
         Default = 40,
         Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
         Tooltip = 'Maximum range to trigger the ability on a target'
-    })
-
-    DetonateRangeSlider = AutoSkoll:CreateSlider({
-        Name = 'Auto Detonate Range',
-        Min = 5,
-        Max = 120,
-        Default = 60,
-        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
-        Tooltip = 'Distance at which the marked target triggers an automatic detonation'
-    })
-
-    WallCheckToggle = AutoSkoll:CreateToggle({
-        Name = 'Wall Check',
-        Default = true,
-        Tooltip = 'Prevents targeting players behind walls'
     })
 end)
 
