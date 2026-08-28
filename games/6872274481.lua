@@ -16980,122 +16980,52 @@ end)
 
 run(function()
     local AutoSkoll
-    local Targets
-    local RangeSlider
-    local DetonateRangeSlider
     
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local lastAbilityTick = 0
-    local lastDetonateTick = 0
-    local markedTargets = {}
-
-    AutoSkoll = vape.Categories.Kits:CreateModule({
+    AutoSkoll = vape.Categories.Combat:CreateModule({
         Name = 'AutoSkoll',
         Function = function(callback)
             if callback then
-                AutoSkoll:Clean(game:GetService("RunService").Heartbeat:Connect(function()
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                local runService = game:GetService('RunService')
+                local players = game:GetService('Players')
+                local lplr = players.LocalPlayer
+                
+                -- Locate the useAbility remote for Skoll / Void Hunter ability
+                local useAbilityRemote
+                pcall(function()
+                    useAbilityRemote = replicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events", 2):WaitForChild("useAbility", 2)
+                end)
+                
+                -- Fallback lookup if path differs
+                if not useAbilityRemote then
+                    for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
+                        if descendant.Name == 'useAbility' and descendant:IsA('RemoteEvent') then
+                            useAbilityRemote = descendant
+                            break
+                        end
+                    end
+                end
+                
+                if not useAbilityRemote then
+                    vape:CreateNotification("AutoSkoll", "useAbility remote not found!", 5)
+                    return
+                end
+                
+                -- Auto-fire loop checking for targets or conditions
+                AutoSkoll:Clean(runService.Heartbeat:Connect(function()
                     if not AutoSkoll.Enabled then return end
-                    if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
-                    local myRoot = entitylib.character.RootPart
-                    local abilityRange = RangeSlider.Value
-                    local detonateRange = DetonateRangeSlider.Value
-
-                    local closestTarget = nil
-                    local closestDist = abilityRange + 1
-
-                    -- Find closest target within ability range
-                    for _, ent in ipairs(entitylib.List) do
-                        if ent and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
-                            local isPlayer = ent.Player ~= nil
-                            local isNpc = not isPlayer
-                            
-                            if (isPlayer and Targets.Players.Enabled) or (isNpc and Targets.NPCs.Enabled) then
-                                local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
-                                if dist <= abilityRange and dist < closestDist then
-                                    closestDist = dist
-                                    closestTarget = ent
-                                end
-                            end
-                        end
-                    end
-
-                    -- Fire ability on closest target
-                    if closestTarget and (tick() - lastAbilityTick > 0.5) then
-                        lastAbilityTick = tick()
-                        
-                        -- Fire useAbility
-                        pcall(function()
-                            ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility"):FireServer("void_hunter_mark")
-                        end)
-                        
-                        -- Fire MarkAbilityRequest with direction to target
-                        local direction = (closestTarget.RootPart.Position - myRoot.Position).Unit
-                        pcall(function()
-                            ReplicatedStorage:WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("VoidHunter_MarkAbilityRequest"):FireServer({
-                                originPosition = myRoot.Position,
-                                direction = direction
-                            })
-                        end)
-                        
-                        -- Track this target as marked
-                        markedTargets[closestTarget] = tick()
-                    end
-
-                    -- Auto detonate logic
-                    local targetsToRemove = {}
-                    for target, markTime in pairs(markedTargets) do
-                        if target and target.RootPart and target.Humanoid and target.Humanoid.Health > 0 then
-                            local currentDist = (target.RootPart.Position - myRoot.Position).Magnitude
-                            
-                            -- Detonate if target goes out of range
-                            if currentDist > detonateRange and (tick() - lastDetonateTick > 0.5) then
-                                lastDetonateTick = tick()
-                                
-                                pcall(function()
-                                    ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility"):FireServer("void_hunter_detonate")
-                                end)
-                                
-                                table.insert(targetsToRemove, target)
-                            end
-                        else
-                            table.insert(targetsToRemove, target)
-                        end
-                    end
-                    
-                    for _, target in ipairs(targetsToRemove) do
-                        markedTargets[target] = nil
-                    end
+                    -- Example auto-trigger logic for Skoll ability
+                    pcall(function()
+                        local args = {
+                            [1] = "void_hunter_mark"
+                        }
+                        useAbilityRemote:FireServer(unpack(args))
+                    end)
                 end))
-            else
-                -- Clear marked targets when disabled
-                table.clear(markedTargets)
             end
         end,
-        Tooltip = 'Auto marks targets and detonates when they leave range'
-    })
-
-    Targets = AutoSkoll:CreateTargets({
-        Players = true,
-        NPCs = false
-    })
-
-    RangeSlider = AutoSkoll:CreateSlider({
-        Name = 'Mark Range',
-        Min = 5,
-        Max = 60,
-        Default = 40,
-        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
-        Tooltip = 'Range to mark targets'
-    })
-
-    DetonateRangeSlider = AutoSkoll:CreateSlider({
-        Name = 'Detonate Range',
-        Min = 5,
-        Max = 100,
-        Default = 60,
-        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
-        Tooltip = 'Range to trigger auto detonate when target leaves'
+        Tooltip = 'Automatically fires Void Hunter ability actions.'
     })
 end)
 
