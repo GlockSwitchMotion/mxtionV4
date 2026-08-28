@@ -7819,9 +7819,6 @@ run(function()
     end
     
     local function Added(v)
-        local chest = v:WaitForChild('ChestFolderValue', 3)
-        if not (chest and StorageESP.Enabled) then return end
-        chest = chest.Value
         local billboard = Instance.new('BillboardGui')
         billboard.Parent = Folder
         billboard.Name = 'chest'
@@ -7850,33 +7847,59 @@ run(function()
         corner.CornerRadius = UDim.new(0, 4)
         corner.Parent = frame
         Reference[v] = billboard
-        StorageESP:Clean(chest.ChildAdded:Connect(function(item)
-            if table.find(List.ListEnabled, item.Name) or nearStorageItem(item.Name) then
-                refreshAdornee(billboard)
+        
+        -- Real-time connection updates
+        local connection
+        local function setupChestListener()
+            local chest = v:FindFirstChild('ChestFolderValue')
+            if chest and chest.Value then
+                local folderValue = chest.Value
+                StorageESP:Clean(folderValue.ChildAdded:Connect(function()
+                    refreshAdornee(billboard)
+                end))
+                StorageESP:Clean(folderValue.ChildRemoved:Connect(function()
+                    refreshAdornee(billboard)
+                end))
+            end
+        end
+        
+        setupChestListener()
+        StorageESP:Clean(v.ChildAdded:Connect(function(child)
+            if child.Name == 'ChestFolderValue' then
+                task.spawn(setupChestListener)
+                task.spawn(refreshAdornee, billboard)
             end
         end))
-        StorageESP:Clean(chest.ChildRemoved:Connect(function(item)
-            if table.find(List.ListEnabled, item.Name) or nearStorageItem(item.Name) then
-                refreshAdornee(billboard)
-            end
-        end))
+        
         task.spawn(refreshAdornee, billboard)
     end
     
     StorageESP = vape.Categories.Render:CreateModule({
-        Name = 'TeamChestESP',
+        Name = 'TeamCrateESP',
         Function = function(callback)
             if callback then
                 StorageESP:Clean(collectionService:GetInstanceAddedSignal('chest'):Connect(Added))
                 for _, v in collectionService:GetTagged('chest') do
                     task.spawn(Added, v)
                 end
+                
+                -- Real-time polling fallback loop to guarantee immediate updates if children modify values or change rapidly
+                StorageESP:Clean(task.spawn(function()
+                    while StorageESP.Enabled do
+                        for _, billboard in Reference do
+                            pcall(function()
+                                refreshAdornee(billboard)
+                            end)
+                        end
+                        task.wait(0.2)
+                    end
+                end))
             else
                 table.clear(Reference)
                 Folder:ClearAllChildren()
             end
         end,
-        Tooltip = 'Displays items and their counts in chests'
+        Tooltip = 'Displays items and their counts in chests in real-time'
     })
     List = StorageESP:CreateTextList({
         Name = 'Item',
