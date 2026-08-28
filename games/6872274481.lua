@@ -16982,6 +16982,7 @@ run(function()
     local AutoSkoll
     local Range
     local Targets
+    local Sorts
     
     AutoSkoll = vape.Categories.Kits:CreateModule({
         Name = 'AutoSkoll',
@@ -16991,16 +16992,10 @@ run(function()
                 local runService = game:GetService('RunService')
                 
                 local useAbilityRemote
-                pcall(function()
-                    useAbilityRemote = replicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events", 2):WaitForChild("useAbility", 2)
-                end)
-                
-                if not useAbilityRemote then
-                    for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
-                        if descendant.Name == 'useAbility' and descendant:IsA('RemoteEvent') then
-                            useAbilityRemote = descendant
-                            break
-                        end
+                for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
+                    if descendant.Name == 'useAbility' and descendant:IsA('RemoteEvent') then
+                        useAbilityRemote = descendant
+                        break
                     end
                 end
                 
@@ -17012,7 +17007,7 @@ run(function()
                 local lastFire = 0
                 AutoSkoll:Clean(runService.Heartbeat:Connect(function()
                     if not AutoSkoll.Enabled then return end
-                    if tick() - lastFire < 0.5 then return end -- cooldown check to prevent spam
+                    if tick() - lastFire < 0.5 then return end
                     
                     if entitylib.isAlive then
                         local localPosition = entitylib.character.RootPart.Position
@@ -17021,7 +17016,8 @@ run(function()
                             Range = Range.Value,
                             Wallcheck = Targets.Walls.Enabled,
                             Players = Targets.Players.Enabled,
-                            NPCs = Targets.NPCs.Enabled
+                            NPCs = Targets.NPCs.Enabled,
+                            Sort = sortmethods[Sorts.Value]
                         })
                         
                         if ent then
@@ -17038,12 +17034,25 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically fires the Void Hunter mark ability when targets are within range.'
+        Tooltip = 'Automatically fires the Void Hunter mark ability on the closest target within range.'
     })
     
     Targets = AutoSkoll:CreateTargets({
         Players = true,
         NPCs = false
+    })
+    
+    local methods = {'Damage', 'Distance'}
+    for i in sortmethods do
+        if not table.find(methods, i) then
+            table.insert(methods, i)
+        end
+    end
+    
+    Sorts = AutoSkoll:CreateDropdown({
+        Name = 'Target Mode',
+        List = methods,
+        Default = 'Distance'
     })
     
     Range = AutoSkoll:CreateSlider({
