@@ -16981,32 +16981,30 @@ end)
 run(function()
     local AutoSkoll
     local Targets
+    local RangeSlider
+    local DetonateRangeSlider
+    
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local lastAbilityTick = 0
+    local lastDetonateTick = 0
+    local markedTargets = {}
 
     AutoSkoll = vape.Categories.Kits:CreateModule({
         Name = 'AutoSkoll',
         Function = function(callback)
             if callback then
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local lastFireTick = 0
-
-                local useAbilityEvent = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-                if useAbilityEvent then
-                    useAbilityEvent = useAbilityEvent:FindFirstChild("useAbility")
-                end
-
-                if not useAbilityEvent then
-                    return
-                end
-
-                AutoSkoll:Clean(runService.Heartbeat:Connect(function()
+                AutoSkoll:Clean(game:GetService("RunService").Heartbeat:Connect(function()
+                    if not AutoSkoll.Enabled then return end
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
                     local myRoot = entitylib.character.RootPart
-                    local maxRange = 60
+                    local abilityRange = RangeSlider.Value
+                    local detonateRange = DetonateRangeSlider.Value
 
                     local closestTarget = nil
-                    local closestDist = maxRange + 1
+                    local closestDist = abilityRange + 1
 
+                    -- Find closest target within ability range
                     for _, ent in ipairs(entitylib.List) do
                         if ent and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
                             local isPlayer = ent.Player ~= nil
@@ -17014,7 +17012,7 @@ run(function()
                             
                             if (isPlayer and Targets.Players.Enabled) or (isNpc and Targets.NPCs.Enabled) then
                                 local dist = (ent.RootPart.Position - myRoot.Position).Magnitude
-                                if dist <= maxRange and dist < closestDist then
+                                if dist <= abilityRange and dist < closestDist then
                                     closestDist = dist
                                     closestTarget = ent
                                 end
@@ -17022,21 +17020,82 @@ run(function()
                         end
                     end
 
-                    if closestTarget and (tick() - lastFireTick > 0.5) then
-                        lastFireTick = tick()
+                    -- Fire ability on closest target
+                    if closestTarget and (tick() - lastAbilityTick > 0.5) then
+                        lastAbilityTick = tick()
+                        
+                        -- Fire useAbility
                         pcall(function()
-                            useAbilityEvent:FireServer("void_hunter_mark")
+                            ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility"):FireServer("void_hunter_mark")
                         end)
+                        
+                        -- Fire MarkAbilityRequest with direction to target
+                        local direction = (closestTarget.RootPart.Position - myRoot.Position).Unit
+                        pcall(function()
+                            ReplicatedStorage:WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("VoidHunter_MarkAbilityRequest"):FireServer({
+                                originPosition = myRoot.Position,
+                                direction = direction
+                            })
+                        end)
+                        
+                        -- Track this target as marked
+                        markedTargets[closestTarget] = tick()
+                    end
+
+                    -- Auto detonate logic
+                    local targetsToRemove = {}
+                    for target, markTime in pairs(markedTargets) do
+                        if target and target.RootPart and target.Humanoid and target.Humanoid.Health > 0 then
+                            local currentDist = (target.RootPart.Position - myRoot.Position).Magnitude
+                            
+                            -- Detonate if target goes out of range
+                            if currentDist > detonateRange and (tick() - lastDetonateTick > 0.5) then
+                                lastDetonateTick = tick()
+                                
+                                pcall(function()
+                                    ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility"):FireServer("void_hunter_detonate")
+                                end)
+                                
+                                table.insert(targetsToRemove, target)
+                            end
+                        else
+                            table.insert(targetsToRemove, target)
+                        end
+                    end
+                    
+                    for _, target in ipairs(targetsToRemove) do
+                        markedTargets[target] = nil
                     end
                 end))
+            else
+                -- Clear marked targets when disabled
+                table.clear(markedTargets)
             end
         end,
-        Tooltip = 'Auto uses void hunter mark on enemies in range'
+        Tooltip = 'Auto marks targets and detonates when they leave range'
     })
 
     Targets = AutoSkoll:CreateTargets({
         Players = true,
         NPCs = false
+    })
+
+    RangeSlider = AutoSkoll:CreateSlider({
+        Name = 'Mark Range',
+        Min = 5,
+        Max = 60,
+        Default = 40,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
+        Tooltip = 'Range to mark targets'
+    })
+
+    DetonateRangeSlider = AutoSkoll:CreateSlider({
+        Name = 'Detonate Range',
+        Min = 5,
+        Max = 100,
+        Default = 60,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
+        Tooltip = 'Range to trigger auto detonate when target leaves'
     })
 end)
 
@@ -19288,49 +19347,12 @@ end)
 run(function()
     local AutoConqueror
     local Targets
-    local TargetMode
     local BannerType
     local Range
     local Cooldown
-    local WallCheck
 
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local lplr = Players.LocalPlayer
-
     local lastPlaced = 0
-
-    local function isVisible(origin, targetPart)
-        if not WallCheck.Enabled then return true end
-
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        local ignoreList = {entitylib.character.Character}
-        if targetPart and targetPart.Parent then
-            table.insert(ignoreList, targetPart.Parent)
-        end
-        raycastParams.FilterDescendantsInstances = ignoreList
-
-        local direction = targetPart.Position - origin
-        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
-
-        return raycastResult == nil
-    end
-
-    local function equipBanner(blockName)
-        -- Try to equip the banner first via useAbility
-        local useAbilityEvent = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-        if useAbilityEvent then
-            useAbilityEvent = useAbilityEvent:FindFirstChild("useAbility")
-        end
-        
-        if useAbilityEvent then
-            pcall(function()
-                useAbilityEvent:FireServer(blockName)
-            end)
-        end
-    end
 
     local function sendBannerRemote(blockName, targetPos)
         -- Get the PlaceBlock remote with correct path
@@ -19342,15 +19364,10 @@ run(function()
             and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged:FindFirstChild("PlaceBlock")
         
         if not PlaceBlockEvent then
-            warn("[AutoConqueror] PlaceBlock remote not found!")
             return
         end
         
-        -- Equip the banner first
-        equipBanner(blockName)
-        task.wait(0.1)
-        
-        -- Align coordinates to block grid
+        -- Use current player position for placement
         local placePos = Vector3.new(
             math.floor(targetPos.X + 0.5),
             math.floor(targetPos.Y + 0.5),
@@ -19379,9 +19396,9 @@ run(function()
             sendBannerRemote("damage_banner", targetPos)
         elseif selected == "All" then
             sendBannerRemote("heal_banner", targetPos)
-            task.wait(0.05)
+            task.wait(0.1)
             sendBannerRemote("defense_banner", targetPos)
-            task.wait(0.05)
+            task.wait(0.1)
             sendBannerRemote("damage_banner", targetPos)
         end
 
@@ -19394,7 +19411,7 @@ run(function()
             if callback then
                 task.spawn(function()
                     repeat
-                        if entitylib.isAlive then
+                        if entitylib.isAlive and entitylib.character.RootPart then
                             local localPosition = entitylib.character.RootPart.Position
 
                             local ent = entitylib.EntityPosition({
@@ -19403,15 +19420,14 @@ run(function()
                                 Part = 'RootPart',
                                 Players = Targets.Players.Enabled,
                                 NPCs = Targets.NPCs.Enabled,
-                                Sort = sortmethods[TargetMode.Value]
+                                Sort = sortmethods['Distance']
                             })
 
-                            -- Fires strictly "On near" when a valid target is detected within range & line of sight
-                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
+                            if ent and ent.RootPart then
                                 triggerBanners(localPosition)
                             end
                         end
-                        task.wait(0.2)
+                        task.wait(0.1)
                     until not AutoConqueror.Enabled
                 end)
             end
@@ -19424,29 +19440,10 @@ run(function()
         NPCs = false,
     })
 
-    local methods = {'Damage', 'Distance'}
-    for i in sortmethods do
-        if not table.find(methods, i) then
-            table.insert(methods, i)
-        end
-    end
-
-    TargetMode = AutoConqueror:CreateDropdown({
-        Name = 'Target Mode',
-        List = methods,
-        Default = 'Distance'
-    })
-
     BannerType = AutoConqueror:CreateDropdown({
         Name = 'Banner Mode',
         List = {'Heal', 'Defense', 'Fire', 'All'},
         Default = 'Heal'
-    })
-
-    WallCheck = AutoConqueror:CreateToggle({
-        Name = 'Wall Check',
-        Default = true,
-        Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
 
     Range = AutoConqueror:CreateSlider({
