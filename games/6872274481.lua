@@ -17013,7 +17013,7 @@ run(function()
                 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                     local method = getnamecallmethod()
                     if AutoSkoll.Enabled and self == swordHitRemote and method == "FireServer" then
-                        if tick() - lastActivation >= 7 then
+                        if tick() - lastActivation >= 19.9 then
                             lastActivation = tick()
                             local args = {
                                 [1] = "void_hunter_mark"
@@ -17029,7 +17029,7 @@ run(function()
                 end)
             end
         end,
-        Tooltip = 'Automatically triggers the Void Hunter ability on sword hits with a 7-second cooldown.'
+        Tooltip = 'Automatically triggers the Void Hunter ability on sword hits with a 19.9-second cooldown.'
     })
 end)
 
