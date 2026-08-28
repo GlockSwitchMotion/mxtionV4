@@ -16981,7 +16981,6 @@ end)
 run(function()
     local AutoSkoll
     local Targets
-    local RangeSlider
 
     AutoSkoll = vape.Categories.Kits:CreateModule({
         Name = 'AutoSkoll',
@@ -16990,19 +16989,12 @@ run(function()
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local lastFireTick = 0
 
-                -- Get the useAbility remote once
-                local useAbilityEvent = nil
-                
-                local eventsFolder = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-                if eventsFolder then
-                    useAbilityEvent = eventsFolder:FindFirstChild("useAbility")
-                    print("[AutoSkoll] Found useAbility remote!")
-                else
-                    print("[AutoSkoll] Events folder not found, searching alternative paths...")
+                local useAbilityEvent = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+                if useAbilityEvent then
+                    useAbilityEvent = useAbilityEvent:FindFirstChild("useAbility")
                 end
 
                 if not useAbilityEvent then
-                    warn("[AutoSkoll] useAbility remote not found!")
                     return
                 end
 
@@ -17010,9 +17002,8 @@ run(function()
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
                     local myRoot = entitylib.character.RootPart
-                    local maxRange = RangeSlider.Value
+                    local maxRange = 60
 
-                    -- Find best target
                     local closestTarget = nil
                     local closestDist = maxRange + 1
 
@@ -17031,34 +17022,21 @@ run(function()
                         end
                     end
 
-                    -- Fire ability if target in range
                     if closestTarget and (tick() - lastFireTick > 0.5) then
                         lastFireTick = tick()
-                        print("[AutoSkoll] Firing ability at target: " .. closestTarget.Name .. " Distance: " .. closestDist)
-                        
                         pcall(function()
                             useAbilityEvent:FireServer("void_hunter_mark")
-                            print("[AutoSkoll] Ability fired successfully!")
                         end)
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically uses void hunter mark ability on targets in range'
+        Tooltip = 'Auto uses void hunter mark on enemies in range'
     })
 
     Targets = AutoSkoll:CreateTargets({
         Players = true,
         NPCs = false
-    })
-
-    RangeSlider = AutoSkoll:CreateSlider({
-        Name = 'Range',
-        Min = 5,
-        Max = 100,
-        Default = 40,
-        Suffix = function(val) return val == 1 and 'stud' or 'studs' end,
-        Tooltip = 'Maximum range to trigger the ability on a target'
     })
 end)
 
