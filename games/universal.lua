@@ -7597,52 +7597,109 @@ end)
 run(function()
 	local Clock
 	local TwentyFourHour
+	local ClockSize
 	local label
+	local dateLabel
 	
 	Clock = vape.Legit:CreateModule({
 		Name = 'Clock',
 		Function = function(callback)
 			if callback then
 				repeat
-					label.Text = DateTime.now():FormatLocalTime('LT', TwentyFourHour.Enabled and 'zh-cn' or 'en-us')
+					local now = DateTime.now()
+					label.Text = now:FormatLocalTime('LT', TwentyFourHour.Enabled and 'zh-cn' or 'en-us')
+					dateLabel.Text = now:FormatLocalTime('MM/DD', 'en-us')
 					task.wait(1)
 				until not Clock.Enabled
 			end
 		end,
-		Size = UDim2.fromOffset(100, 41),
-		Tooltip = 'Shows the current local time'
+		Size = UDim2.fromOffset(140, 80),
+		Tooltip = 'Shows the current local time with date'
 	})
 	Clock:CreateFont({
 		Name = 'Font',
 		Blacklist = 'Gotham',
 		Function = function(val)
 			label.FontFace = val
+			dateLabel.FontFace = val
 		end
 	})
 	Clock:CreateColorSlider({
-		Name = 'Color',
-		DefaultValue = 0,
-		DefaultOpacity = 0.5,
+		Name = 'Background Color',
+		DefaultValue = 0.55,
+		DefaultOpacity = 0.6,
 		Function = function(hue, sat, val, opacity)
 			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			dateLabel.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
 			label.BackgroundTransparency = 1 - opacity
+			dateLabel.BackgroundTransparency = 1 - opacity
+		end
+	})
+	Clock:CreateColorSlider({
+		Name = 'Text Color',
+		DefaultValue = 0,
+		DefaultOpacity = 1,
+		Function = function(hue, sat, val, opacity)
+			label.TextColor3 = Color3.fromHSV(hue, sat, val)
+			dateLabel.TextColor3 = Color3.fromHSV(hue, sat, val)
 		end
 	})
 	TwentyFourHour = Clock:CreateToggle({
 		Name = '24 Hour Clock'
 	})
+	ClockSize = Clock:CreateSlider({
+		Name = 'Size',
+		Min = 50,
+		Max = 200,
+		Default = 140,
+		Suffix = 'px',
+		Function = function(val)
+			label.Parent.Size = UDim2.fromOffset(val, val / 1.75)
+		end
+	})
+	
+	-- Main container
+	local container = Instance.new('Frame')
+	container.Size = UDim2.new(1, 0, 1, 0)
+	container.BackgroundTransparency = 1
+	container.Parent = Clock.Children
+	
+	-- Time label
 	label = Instance.new('TextLabel')
-	label.Size = UDim2.new(0, 100, 0, 41)
-	label.BackgroundTransparency = 0.5
-	label.TextSize = 15
-	label.Font = Enum.Font.Gotham
-	label.Text = '0:00 PM'
+	label.Size = UDim2.fromOffset(140, 50)
+	label.BackgroundTransparency = 0.4
+	label.TextSize = 28
+	label.Font = Enum.Font.GothamBold
+	label.Text = '10:34 PM'
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.BackgroundColor3 = Color3.new()
-	label.Parent = Clock.Children
-	local corner = Instance.new('UICorner')
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = label
+	label.BackgroundColor3 = Color3.fromHSV(0.55, 0.3, 0.5)
+	label.Position = UDim2.fromOffset(0, 0)
+	label.Parent = container
+	
+	local corner1 = Instance.new('UICorner')
+	corner1.CornerRadius = UDim.new(0, 6)
+	corner1.Parent = label
+	
+	-- Date label
+	dateLabel = Instance.new('TextLabel')
+	dateLabel.Size = UDim2.fromOffset(140, 30)
+	dateLabel.BackgroundTransparency = 0.4
+	dateLabel.TextSize = 12
+	dateLabel.Font = Enum.Font.Gotham
+	dateLabel.Text = '08/27 Thu'
+	dateLabel.TextColor3 = Color3.new(1, 1, 1)
+	dateLabel.BackgroundColor3 = Color3.fromHSV(0.55, 0.3, 0.5)
+	dateLabel.Position = UDim2.fromOffset(0, 50)
+	dateLabel.Parent = container
+	
+	local corner2 = Instance.new('UICorner')
+	corner2.CornerRadius = UDim.new(0, 6)
+	corner2.Parent = dateLabel
+	
+	-- Padding between labels
+	local padding = Instance.new('UIPadding')
+	padding.PaddingTop = UDim.new(0, 2)
+	padding.Parent = container
 end)
 
 run(function()
