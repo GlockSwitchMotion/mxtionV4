@@ -2710,16 +2710,22 @@ run(function()
         Function = function(callback)
             if callback then
                 local replicatedStorage = game:GetService('ReplicatedStorage')
-                local remotePath = replicatedStorage:FindFirstChild('rbxts_include') 
-                    and replicatedStorage.rbxts_include:FindFirstChild('node_modules') 
-                    and replicatedStorage.rbxts_include.node_modules:FindFirstChild('@rbxts') 
-                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net 
-                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out 
-                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out._NetManaged 
-                    and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out._NetManaged:FindFirstChild('PiggyBankPop')
+                
+                -- Search anywhere in ReplicatedStorage for PiggyBankPop to avoid path failures
+                local remotePath = replicatedStorage:FindFirstChild('PiggyBankPop', true)
                 
                 if not remotePath then
-                    warning("[LuciaSPY] PiggyBankPop remote not found!")
+                    -- Fallback search inside common net folders if not found globally
+                    for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
+                        if descendant.Name == 'PiggyBankPop' and descendant:IsA('RemoteEvent') then
+                            remotePath = descendant
+                            break
+                        end
+                    end
+                end
+                
+                if not remotePath then
+                    vape:CreateNotification("Lucia SPY", "PiggyBankPop remote not found!", 5)
                     return
                 end
 
