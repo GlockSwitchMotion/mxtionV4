@@ -7757,6 +7757,7 @@ run(function()
     
         v.Enabled = false
         local itemCounts = {}
+        local order = {}
         for _, item in chestitems do
             local itemName = item.Name
             v.Enabled = true
@@ -7768,31 +7769,36 @@ run(function()
             elseif item:FindFirstChild("Value") then
                 count = item.Value
             end
+            if not itemCounts[itemName] then
+                table.insert(order, itemName)
+            end
             itemCounts[itemName] = (itemCounts[itemName] or 0) + count
         end
         
-        for itemName, totalCount in itemCounts do
+        -- Only create frames for items that actually exist, packed closely together with automatic layout
+        for _, itemName in order do
+            local totalCount = itemCounts[itemName]
             v.Enabled = true
             local container = Instance.new('Frame')
-            container.Size = UDim2.fromOffset(36, 36)
+            container.Size = UDim2.fromOffset(32, 36)
             container.BackgroundTransparency = 1
             container.Parent = v.Frame
             
             local blockimage = Instance.new('ImageLabel')
-            blockimage.Size = UDim2.fromOffset(32, 32)
-            blockimage.Position = UDim2.new(0.5, -16, 0.5, -16)
+            blockimage.Size = UDim2.fromOffset(28, 28)
+            blockimage.Position = UDim2.new(0.5, -14, 0, 2)
             blockimage.BackgroundTransparency = 1
             blockimage.Image = bedwars.getIcon({itemType = itemName}, true)
             blockimage.Parent = container
             
             if totalCount > 1 then
                 local countLabel = Instance.new('TextLabel')
-                countLabel.Size = UDim2.new(1, 0, 0, 14)
-                countLabel.Position = UDim2.new(0, 0, 1, -14)
+                countLabel.Size = UDim2.new(1, 0, 0, 12)
+                countLabel.Position = UDim2.new(0, 0, 1, -12)
                 countLabel.BackgroundTransparency = 1
                 countLabel.TextColor3 = Color3.new(1, 1, 1)
                 countLabel.TextStrokeTransparency = 0
-                countLabel.TextSize = 11
+                countLabel.TextSize = 10
                 countLabel.Font = Enum.Font.GothamBold
                 countLabel.Text = tostring(totalCount)
                 countLabel.Parent = container
@@ -7818,15 +7824,17 @@ run(function()
         frame.BackgroundColor3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
         frame.BackgroundTransparency = 1 - (Background.Enabled and Color.Opacity or 0)
         frame.Parent = billboard
+        
         local layout = Instance.new('UIListLayout')
         layout.FillDirection = Enum.FillDirection.Horizontal
-        layout.Padding = UDim.new(0, 4)
+        layout.Padding = UDim.new(0, 2) -- Reduced padding so icons sit compact and tight together
         layout.VerticalAlignment = Enum.VerticalAlignment.Center
         layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         layout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-            billboard.Size = UDim2.fromOffset(math.max(layout.AbsoluteContentSize.X + 4, 36), 36)
+            billboard.Size = UDim2.fromOffset(math.max(layout.AbsoluteContentSize.X + 6, 36), 36)
         end)
         layout.Parent = frame
+        
         local corner = Instance.new('UICorner')
         corner.CornerRadius = UDim.new(0, 4)
         corner.Parent = frame
@@ -7880,7 +7888,7 @@ run(function()
                 Folder:ClearAllChildren()
             end
         end,
-        Tooltip = 'Displays all items and their counts in chests automatically in real-time'
+        Tooltip = 'Displays all items and their counts compactly in chests in real-time'
     })
     
     Background = StorageESP:CreateToggle({
