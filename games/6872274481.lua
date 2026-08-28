@@ -7775,18 +7775,17 @@ run(function()
             itemCounts[itemName] = (itemCounts[itemName] or 0) + count
         end
         
-        -- Only create frames for items that actually exist, packed closely together with automatic layout
         for _, itemName in order do
             local totalCount = itemCounts[itemName]
             v.Enabled = true
             local container = Instance.new('Frame')
-            container.Size = UDim2.fromOffset(32, 36)
+            container.Size = UDim2.fromOffset(26, 36)
             container.BackgroundTransparency = 1
             container.Parent = v.Frame
             
             local blockimage = Instance.new('ImageLabel')
-            blockimage.Size = UDim2.fromOffset(28, 28)
-            blockimage.Position = UDim2.new(0.5, -14, 0, 2)
+            blockimage.Size = UDim2.fromOffset(24, 24)
+            blockimage.Position = UDim2.new(0.5, -12, 0, 4)
             blockimage.BackgroundTransparency = 1
             blockimage.Image = bedwars.getIcon({itemType = itemName}, true)
             blockimage.Parent = container
@@ -7827,7 +7826,7 @@ run(function()
         
         local layout = Instance.new('UIListLayout')
         layout.FillDirection = Enum.FillDirection.Horizontal
-        layout.Padding = UDim.new(0, 2) -- Reduced padding so icons sit compact and tight together
+        layout.Padding = UDim.new(0, 0)
         layout.VerticalAlignment = Enum.VerticalAlignment.Center
         layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         layout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
@@ -7888,7 +7887,7 @@ run(function()
                 Folder:ClearAllChildren()
             end
         end,
-        Tooltip = 'Displays all items and their counts compactly in chests in real-time'
+        Tooltip = 'Displays all items tightly packed and their counts in crates in real-time'
     })
     
     Background = StorageESP:CreateToggle({
