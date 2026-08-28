@@ -15998,6 +15998,47 @@ run(function()
 end)
 
 run(function()
+    local AutoStyx
+    
+    AutoStyx = vape.Categories.Kits:CreateModule({
+        Name = 'AutoStyx',
+        Function = function(callback)
+            if callback then
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                
+                -- Locate the spawn event and the try open client remote safely
+                local spawnEvent
+                local tryOpenRemote
+                
+                for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
+                    if descendant.Name == 'StyxSpawnExitPortalFromServer' and descendant:IsA('RemoteEvent') then
+                        spawnEvent = descendant
+                    elseif descendant.Name == 'StyxTryOpenExitPortalFromClient' and descendant:IsA('RemoteFunction') then
+                        tryOpenRemote = descendant
+                    end
+                end
+                
+                if not spawnEvent or not tryOpenRemote then
+                    vape:CreateNotification("AutoStyx", "Styx remotes not found!", 5)
+                    return
+                end
+                
+                -- Listen for when a Styx portal is spawned/appears and instantly trigger it
+                AutoStyx:Clean(spawnEvent.OnClientEvent:Connect(function(data)
+                    if not AutoStyx.Enabled then return end
+                    if data and data.exitPortalData and data.exitPortalData.uuid then
+                        pcall(function()
+                            tryOpenRemote:InvokeServer(data.exitPortalData.uuid)
+                        end)
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Automatically triggers Styx portals the moment they appear.'
+    })
+end)
+
+run(function()
 	local AutoGingerbread
 	local Range
 	local Delay
