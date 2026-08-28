@@ -16990,6 +16990,22 @@ run(function()
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local lastFireTick = 0
 
+                -- Get the useAbility remote once
+                local useAbilityEvent = nil
+                
+                local eventsFolder = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+                if eventsFolder then
+                    useAbilityEvent = eventsFolder:FindFirstChild("useAbility")
+                    print("[AutoSkoll] Found useAbility remote!")
+                else
+                    print("[AutoSkoll] Events folder not found, searching alternative paths...")
+                end
+
+                if not useAbilityEvent then
+                    warn("[AutoSkoll] useAbility remote not found!")
+                    return
+                end
+
                 AutoSkoll:Clean(runService.Heartbeat:Connect(function()
                     if not entitylib.isAlive or not entitylib.character.RootPart then return end
                     
@@ -17018,10 +17034,11 @@ run(function()
                     -- Fire ability if target in range
                     if closestTarget and (tick() - lastFireTick > 0.5) then
                         lastFireTick = tick()
+                        print("[AutoSkoll] Firing ability at target: " .. closestTarget.Name .. " Distance: " .. closestDist)
                         
                         pcall(function()
-                            local Event = ReplicatedStorage["events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"].useAbility
-                            Event:FireServer("void_hunter_mark")
+                            useAbilityEvent:FireServer("void_hunter_mark")
+                            print("[AutoSkoll] Ability fired successfully!")
                         end)
                     end
                 end))
@@ -19323,6 +19340,20 @@ run(function()
         return raycastResult == nil
     end
 
+    local function equipBanner(blockName)
+        -- Try to equip the banner first via useAbility
+        local useAbilityEvent = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+        if useAbilityEvent then
+            useAbilityEvent = useAbilityEvent:FindFirstChild("useAbility")
+        end
+        
+        if useAbilityEvent then
+            pcall(function()
+                useAbilityEvent:FireServer(blockName)
+            end)
+        end
+    end
+
     local function sendBannerRemote(blockName, targetPos)
         -- Get the PlaceBlock remote with correct path
         local PlaceBlockEvent = ReplicatedStorage:FindFirstChild("rbxts_include")
@@ -19336,6 +19367,10 @@ run(function()
             warn("[AutoConqueror] PlaceBlock remote not found!")
             return
         end
+        
+        -- Equip the banner first
+        equipBanner(blockName)
+        task.wait(0.1)
         
         -- Align coordinates to block grid
         local placePos = Vector3.new(
