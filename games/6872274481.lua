@@ -16980,17 +16980,14 @@ end)
 
 run(function()
     local AutoSkoll
-    local Range
-    local Targets
-    local Sorts
     
     AutoSkoll = vape.Categories.Kits:CreateModule({
         Name = 'AutoSkoll',
         Function = function(callback)
             if callback then
                 local replicatedStorage = game:GetService('ReplicatedStorage')
-                local runService = game:GetService('RunService')
                 
+                -- Locate the useAbility remote
                 local useAbilityRemote
                 for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
                     if descendant.Name == 'useAbility' and descendant:IsA('RemoteEvent') then
@@ -16999,70 +16996,33 @@ run(function()
                     end
                 end
                 
-                if not useAbilityRemote then
-                    vape:CreateNotification("AutoSkoll", "useAbility remote not found!", 5)
+                -- Locate the SwordHit remote to hook into live swinging
+                local swordHitRemote
+                for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
+                    if descendant.Name == 'SwordHit' and descendant:IsA('RemoteEvent') then
+                        swordHitRemote = descendant
+                        break
+                    end
+                end
+                
+                if not useAbilityRemote or not swordHitRemote then
+                    vape:CreateNotification("AutoSkoll", "Required remotes not found!", 5)
                     return
                 end
                 
-                local lastFire = 0
-                AutoSkoll:Clean(runService.Heartbeat:Connect(function()
-                    if not AutoSkoll.Enabled then return end
-                    if tick() - lastFire < 0.5 then return end
-                    
-                    if entitylib.isAlive then
-                        local localPosition = entitylib.character.RootPart.Position
-                        local ent = entitylib.EntityPosition({
-                            Origin = localPosition,
-                            Range = Range.Value,
-                            Wallcheck = Targets.Walls.Enabled,
-                            Players = Targets.Players.Enabled,
-                            NPCs = Targets.NPCs.Enabled,
-                            Sort = sortmethods[Sorts.Value]
-                        })
-                        
-                        if ent then
-                            local mag = (localPosition - ent.RootPart.Position).Magnitude
-                            if mag <= Range.Value then
-                                lastFire = tick()
-                                local args = {
-                                    [1] = "void_hunter_mark"
-                                }
-                                useAbilityRemote:FireServer(unpack(args))
-                            end
-                        end
+                -- Listen to live SwordHit network calls and trigger the ability
+                AutoSkoll:Clean(swordHitRemote.OnClientEvent:Connect(function()
+                    -- Fires immediately upon detecting a live sword hit until disabled
+                    if AutoSkoll.Enabled then
+                        local args = {
+                            [1] = "void_hunter_mark"
+                        }
+                        useAbilityRemote:FireServer(unpack(args))
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically fires the Void Hunter mark ability on the closest target within range.'
-    })
-    
-    Targets = AutoSkoll:CreateTargets({
-        Players = true,
-        NPCs = false
-    })
-    
-    local methods = {'Damage', 'Distance'}
-    for i in sortmethods do
-        if not table.find(methods, i) then
-            table.insert(methods, i)
-        end
-    end
-    
-    Sorts = AutoSkoll:CreateDropdown({
-        Name = 'Target Mode',
-        List = methods,
-        Default = 'Distance'
-    })
-    
-    Range = AutoSkoll:CreateSlider({
-        Name = 'Range',
-        Min = 0,
-        Max = 60,
-        Default = 25,
-        Suffix = function(val)
-            return val >= 1 and 'studs' or 'stud'
-        end
+        Tooltip = 'Automatically triggers the Void Hunter ability whenever a live sword hit is detected.'
     })
 end)
 
