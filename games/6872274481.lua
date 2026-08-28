@@ -2703,55 +2703,41 @@ run(function()
 end)
 
 run(function()
-    local LuciaSPY
-    
-    LuciaSPY = vape.Categories.Utility:CreateModule({
-        Name = 'LuciaSPY',
-        Function = function(callback)
-            if callback then
-                local replicatedStorage = game:GetService('ReplicatedStorage')
-                
-                -- Search anywhere in ReplicatedStorage for PiggyBankPop to avoid path failures
-                local remotePath = replicatedStorage:FindFirstChild('PiggyBankPop', true)
-                
-                if not remotePath then
-                    -- Fallback search inside common net folders if not found globally
-                    for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
-                        if descendant.Name == 'PiggyBankPop' and descendant:IsA('RemoteEvent') then
-                            remotePath = descendant
-                            break
-                        end
-                    end
-                end
-                
-                if not remotePath then
-                    vape:CreateNotification("Lucia SPY", "PiggyBankPop remote not found!", 5)
-                    return
-                end
-
-                local function formatRewards(data)
-                    local parts = {}
-                    for k, v in pairs(data) do
-                        if type(v) == "number" and k ~= "position" then
-                            table.insert(parts, v .. " " .. k)
-                        end
-                    end
-                    return #parts > 0 and table.concat(parts, ", ") or "unknown rewards"
-                end
-
-                LuciaSPY:Clean(remotePath.OnClientEvent:Connect(function(data)
-                    if not data then return end
-                    
-                    local player = data.awardedPlayer
-                    local playerName = typeof(player) == 'Instance' and player.Name or tostring(player or 'Unknown')
-                    local rewardStr = formatRewards(data)
-                    
-                    vape:CreateNotification("Lucia SPY", string.format("%s claimed %s!", playerName, rewardStr), 6)
-                end))
-            end
-        end,
-        Tooltip = 'Listens for PiggyBankPop remote events and sends notifications with claimed rewards.'
-    })
+	local LuciaSpy
+	
+	LuciaSpy = vape.Categories.Utility:CreateModule({
+		Name = 'LuciaSpy',
+		Function = function(callback)
+			if callback then
+				local ReplicatedStorage = game:GetService("ReplicatedStorage")
+				local Players = game:GetService("Players")
+				
+				local remotePath = ReplicatedStorage:FindFirstChild("rbxts_include")
+				and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules")
+				and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@rbxts")
+				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net
+				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out
+				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged
+				and ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged:FindFirstChild("PiggyBankPop")
+				
+				if not remotePath then
+					warning("[LuciaSpy] PiggyBankPop remote not found!")
+					return
+				end
+				
+				-- Listen to piñata breaks
+				LuciaSpy:Clean(remotePath.OnClientEvent:Connect(function(data)
+					if not data or not data.awardedPlayer or not data.coins then return end
+					
+					local player = data.awardedPlayer
+					local candy = data.coins
+					
+					vape:CreateNotification("Piñata Broken", string.format("%s broke piñata candy : %s", player.Name, candy), 5)
+				end))
+			end
+		end,
+		Tooltip = 'Listens for piñata breaks and notifies'
+	})
 end)
 
 run(function()
