@@ -19303,11 +19303,6 @@ run(function()
     local Players = game:GetService("Players")
     local lplr = Players.LocalPlayer
 
-    -- Direct Cobalt-extracted remote path
-    local PlaceBlockEvent = ReplicatedStorage:WaitForChild("rbxts_include", 99)
-        and ReplicatedStorage.rbxts_include:WaitForChild("node_modules", 99)
-        and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged.PlaceBlock
-
     local lastPlaced = 0
 
     local function isVisible(origin, targetPart)
@@ -19329,9 +19324,20 @@ run(function()
     end
 
     local function sendBannerRemote(blockName, targetPos)
-        if not PlaceBlockEvent then return end
+        -- Get the PlaceBlock remote with correct path
+        local PlaceBlockEvent = ReplicatedStorage:FindFirstChild("rbxts_include")
+            and ReplicatedStorage.rbxts_include:FindFirstChild("node_modules")
+            and ReplicatedStorage.rbxts_include.node_modules:FindFirstChild("@easy-games")
+            and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]:FindFirstChild("block-engine")
+            and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules:FindFirstChild("@rbxts")
+            and ReplicatedStorage.rbxts_include.node_modules["@easy-games"]["block-engine"].node_modules["@rbxts"].net.out._NetManaged:FindFirstChild("PlaceBlock")
         
-        -- Align coordinates to block grid directly at your standing position or near target position
+        if not PlaceBlockEvent then
+            warn("[AutoConqueror] PlaceBlock remote not found!")
+            return
+        end
+        
+        -- Align coordinates to block grid
         local placePos = Vector3.new(
             math.floor(targetPos.X + 0.5),
             math.floor(targetPos.Y + 0.5),
