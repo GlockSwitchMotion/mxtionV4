@@ -2608,7 +2608,7 @@ run(function()
 	local old
 	
 	Reach = vape.Categories.Combat:CreateModule({
-		Name = 'ReachAdjuster',
+		Name = 'Reach',
 		Tooltip = 'Allows you to place, attack, and break further',
 		Function = function(callback)
 			bedwars.CombatConstant.RAYCAST_SWORD_CHARACTER_DISTANCE = callback and SwordReach.Enabled and SwordRange.Value + 2 or 14.4
@@ -2806,7 +2806,7 @@ run(function()
 	end
 	
 	SilentAim = vape.Categories.Combat:CreateModule({
-		Name = 'ProjectileTeleport',
+		Name = 'SilentAim',
 		Function = function(callback)
 			hookVersion += 1
 			if callback and not namecall then
@@ -19480,7 +19480,6 @@ run(function()
     local UseStorm
     local Range
     local Delay
-    local WallCheck
     
     local function getAttackData()
         if Limit.Enabled then
@@ -19502,24 +19501,6 @@ run(function()
         return nil
     end
     
-    local function isVisible(origin, targetPart)
-        if not WallCheck.Enabled then return true end
-
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        local ignoreList = {entitylib.character.Character}
-        if targetPart and targetPart.Parent then
-            table.insert(ignoreList, targetPart.Parent)
-        end
-        raycastParams.FilterDescendantsInstances = ignoreList
-
-        local direction = targetPart.Position - origin
-        local raycastResult = workspace:Raycast(origin, direction, raycastParams)
-
-        return raycastResult == nil
-    end
-
     local function canUseAbility(ability, itemType)
         if not bedwars.WizardUtil:hasAbility(itemType, ability) then return false end
         local controller = bedwars.WizardStaffController
@@ -19571,7 +19552,7 @@ run(function()
                                 Sort = sortmethods[TargetMode.Value]
                             })
     
-                            if ent and ent.RootPart and isVisible(localPosition, ent.RootPart) then
+                            if ent and ent.RootPart then
                                 local distance = (localPosition - ent.RootPart.Position).Magnitude
                                 local target = ent.RootPart.Position + ((ent.Humanoid.MoveDirection or Vector3.zero) * (1 + lplr:GetNetworkPing()))
                                 
@@ -19626,11 +19607,6 @@ run(function()
     Limit = AutoZeno:CreateToggle({
         Name = 'Limit to item',
         Default = true
-    })
-    WallCheck = AutoZeno:CreateToggle({
-        Name = 'Wall Check',
-        Default = true,
-        Tooltip = 'Ignores targets hidden behind blocks/walls.'
     })
     UseStrike = AutoZeno:CreateToggle({
         Name = 'Use Lightning Strike',
@@ -21603,21 +21579,10 @@ run(function()
 	local FPSBoost
 	local Kill
 	local Visualizer
-	local Lighting
-	local Particles
 	local effects, util = {}, {}
-	local lightingold, particlesold = {}, {}
-	local particleclasses = {'ParticleEmitter', 'Trail', 'Beam', 'Smoke', 'Fire', 'Sparkles'}
-	
-	local function silenceParticle(obj)
-		if not table.find(particleclasses, obj.ClassName) or particlesold[obj] ~= nil then return end
-		particlesold[obj] = obj.Enabled
-		obj.Enabled = false
-	end
 	
 	FPSBoost = vape.Legit:CreateModule({
 		Name = 'FPS Boost',
-		Category = 'World',
 		Function = function(callback)
 			if callback then
 				if Kill.Enabled then
@@ -21645,38 +21610,6 @@ run(function()
 					end
 				end
 	
-				if Lighting.Enabled then
-					lightingold.Technology = lightingService.Technology
-					lightingold.GlobalShadows = lightingService.GlobalShadows
-					lightingService.Technology = Enum.Technology.Compatibility
-					lightingService.GlobalShadows = false
-	
-					for _, v in lightingService:GetChildren() do
-						if v:IsA('SunRaysEffect') or v:IsA('DepthOfFieldEffect') then
-							lightingold[v] = v.Enabled
-							v.Enabled = false
-						elseif v:IsA('Atmosphere') then
-							lightingold[v] = v.Density
-							v.Density = 0
-						end
-					end
-				end
-	
-				if Particles.Enabled then
-					FPSBoost:Clean(workspace.DescendantAdded:Connect(silenceParticle))
-					local clock = os.clock()
-	
-					for _, v in workspace:GetDescendants() do
-						silenceParticle(v)
-	
-						if os.clock() - clock > 0.002 then
-							task.wait()
-							if not FPSBoost.Enabled then return end
-							clock = os.clock()
-						end
-					end
-				end
-	
 				repeat task.wait() until store.matchState ~= 0
 				if not bedwars.AppController then return end
 				bedwars.NametagController.addGameNametag = function() end
@@ -21686,35 +21619,14 @@ run(function()
 					end
 				end
 			else
-				for i, v in effects do
-					bedwars.KillEffectController.killEffects[i] = v
+				for i, v in effects do 
+					bedwars.KillEffectController.killEffects[i] = v 
 				end
-				for i, v in util do
-					bedwars.VisualizerUtils[i] = v
+				for i, v in util do 
+					bedwars.VisualizerUtils[i] = v 
 				end
-	
-				for i, v in lightingold do
-					if i == 'Technology' or i == 'GlobalShadows' then
-						lightingService[i] = v
-					elseif i.Parent then
-						if i:IsA('Atmosphere') then
-							i.Density = v
-						else
-							i.Enabled = v
-						end
-					end
-				end
-	
-				for i, v in particlesold do
-					if i.Parent then
-						i.Enabled = v
-					end
-				end
-	
 				table.clear(effects)
 				table.clear(util)
-				table.clear(lightingold)
-				table.clear(particlesold)
 			end
 		end,
 		Tooltip = 'Improves the framerate by turning off certain effects'
@@ -21738,28 +21650,6 @@ run(function()
 			end
 		end,
 		Default = true
-	})
-	Lighting = FPSBoost:CreateToggle({
-		Name = 'Lighting',
-		Function = function()
-			if FPSBoost.Enabled then
-				FPSBoost:Toggle()
-				FPSBoost:Toggle()
-			end
-		end,
-		Default = true,
-		Tooltip = 'Drops the map to compatibility lighting and turns off shadows, sun rays and the atmosphere'
-	})
-	Particles = FPSBoost:CreateToggle({
-		Name = 'Particles',
-		Function = function()
-			if FPSBoost.Enabled then
-				FPSBoost:Toggle()
-				FPSBoost:Toggle()
-			end
-		end,
-		Default = true,
-		Tooltip = 'Stops every particle, trail and beam in the map from rendering'
 	})
 end)
 
