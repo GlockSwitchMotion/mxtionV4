@@ -2806,7 +2806,7 @@ run(function()
 	end
 	
 	SilentAim = vape.Categories.Combat:CreateModule({
-		Name = 'ProjectileTeleport',
+		Name = 'SilentAim',
 		Function = function(callback)
 			hookVersion += 1
 			if callback and not namecall then
