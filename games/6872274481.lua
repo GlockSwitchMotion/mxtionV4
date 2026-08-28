@@ -16987,7 +16987,6 @@ run(function()
             if callback then
                 local replicatedStorage = game:GetService('ReplicatedStorage')
                 
-                -- Locate the useAbility remote
                 local useAbilityRemote
                 for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
                     if descendant.Name == 'useAbility' and descendant:IsA('RemoteEvent') then
@@ -16996,7 +16995,6 @@ run(function()
                     end
                 end
                 
-                -- Locate the SwordHit remote to hook into live swinging
                 local swordHitRemote
                 for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
                     if descendant.Name == 'SwordHit' and descendant:IsA('RemoteEvent') then
@@ -17010,19 +17008,29 @@ run(function()
                     return
                 end
                 
-                -- Listen to live SwordHit network calls and trigger the ability
-                AutoSkoll:Clean(swordHitRemote.OnClientEvent:Connect(function()
-                    -- Fires immediately upon detecting a live sword hit until disabled
-                    if AutoSkoll.Enabled then
+                -- Hook into outgoing/incoming sword hit events depending on how the client fires it,
+                -- or intercept when the client fires SwordHit to the server.
+                -- Note: SwordHit is typically a client-to-server remote (`FireServer`), 
+                -- so we hook via a metatable hook or look for when the player attacks.
+                
+                local oldNamecall
+                oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+                    local method = getnamecallmethod()
+                    if AutoSkoll.Enabled and self == swordHitRemote and method == "FireServer" then
                         local args = {
                             [1] = "void_hunter_mark"
                         }
                         useAbilityRemote:FireServer(unpack(args))
                     end
-                end))
+                    return oldNamecall(self, ...)
+                end)
+                
+                AutoSkoll:Clean(function()
+                    hookmetamethod(game, "__namecall", oldNamecall)
+                end)
             end
         end,
-        Tooltip = 'Automatically triggers the Void Hunter ability whenever a live sword hit is detected.'
+        Tooltip = 'Automatically fires the Void Hunter ability whenever your SwordHit remote is fired.'
     })
 end)
 
