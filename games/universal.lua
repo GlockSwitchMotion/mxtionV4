@@ -7601,6 +7601,7 @@ run(function()
 	local TwentyFourHour
 	local Background
 	local BackgroundColor
+	local Size
 	local shadows = {}
 	local skippedticks = {[8] = true, [9] = true, [10] = true, [14] = true, [15] = true, [16] = true, [20] = true, [21] = true, [22] = true}
 	local localtime, utctime = os.date('*t'), os.date('!*t')
@@ -7609,7 +7610,7 @@ run(function()
 	local americandate = timezone <= -2 and timezone >= -11
 	local holder, analog, digital, hand
 	local analoghour, analogminute, analogweekday, analogdate, analogmeridiem
-	local digitalhour, digitalminute, digitalmeridiem, digitaldate, digitalweekday
+	local digitalhour, digitalminute, digitalmeridiem, digitaldate, digitalweekday, timeContainer
 	
 	local function addLabel(parent, textsize, alignment)
 		local label = Instance.new('TextLabel')
@@ -7653,11 +7654,13 @@ run(function()
 	
 	local function refreshSize()
 		if ClockType.Value == 'Digital' then
-			holder.Size = UDim2.fromOffset(140 + (ShowDate.Enabled and 48 or 0) + (TwentyFourHour.Enabled and 0 or 24), 64)
+			local sizeMultiplier = Size.Value / 100
+			holder.Size = UDim2.fromOffset((140 + (ShowDate.Enabled and 30 or 0)) * sizeMultiplier, 54 * sizeMultiplier)
 			return
 		end
 	
-		holder.Size = UDim2.fromOffset(140, 130)
+		local sizeMultiplier = Size.Value / 100
+		holder.Size = UDim2.fromOffset(140 * sizeMultiplier, 130 * sizeMultiplier)
 	end
 	
 	local function update()
@@ -7671,7 +7674,7 @@ run(function()
 		local minutetext = string.format('%02d', now.min)
 		local meridiem = now.hour >= 12 and 'pm' or 'am'
 		local weekday = os.date('%a'):lower()
-		local datetext = string.format(ClockType.Value == 'Digital' and '%02d / %02d' or '%02d/%02d', americandate and now.month or now.day, americandate and now.day or now.month)
+		local datetext = string.format(ClockType.Value == 'Digital' and '%02d/%02d' or '%02d/%02d', americandate and now.month or now.day, americandate and now.day or now.month)
 	
 		if ClockType.Value == 'Digital' then
 			digitalhour.Text = hourtext
@@ -7684,10 +7687,7 @@ run(function()
 			shadows[digitalmeridiem].Text = meridiem
 			shadows[digitaldate].Text = datetext
 			shadows[digitalweekday].Text = weekday
-			placeLabel(digitalmeridiem, 78 + getfontbounds(minutetext, 48 * uipallet.DisplayScale, uipallet.FontDisplay).X, 46)
-			placeLabel(digitaldate, holder.Size.X.Offset - 12, 24)
-			placeLabel(digitalweekday, holder.Size.X.Offset - 12, 40)
-	
+			
 			return
 		end
 	
@@ -7715,7 +7715,7 @@ run(function()
 				until not Clock.Enabled
 			end
 		end,
-		Size = UDim2.fromOffset(140, 130),
+		Size = UDim2.fromOffset(140, 54),
 		Tooltip = 'Draws a clock with the current real-world time'
 	})
 	ClockType = Clock:CreateDropdown({
@@ -7729,16 +7729,15 @@ run(function()
 				refreshSize()
 				update()
 			end
-		end
+		end,
+		Default = 'Digital'
 	})
 	ShowDate = Clock:CreateToggle({
 		Name = 'Show date',
 		Function = function(callback)
 			if holder then
 				digitaldate.Visible = callback
-				digitalweekday.Visible = callback
 				shadows[digitaldate].Visible = callback and not Background.Enabled
-				shadows[digitalweekday].Visible = callback and not Background.Enabled
 				refreshSize()
 			end
 		end,
@@ -7748,9 +7747,7 @@ run(function()
 		Name = '24 Hour Time',
 		Function = function(callback)
 			if holder then
-				analogmeridiem.Visible = not callback
 				digitalmeridiem.Visible = not callback
-				shadows[analogmeridiem].Visible = not callback and not Background.Enabled
 				shadows[digitalmeridiem].Visible = not callback and not Background.Enabled
 				refreshSize()
 				update()
@@ -7785,6 +7782,18 @@ run(function()
 		end,
 		Darker = true
 	})
+	Size = Clock:CreateSlider({
+		Name = 'Size',
+		Min = 50,
+		Max = 200,
+		Default = 100,
+		Suffix = '%',
+		Function = function()
+			if holder then
+				refreshSize()
+			end
+		end
+	})
 	holder = Clock.Children
 	holder.BackgroundColor3 = Color3.fromRGB(26, 25, 26)
 	holder.BackgroundTransparency = 0.6
@@ -7800,8 +7809,16 @@ run(function()
 	digital.BackgroundTransparency = 1
 	digital.Name = 'Digital'
 	digital.Size = UDim2.fromScale(1, 1)
-	digital.Visible = false
+	digital.Visible = true
 	digital.Parent = holder
+	
+	-- Digital time container (horizontal layout)
+	timeContainer = Instance.new('Frame')
+	timeContainer.BackgroundTransparency = 1
+	timeContainer.Size = UDim2.new(1, 0, 0.5, 0)
+	timeContainer.Position = UDim2.fromOffset(0, 0)
+	timeContainer.Parent = digital
+	
 	for i = 0, 23 do
 		if not skippedticks[i] then
 			local angle = math.rad(i * 15) - (math.pi / 2)
@@ -7816,16 +7833,29 @@ run(function()
 	hand.Position = UDim2.fromOffset(70, 65)
 	hand.Size = UDim2.fromOffset(4, 52)
 	hand.Parent = analog
+	
+	-- Digital labels
+	digitalhour = addLabel(timeContainer, 36, Enum.TextXAlignment.Right)
+	digitalminute = addLabel(timeContainer, 36, Enum.TextXAlignment.Left)
+	digitalmeridiem = addLabel(timeContainer, 12, Enum.TextXAlignment.Left)
+	
+	-- Date container (bottom)
+	local dateContainer = Instance.new('Frame')
+	dateContainer.BackgroundTransparency = 1
+	dateContainer.Size = UDim2.new(1, 0, 0.5, 0)
+	dateContainer.Position = UDim2.fromOffset(0, 27)
+	dateContainer.Parent = digital
+	
+	digitaldate = addLabel(dateContainer, 14, Enum.TextXAlignment.Center)
+	digitalweekday = addLabel(dateContainer, 14, Enum.TextXAlignment.Center)
+	
+	-- Analog labels
 	analoghour = addLabel(analog, 44 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
 	analogminute = addLabel(analog, 44 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
 	analogweekday = addLabel(analog, 13 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
 	analogdate = addLabel(analog, 13 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
 	analogmeridiem = addLabel(analog, 13 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
-	digitalhour = addLabel(digital, 48 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
-	digitalminute = addLabel(digital, 48 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
-	digitalmeridiem = addLabel(digital, 16 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
-	digitaldate = addLabel(digital, 16 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
-	digitalweekday = addLabel(digital, 16 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
+	
 	local colon = Instance.new('Frame')
 	colon.AnchorPoint = Vector2.new(0.5, 0.5)
 	colon.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -7837,13 +7867,16 @@ run(function()
 	local coloncorner = Instance.new('UICorner')
 	coloncorner.CornerRadius = UDim.new(1, 0)
 	coloncorner.Parent = colon
+	
 	placeLabel(analoghour, 56, 37.5)
 	placeLabel(analogminute, 130, 88.7)
 	placeLabel(analogweekday, 20, 90.5)
 	placeLabel(analogdate, 20, 106.5)
 	placeLabel(analogmeridiem, 130, 18.1)
-	placeLabel(digitalhour, 60, 34)
-	placeLabel(digitalminute, 78, 34)
+	placeLabel(digitalhour, 60, 25)
+	placeLabel(digitalminute, 78, 25)
+	placeLabel(digitaldate, 70, 41)
+	
 	ShowDate.Object.Visible = ClockType.Value == 'Digital'
 	update()
 	
