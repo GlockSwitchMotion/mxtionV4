@@ -3693,8 +3693,8 @@ function mainapi:CreateGUI()
 			local body = httpService:JSONEncode({
 				nonce = httpService:GenerateGUID(false),
 				args = {
-					invite = {code = 'YJy6WSNzNn'},
-					code = 'YJy6WSNzNn'
+					invite = {code = 'FGtCd8xTBy'},
+					code = 'FGtCd8xTBy'
 				},
 				cmd = 'INVITE_BROWSER'
 			})
@@ -3716,7 +3716,7 @@ function mainapi:CreateGUI()
 
 		task.spawn(function()
 			tooltip.Text = 'Copied!'
-			setclipboard('https://discord.gg/YJy6WSNzNn')
+			setclipboard('https://discord.gg/FGtCd8xTBy')
 		end)
 	end)
 	settingsbutton.MouseEnter:Connect(function()
