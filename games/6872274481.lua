@@ -7734,18 +7734,11 @@ end)
 
 run(function()
     local StorageESP
-    local List
     local Background
     local Color = {}
     local Reference = {}
     local Folder = Instance.new('Folder')
     Folder.Parent = vape.gui
-    
-    local function nearStorageItem(item)
-        for _, v in List.ListEnabled do
-            if item:find(v) then return v end
-        end
-    end
     
     local function refreshAdornee(v)
         local chest = v.Adornee:FindFirstChild('ChestFolderValue')
@@ -7766,25 +7759,16 @@ run(function()
         local itemCounts = {}
         for _, item in chestitems do
             local itemName = item.Name
-            local matched = nil
-            if table.find(List.ListEnabled, itemName) then
-                matched = itemName
-            else
-                matched = nearStorageItem(itemName)
+            v.Enabled = true
+            local count = 1
+            if item:FindFirstChild("Amount") then
+                count = item.Amount.Value
+            elseif item:GetAttribute("Amount") then
+                count = item:GetAttribute("Amount")
+            elseif item:FindFirstChild("Value") then
+                count = item.Value
             end
-            
-            if matched then
-                v.Enabled = true
-                local count = 1
-                if item:FindFirstChild("Amount") then
-                    count = item.Amount.Value
-                elseif item:GetAttribute("Amount") then
-                    count = item:GetAttribute("Amount")
-                elseif item:FindFirstChild("Value") then
-                    count = item.Value
-                end
-                itemCounts[matched] = (itemCounts[matched] or 0) + count
-            end
+            itemCounts[itemName] = (itemCounts[itemName] or 0) + count
         end
         
         for itemName, totalCount in itemCounts do
@@ -7848,8 +7832,6 @@ run(function()
         corner.Parent = frame
         Reference[v] = billboard
         
-        -- Real-time connection updates
-        local connection
         local function setupChestListener()
             local chest = v:FindFirstChild('ChestFolderValue')
             if chest and chest.Value then
@@ -7874,7 +7856,7 @@ run(function()
         task.spawn(refreshAdornee, billboard)
     end
     
-    StorageESP = vape.Categories.Render:CreateModule({
+    StorageESP = vape.Categories.Inventory:CreateModule({
         Name = 'TeamCrateESP',
         Function = function(callback)
             if callback then
@@ -7883,7 +7865,6 @@ run(function()
                     task.spawn(Added, v)
                 end
                 
-                -- Real-time polling fallback loop to guarantee immediate updates if children modify values or change rapidly
                 StorageESP:Clean(task.spawn(function()
                     while StorageESP.Enabled do
                         for _, billboard in Reference do
@@ -7899,16 +7880,9 @@ run(function()
                 Folder:ClearAllChildren()
             end
         end,
-        Tooltip = 'Displays items and their counts in chests in real-time'
+        Tooltip = 'Displays all items and their counts in chests automatically in real-time'
     })
-    List = StorageESP:CreateTextList({
-        Name = 'Item',
-        Function = function()
-            for _, v in Reference do
-                task.spawn(refreshAdornee, v)
-            end
-        end
-    })
+    
     Background = StorageESP:CreateToggle({
         Name = 'Background',
         Function = function(callback)
@@ -7920,6 +7894,7 @@ run(function()
         end,
         Default = true
     })
+    
     Color = StorageESP:CreateColorSlider({
         Name = 'Background Color',
         DefaultValue = 0,
