@@ -2710,7 +2710,7 @@ run(function()
         Function = function(callback)
             if callback then
                 local replicatedStorage = game:GetService('ReplicatedStorage')
-                local netManaged = replicatedStorage:FindFirstChild('rbxts_include') 
+                local remotePath = replicatedStorage:FindFirstChild('rbxts_include') 
                     and replicatedStorage.rbxts_include:FindFirstChild('node_modules') 
                     and replicatedStorage.rbxts_include.node_modules:FindFirstChild('@rbxts') 
                     and replicatedStorage.rbxts_include.node_modules['@rbxts'].net 
@@ -2718,27 +2718,33 @@ run(function()
                     and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out._NetManaged 
                     and replicatedStorage.rbxts_include.node_modules['@rbxts'].net.out._NetManaged:FindFirstChild('PiggyBankPop')
                 
-                if netManaged and netManaged:IsA('RemoteEvent') then
-                    LuciaSPY:Clean(netManaged.OnClientEvent:Connect(function(data)
-                        if type(data) == 'table' then
-                            local player = data.awardedPlayer
-                            local playerName = typeof(player) == 'Instance' and player.Name or tostring(player or 'Unknown')
-                            
-                            for key, value in data do
-                                if type(key) == 'string' and (key:lower():find('coin') or key:lower():find('candy') or key:lower():find('amount') or key:lower():find('val')) then
-                                    vape:CreateNotification('LuciaSPY', playerName + ' claimed ' + tostring(value) + ' ' + key + '!', 5)
-                                end
-                            end
-                            
-                            if data.coins then
-                                -- Handled by general loop or fallback
-                            end
-                        end
-                    end))
+                if not remotePath then
+                    warning("[LuciaSPY] PiggyBankPop remote not found!")
+                    return
                 end
+
+                local function formatRewards(data)
+                    local parts = {}
+                    for k, v in pairs(data) do
+                        if type(v) == "number" and k ~= "position" then
+                            table.insert(parts, v .. " " .. k)
+                        end
+                    end
+                    return #parts > 0 and table.concat(parts, ", ") or "unknown rewards"
+                end
+
+                LuciaSPY:Clean(remotePath.OnClientEvent:Connect(function(data)
+                    if not data then return end
+                    
+                    local player = data.awardedPlayer
+                    local playerName = typeof(player) == 'Instance' and player.Name or tostring(player or 'Unknown')
+                    local rewardStr = formatRewards(data)
+                    
+                    vape:CreateNotification("Lucia SPY", string.format("%s claimed %s!", playerName, rewardStr), 6)
+                end))
             end
         end,
-        Tooltip = 'Listens for PiggyBankPop remote events and sends vape notifications'
+        Tooltip = 'Listens for PiggyBankPop remote events and sends notifications with claimed rewards.'
     })
 end)
 
