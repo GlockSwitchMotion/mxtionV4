@@ -19028,7 +19028,6 @@ run(function()
                 local replicatedStorage = game:GetService('ReplicatedStorage')
                 local runService = game:GetService('RunService')
                 
-                -- Locate the LearnElementTome RemoteFunction/RemoteEvent
                 local learnTomeRemote
                 for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
                     if descendant.Name == 'LearnElementTome' then
@@ -19051,24 +19050,23 @@ run(function()
                     if entitylib.isAlive then
                         local localPosition = entitylib.character.RootPart.Position
                         
-                        -- Scan workspace for spawned element tomes/secrets or prompt instances matching the element system
                         for _, obj in ipairs(workspace:GetDescendants()) do
                             if obj:IsA('BasePart') and (obj.Name:lower():find('tome') or obj.Name:lower():find('element') or obj.Name:lower():find('secret')) then
-                                local mag = (localPosition - obj.Position).Magnitude
-                                if mag <= Range.Value then
-                                    -- Check if there's a secret value attribute or try to invoke with a detected secret
-                                    local secretVal = obj:GetAttribute('secret') or obj:GetAttribute('Secret')
-                                    if secretVal then
+                                local secretVal = obj:GetAttribute('secret') or obj:GetAttribute('Secret')
+                                if secretVal then
+                                    local mag = (localPosition - obj.Position).Magnitude
+                                    if mag <= Range.Value then
+                                        local elementName = obj.Name
                                         pcall(function()
                                             learnTomeRemote:InvokeServer({
                                                 secret = secretVal
                                             })
                                         end)
                                         if NotifyToggle.Enabled then
-                                            vape:CreateNotification("AutoWhimElement", "Learned Element Tome!", 3)
+                                            vape:CreateNotification("AutoWhimElement", "Got element: " .. tostring(elementName), 3)
                                         end
+                                        task.wait(DelaySlider.Value)
                                     end
-                                    break
                                 end
                             end
                         end
@@ -19076,7 +19074,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically learns element tomes using the LearnElementTome remote.'
+        Tooltip = 'Automatically fires element tome secrets one after another with a custom delay.'
     })
     
     Range = AutoWhimElement:CreateSlider({
@@ -19087,7 +19085,7 @@ run(function()
         Suffix = function(val)
             return val >= 1 and 'studs' or 'stud'
         end,
-        Tooltip = 'change the range of it'
+        Tooltip = 'The range it can claim tomes from'
     })
     
     DelaySlider = AutoWhimElement:CreateSlider({
@@ -19099,13 +19097,13 @@ run(function()
         Suffix = function(val)
             return 'seconds'
         end,
-        Tooltip = 'the delay of remotes it sends'
+        Tooltip = 'Delay between claiming each tome'
     })
     
     NotifyToggle = AutoWhimElement:CreateToggle({
         Name = 'Notify',
         Default = true,
-        Tooltip = 'Notifies when a tome is triggered'
+        Tooltip = 'Notifies when an element is claimed'
     })
 end)
 
