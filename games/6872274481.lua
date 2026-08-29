@@ -19016,6 +19016,100 @@ run(function()
 end)
 
 run(function()
+    local AutoWhimElement
+    local Range
+    local DelaySlider
+    local NotifyToggle
+    
+    AutoWhimElement = vape.Categories.Kits:CreateModule({
+        Name = 'AutoWhimElement',
+        Function = function(callback)
+            if callback then
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                local runService = game:GetService('RunService')
+                
+                -- Locate the LearnElementTome RemoteFunction/RemoteEvent
+                local learnTomeRemote
+                for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
+                    if descendant.Name == 'LearnElementTome' then
+                        learnTomeRemote = descendant
+                        break
+                    end
+                end
+                
+                if not learnTomeRemote then
+                    vape:CreateNotification("AutoWhimElement", "LearnElementTome remote not found!", 5)
+                    return
+                end
+                
+                local lastCheck = 0
+                AutoWhimElement:Clean(runService.Heartbeat:Connect(function()
+                    if not AutoWhimElement.Enabled then return end
+                    if tick() - lastCheck < DelaySlider.Value then return end
+                    lastCheck = tick()
+                    
+                    if entitylib.isAlive then
+                        local localPosition = entitylib.character.RootPart.Position
+                        
+                        -- Scan workspace for spawned element tomes/secrets or prompt instances matching the element system
+                        for _, obj in ipairs(workspace:GetDescendants()) do
+                            if obj:IsA('BasePart') and (obj.Name:lower():find('tome') or obj.Name:lower():find('element') or obj.Name:lower():find('secret')) then
+                                local mag = (localPosition - obj.Position).Magnitude
+                                if mag <= Range.Value then
+                                    -- Check if there's a secret value attribute or try to invoke with a detected secret
+                                    local secretVal = obj:GetAttribute('secret') or obj:GetAttribute('Secret')
+                                    if secretVal then
+                                        pcall(function()
+                                            learnTomeRemote:InvokeServer({
+                                                secret = secretVal
+                                            })
+                                        end)
+                                        if NotifyToggle.Enabled then
+                                            vape:CreateNotification("AutoWhimElement", "Learned Element Tome!", 3)
+                                        end
+                                    end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Automatically learns element tomes using the LearnElementTome remote.'
+    })
+    
+    Range = AutoWhimElement:CreateSlider({
+        Name = 'Range',
+        Min = 0,
+        Max = 500,
+        Default = 500,
+        Suffix = function(val)
+            return val >= 1 and 'studs' or 'stud'
+        end,
+        Tooltip = 'change the range of it'
+    })
+    
+    DelaySlider = AutoWhimElement:CreateSlider({
+        Name = 'Delay',
+        Min = 0.1,
+        Max = 1,
+        Default = 0.4,
+        Decimal = 1,
+        Suffix = function(val)
+            return 'seconds'
+        end,
+        Tooltip = 'the delay of remotes it sends'
+    })
+    
+    NotifyToggle = AutoWhimElement:CreateToggle({
+        Name = 'Notify',
+        Default = true,
+        Tooltip = 'Notifies when a tome is triggered'
+    })
+end)
+
+run(function()
 	local AutoWhim
 	local Targets
 	local Range
