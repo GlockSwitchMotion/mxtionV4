@@ -381,28 +381,17 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
-local assetCache = {}
 getcustomasset = assetfunction and function(path)
-	local cached = assetCache[path]
-	if cached then
-		return cached
-	end
 	if isfile(path) then
-		local asset = assetfunction(path)
-		assetCache[path] = asset
-		return asset
+		return assetfunction(path)
 	end
 	pcall(function()
 		downloadFile(path)
 	end)
 	if isfile(path) then
-		local asset = assetfunction(path)
-		assetCache[path] = asset
-		return asset
+		return assetfunction(path)
 	end
-	local fallback = getcustomassets[path] or ''
-	assetCache[path] = fallback
-	return fallback
+	return getcustomassets[path] or ''
 end or function(path)
 	return getcustomassets[path] or ''
 end
@@ -2588,10 +2577,8 @@ end)
 
 function mainapi:BlurCheck()
 	if self.ThreadFix and not inputService.TouchEnabled then
-		pcall(function()
-			setthreadidentity(8)
-			runService:SetRobloxGuiFocused((clickgui.Visible or guiService:GetErrorType() ~= Enum.ConnectionError.OK) and self.Blur.Enabled)
-		end)
+		setthreadidentity(8)
+		runService:SetRobloxGuiFocused((clickgui.Visible or guiService:GetErrorType() ~= Enum.ConnectionError.OK) and self.Blur.Enabled)
 	end
 end
 
