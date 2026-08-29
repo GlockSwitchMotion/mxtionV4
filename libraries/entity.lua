@@ -102,6 +102,9 @@ entitylib.getEntityColor = function(entity)
 	return entity and tostring(entity.TeamColor) ~= 'White' and entity.TeamColor.Color or nil
 end
 
+local sharedSortingTable = {}
+local sharedIgnoreList = {}
+
 entitylib.IgnoreObject = RaycastParams.new()
 entitylib.IgnoreObject.RespectCanCollide = true
 entitylib.Raycast = function(origin, direction, params)
@@ -109,127 +112,133 @@ entitylib.Raycast = function(origin, direction, params)
 end
 entitylib.Wallcheck = function(origin, position, ignoreobject)
 	if typeof(ignoreobject) ~= 'Instance' then
-		local ignorelist = {gameCamera, lplr.Character}
+		table.clear(sharedIgnoreList)
+		sharedIgnoreList[1] = gameCamera
+		sharedIgnoreList[2] = lplr.Character
 		for _, entity in entitylib.List do
-			if entity.Targetable then
-				table.insert(ignorelist, entity.Character)
+			if entity.Targetable and entity.Character then
+				table.insert(sharedIgnoreList, entity.Character)
 			end
 		end
 
 		if typeof(ignoreobject) == 'table' then
 			for _, obj in ignoreobject do
-				table.insert(ignorelist, obj)
+				table.insert(sharedIgnoreList, obj)
 			end
 		end
 
 		ignoreobject = entitylib.IgnoreObject
-		ignoreobject.FilterDescendantsInstances = ignorelist
+		ignoreobject.FilterDescendantsInstances = sharedIgnoreList
 	end
 	return entitylib.Raycast(origin, position - origin, ignoreobject)
 end
 
 entitylib.EntityMouse = function(entitysettings)
 	if entitylib.isAlive then
-		local mouseLocation, sortingTable = entitysettings.MouseOrigin or getMousePosition(), {}
+		local mouseLocation = entitysettings.MouseOrigin or getMousePosition()
+		table.clear(sharedSortingTable)
 		for _, entity in entitylib.List do
 			if not entitysettings.Players and entity.Player then continue end
 			if not entitysettings.NPCs and entity.NPC then continue end
 			if not entity.Targetable then continue end
-			local position, vis = gameCamera.WorldToViewportPoint(gameCamera, entity[entitysettings.Part].Position)
+			local part = entity[entitysettings.Part]
+			if not part then continue end
+			local position, vis = gameCamera.WorldToViewportPoint(gameCamera, part.Position)
 			if not vis then continue end
 			local mag = (mouseLocation - Vector2.new(position.x, position.y)).Magnitude
 			if mag > entitysettings.Range then continue end
 			if entitylib.isVulnerable(entity) then
-				table.insert(sortingTable, {
+				table.insert(sharedSortingTable, {
 					Entity = entity,
 					Magnitude = entity.Target and -1 or mag
 				})
 			end
 		end
 
-		table.sort(sortingTable, entitysettings.Sort or function(a, b)
+		table.sort(sharedSortingTable, entitysettings.Sort or function(a, b)
 			return a.Magnitude < b.Magnitude
 		end)
 
-		for _, v in sortingTable do
+		for _, v in sharedSortingTable do
 			if entitysettings.Wallcheck then
 				if entitylib.Wallcheck(entitysettings.Origin, v.Entity[entitysettings.Part].Position, entitysettings.Wallcheck, v.Entity) then continue end
 			end
-			table.clear(entitysettings)
-			table.clear(sortingTable)
+			table.clear(sharedSortingTable)
 			return v.Entity
 		end
-		table.clear(sortingTable)
+		table.clear(sharedSortingTable)
 	end
-	table.clear(entitysettings)
 end
 
 entitylib.EntityPosition = function(entitysettings)
-	if entitylib.isAlive then
-		local localPosition, sortingTable = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position, {}
+	if entitylib.isAlive and entitylib.character.HumanoidRootPart then
+		local localPosition = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position
+		table.clear(sharedSortingTable)
 		for _, entity in entitylib.List do
 			if not entitysettings.Players and entity.Player then continue end
 			if not entitysettings.NPCs and entity.NPC then continue end
 			if not entity.Targetable then continue end
-			local mag = (entity[entitysettings.Part].Position - localPosition).Magnitude
+			local part = entity[entitysettings.Part]
+			if not part then continue end
+			local mag = (part.Position - localPosition).Magnitude
 			if mag > entitysettings.Range then continue end
 			if entitylib.isVulnerable(entity) then
-				table.insert(sortingTable, {
+				table.insert(sharedSortingTable, {
 					Entity = entity,
 					Magnitude = entity.Target and -1 or mag
 				})
 			end
 		end
 
-		table.sort(sortingTable, entitysettings.Sort or function(a, b)
+		table.sort(sharedSortingTable, entitysettings.Sort or function(a, b)
 			return a.Magnitude < b.Magnitude
 		end)
 
-		for _, v in sortingTable do
+		for _, v in sharedSortingTable do
 			if entitysettings.Wallcheck then
 				if entitylib.Wallcheck(localPosition, v.Entity[entitysettings.Part].Position, entitysettings.Wallcheck, v.Entity) then continue end
 			end
-			table.clear(entitysettings)
-			table.clear(sortingTable)
+			table.clear(sharedSortingTable)
 			return v.Entity
 		end
-		table.clear(sortingTable)
+		table.clear(sharedSortingTable)
 	end
-	table.clear(entitysettings)
 end
 
 entitylib.AllPosition = function(entitysettings)
 	local returned = {}
-	if entitylib.isAlive then
-		local localPosition, sortingTable = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position, {}
+	if entitylib.isAlive and entitylib.character.HumanoidRootPart then
+		local localPosition = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position
+		table.clear(sharedSortingTable)
 		for _, entity in entitylib.List do
 			if not entitysettings.Players and entity.Player then continue end
 			if not entitysettings.NPCs and entity.NPC then continue end
 			if not entity.Targetable then continue end
-			local mag = (entity[entitysettings.Part].Position - localPosition).Magnitude
+			local part = entity[entitysettings.Part]
+			if not part then continue end
+			local mag = (part.Position - localPosition).Magnitude
 			if mag > entitysettings.Range then continue end
 			if entitylib.isVulnerable(entity) then
-				table.insert(sortingTable, {
+				table.insert(sharedSortingTable, {
 					Entity = entity,
 					Magnitude = entity.Target and -1 or mag
 				})
 			end
 		end
 
-		table.sort(sortingTable, entitysettings.Sort or function(a, b)
+		table.sort(sharedSortingTable, entitysettings.Sort or function(a, b)
 			return a.Magnitude < b.Magnitude
 		end)
 
-		for _, v in sortingTable do
+		for _, v in sharedSortingTable do
 			if entitysettings.Wallcheck then
 				if entitylib.Wallcheck(localPosition, v.Entity[entitysettings.Part].Position, entitysettings.Wallcheck, v.Entity) then continue end
 			end
 			table.insert(returned, v.Entity)
 			if #returned >= (entitysettings.Limit or math.huge) then break end
 		end
-		table.clear(sortingTable)
+		table.clear(sharedSortingTable)
 	end
-	table.clear(entitysettings)
 	return returned
 end
 
@@ -457,7 +466,8 @@ entitylib.kill = function()
 		event:Destroy()
 	end
 
-	entitylib.IgnoreObject:Destroy()
+	table.clear(sharedSortingTable)
+	table.clear(sharedIgnoreList)
 	loopClean(entitylib)
 end
 
