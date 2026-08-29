@@ -5665,28 +5665,31 @@ run(function()
         Name = "MushroomESP",
         Function = function(callback)
             if callback then
-                -- Scan existing items in workspace
-                for _, v in workspace:GetDescendants() do
+                local function checkObj(v)
                     if v.Name == "SingleMushroom" then
                         createESP(v)
                     end
                 end
 
-                -- Listen for newly spawned mushrooms
-                table.insert(connections, workspace.DescendantAdded:Connect(function(v)
-                    if v.Name == "SingleMushroom" then
-                        task.wait(0.1)
-                        if MushroomESP.Enabled then
-                            createESP(v)
+                for _, v in workspace:GetChildren() do
+                    checkObj(v)
+                    if v:IsA('Folder') or v:IsA('Model') then
+                        for _, sub in v:GetChildren() do
+                            checkObj(sub)
                         end
+                    end
+                end
+
+                table.insert(connections, workspace.ChildAdded:Connect(function(v)
+                    checkObj(v)
+                    if v:IsA('Folder') or v:IsA('Model') then
+                        table.insert(connections, v.ChildAdded:Connect(checkObj))
+                        table.insert(connections, v.ChildRemoved:Connect(removeESP))
                     end
                 end))
 
-                -- Cleanup removed mushrooms
-                table.insert(connections, workspace.DescendantRemoving:Connect(function(v)
-                    if v.Name == "SingleMushroom" then
-                        removeESP(v)
-                    end
+                table.insert(connections, workspace.ChildRemoved:Connect(function(v)
+                    removeESP(v)
                 end))
             else
                 for _, conn in connections do
@@ -24093,7 +24096,7 @@ run(function()
     local function setupLuciaSpy()
         local util = require(game:GetService("ReplicatedStorage").TS.games.bedwars.kit.kits['piggy-bank']['piggy-bank-util']).PiggyBankUtil
 
-        for _, obj in pairs(workspace:GetDescendants()) do
+        for _, obj in pairs(workspace:GetChildren()) do
             if obj:IsA("BasePart") and obj.Name == "pinata" then
                 if not isTeammateSpy(obj) then
                     local placerId = obj:GetAttribute("PlacedByUserId") or obj:GetAttribute("PlacerId")
@@ -24113,7 +24116,7 @@ run(function()
             end
         end
 
-        Lucia:Clean(workspace.DescendantAdded:Connect(function(obj)
+        Lucia:Clean(workspace.ChildAdded:Connect(function(obj)
             if not LuciaSpyToggle.Enabled then return end
 
             if obj:IsA("BasePart") and obj.Name == "pinata" then
@@ -24241,7 +24244,7 @@ run(function()
                 if LuciaESPToggle.Enabled then
                     findExistingPinatas()
 
-                    Lucia:Clean(workspace.DescendantAdded:Connect(function(obj)
+                    Lucia:Clean(workspace.ChildAdded:Connect(function(obj)
                         if Lucia.Enabled and obj:IsA("BasePart") and obj.Name == "pinata" then
                             task.wait(0.1)
                             if not isTeammateESP(obj) then
@@ -24250,7 +24253,7 @@ run(function()
                         end
                     end))
 
-                    Lucia:Clean(workspace.DescendantRemoving:Connect(function(obj)
+                    Lucia:Clean(workspace.ChildRemoved:Connect(function(obj)
                         if obj:IsA("BasePart") and obj.Name == "pinata" and Reference[obj] then
                             Removed(obj)
                         end
