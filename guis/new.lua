@@ -381,17 +381,28 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
+local assetCache = {}
 getcustomasset = assetfunction and function(path)
+	local cached = assetCache[path]
+	if cached then
+		return cached
+	end
 	if isfile(path) then
-		return assetfunction(path)
+		local asset = assetfunction(path)
+		assetCache[path] = asset
+		return asset
 	end
 	pcall(function()
 		downloadFile(path)
 	end)
 	if isfile(path) then
-		return assetfunction(path)
+		local asset = assetfunction(path)
+		assetCache[path] = asset
+		return asset
 	end
-	return getcustomassets[path] or ''
+	local fallback = getcustomassets[path] or ''
+	assetCache[path] = fallback
+	return fallback
 end or function(path)
 	return getcustomassets[path] or ''
 end
