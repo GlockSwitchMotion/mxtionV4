@@ -19025,13 +19025,15 @@ run(function()
         Function = function(callback)
             if callback then
                 local replicatedStorage = game:GetService('ReplicatedStorage')
-                local runService = game:GetService('RunService')
                 
+                local spawnEvent
                 local learnTomeRemote
+                
                 for _, descendant in ipairs(replicatedStorage:GetDescendants()) do
-                    if descendant.Name == 'LearnElementTome' then
+                    if descendant.Name == 'SpawnElementTome' and descendant:IsA('RemoteEvent') then
+                        spawnEvent = descendant
+                    elseif descendant.Name == 'LearnElementTome' then
                         learnTomeRemote = descendant
-                        break
                     end
                 end
                 
@@ -19040,8 +19042,34 @@ run(function()
                     return
                 end
                 
+                if not spawnEvent then
+                    vape:CreateNotification("AutoWhimElement", "SpawnElementTome remote event not found!", 5)
+                    return
+                end
+                
+                -- Instantly grab and learn the element the exact moment the server fires the spawn event
+                AutoWhimElement:Clean(spawnEvent.OnClientEvent:Connect(function(data)
+                    if not AutoWhimElement.Enabled then return end
+                    if data and data.secret then
+                        local success, response = pcall(function()
+                            if learnTomeRemote:IsA('RemoteFunction') then
+                                return learnTomeRemote:InvokeServer({ secret = data.secret })
+                            else
+                                learnTomeRemote:FireServer({ secret = data.secret })
+                                return { success = true, element = "element" }
+                            end
+                        end)
+                        
+                        if success and type(response) == "table" and response.success then
+                            local elementName = response.element or "element"
+                            vape:CreateNotification("AutoWhimElement", "Successfully learned element: " .. tostring(elementName), 3)
+                        end
+                    end
+                end))
+                
+                -- Workspace fallback scanner for already existing tomes
                 local lastCheck = 0
-                AutoWhimElement:Clean(runService.Heartbeat:Connect(function()
+                AutoWhimElement:Clean(game:GetService('RunService').Heartbeat:Connect(function()
                     if not AutoWhimElement.Enabled then return end
                     if tick() - lastCheck < DelaySlider.Value then return end
                     lastCheck = tick()
@@ -19049,7 +19077,6 @@ run(function()
                     if entitylib.isAlive then
                         local localPosition = entitylib.character.RootPart.Position
                         
-                        -- Scan workspace dynamically for spawnable tomes/elements and their secrets
                         for _, obj in ipairs(workspace:GetDescendants()) do
                             if not AutoWhimElement.Enabled then break end
                             
@@ -19068,9 +19095,12 @@ run(function()
                                 local mag = (localPosition - targetPart.Position).Magnitude
                                 if mag <= Range.Value then
                                     local success, response = pcall(function()
-                                        return learnTomeRemote:InvokeServer({
-                                            secret = secretVal
-                                        })
+                                        if learnTomeRemote:IsA('RemoteFunction') then
+                                            return learnTomeRemote:InvokeServer({ secret = secretVal })
+                                        else
+                                            learnTomeRemote:FireServer({ secret = secretVal })
+                                            return { success = true, element = obj.Name }
+                                        end
                                     end)
                                     
                                     if success and type(response) == "table" and response.success then
@@ -19086,7 +19116,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically auto-learns element tomes one by one when in range.'
+        Tooltip = 'Automatically listens to SpawnElementTome and learns elements instantly.'
     })
     
     Range = AutoWhimElement:CreateSlider({
