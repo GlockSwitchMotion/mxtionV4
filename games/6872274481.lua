@@ -19019,7 +19019,6 @@ run(function()
     local AutoWhimElement
     local Range
     local DelaySlider
-    local NotifyToggle
     
     AutoWhimElement = vape.Categories.Kits:CreateModule({
         Name = 'AutoWhimElement',
@@ -19041,42 +19040,53 @@ run(function()
                     return
                 end
                 
-                -- List of secrets gathered from your dumps to loop through and fire
-                local knownSecrets = {
-                    63671162,
-                    29699946,
-                    30599612,
-                    95909116
-                }
-                
                 local lastCheck = 0
                 AutoWhimElement:Clean(runService.Heartbeat:Connect(function()
                     if not AutoWhimElement.Enabled then return end
                     if tick() - lastCheck < DelaySlider.Value then return end
                     lastCheck = tick()
                     
-                    for _, secretVal in ipairs(knownSecrets) do
-                        if not AutoWhimElement.Enabled then break end
+                    if entitylib.isAlive then
+                        local localPosition = entitylib.character.RootPart.Position
                         
-                        local success, response = pcall(function()
-                            return learnTomeRemote:InvokeServer({
-                                secret = secretVal
-                            })
-                        end)
-                        
-                        if success and response then
-                            local elementName = type(response) == "table" and response.element or "element"
-                            if NotifyToggle.Enabled then
-                                vape:CreateNotification("AutoWhimElement", "Got element: " .. tostring(elementName), 3)
+                        -- Scan workspace dynamically for spawnable tomes/elements and their secrets
+                        for _, obj in ipairs(workspace:GetDescendants()) do
+                            if not AutoWhimElement.Enabled then break end
+                            
+                            local targetPart = nil
+                            local secretVal = nil
+                            
+                            if obj:IsA('ProximityPrompt') then
+                                targetPart = obj.Parent and (obj.Parent:IsA('BasePart') and obj.Parent or obj.Parent:FindFirstChildWhichIsA('BasePart'))
+                                secretVal = obj:GetAttribute('secret') or obj:GetAttribute('Secret') or (targetPart and (targetPart:GetAttribute('secret') or targetPart:GetAttribute('Secret')))
+                            elseif obj:IsA('BasePart') and (obj.Name:lower():find('tome') or obj.Name:lower():find('element') or obj.Name:lower():find('secret')) then
+                                targetPart = obj
+                                secretVal = obj:GetAttribute('secret') or obj:GetAttribute('Secret')
+                            end
+                            
+                            if targetPart and secretVal then
+                                local mag = (localPosition - targetPart.Position).Magnitude
+                                if mag <= Range.Value then
+                                    local success, response = pcall(function()
+                                        return learnTomeRemote:InvokeServer({
+                                            secret = secretVal
+                                        })
+                                    end)
+                                    
+                                    if success and type(response) == "table" and response.success then
+                                        local elementName = response.element or "element"
+                                        vape:CreateNotification("AutoWhimElement", "Successfully learned element: " .. tostring(elementName), 3)
+                                        task.wait(DelaySlider.Value)
+                                        break
+                                    end
+                                end
                             end
                         end
-                        
-                        task.wait(DelaySlider.Value)
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically fires element tome secrets one after another.'
+        Tooltip = 'Automatically auto-learns element tomes one by one when in range.'
     })
     
     Range = AutoWhimElement:CreateSlider({
@@ -19100,12 +19110,6 @@ run(function()
             return 'seconds'
         end,
         Tooltip = 'Delay between claiming each tome'
-    })
-    
-    NotifyToggle = AutoWhimElement:CreateToggle({
-        Name = 'Notify',
-        Default = true,
-        Tooltip = 'Notifies when an element is claimed'
     })
 end)
 
