@@ -7872,20 +7872,18 @@ run(function()
 		Name = 'FPS',
 		Function = function(callback)
 			if callback then
-				local frames = {}
-				local startClock = os.clock()
-				local updateTick = tick()
-	
-				FPS:Clean(runService.Heartbeat:Connect(function()
-					local updateClock = os.clock()
-					for i = #frames, 1, -1 do
-						frames[i + 1] = frames[i] >= updateClock - 1 and frames[i] or nil
-					end
-	
-					frames[1] = updateClock
-					if updateTick < tick() then
-						updateTick = tick() + 1
-						label.Text = math.floor(os.clock() - startClock >= 1 and #frames or #frames / (os.clock() - startClock))..' FPS'
+				local frameCount = 0
+				local lastUpdate = os.clock()
+
+				FPS:Clean(runService.RenderStepped:Connect(function()
+					frameCount += 1
+					local now = os.clock()
+					local elapsed = now - lastUpdate
+					if elapsed >= 0.5 then
+						local currentFps = math.floor((frameCount / elapsed) + 0.5)
+						label.Text = tostring(currentFps)..' FPS'
+						frameCount = 0
+						lastUpdate = now
 					end
 				end))
 			end
