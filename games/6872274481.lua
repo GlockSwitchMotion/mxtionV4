@@ -21715,14 +21715,16 @@ run(function()
 					end
 				end
 	
-				repeat task.wait() until store.matchState ~= 0
-				if not bedwars.AppController then return end
-				bedwars.NametagController.addGameNametag = function() end
-				for _, v in bedwars.AppController:getOpenApps() do
-					if tostring(v):find('Nametag') then
-						bedwars.AppController:closeApp(tostring(v))
+				task.spawn(function()
+					repeat task.wait(0.1) until store.matchState ~= 0 or not FPSBoost.Enabled
+					if not FPSBoost.Enabled then return end
+					if not bedwars.AppController then return end
+					for _, v in bedwars.AppController:getOpenApps() do
+						if tostring(v):find('Nametag') then
+							bedwars.AppController:closeApp(tostring(v))
+						end
 					end
-				end
+				end)
 			else
 				for i, v in effects do 
 					bedwars.KillEffectController.killEffects[i] = v 
