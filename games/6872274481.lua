@@ -19017,7 +19017,6 @@ end)
 
 run(function()
     local AutoWhimElement
-    local Range
     local DelaySlider
     
     AutoWhimElement = vape.Categories.Kits:CreateModule({
@@ -19047,87 +19046,30 @@ run(function()
                     return
                 end
                 
-                -- Instantly grab and learn the element the exact moment the server fires the spawn event
+                -- Event-driven only: Zero workspace loops, zero lag. It only runs code when the server says a tome spawns.
                 AutoWhimElement:Clean(spawnEvent.OnClientEvent:Connect(function(data)
                     if not AutoWhimElement.Enabled then return end
                     if data and data.secret then
-                        local success, response = pcall(function()
-                            if learnTomeRemote:IsA('RemoteFunction') then
-                                return learnTomeRemote:InvokeServer({ secret = data.secret })
-                            else
-                                learnTomeRemote:FireServer({ secret = data.secret })
-                                return { success = true, element = "element" }
+                        task.spawn(function()
+                            local success, response = pcall(function()
+                                if learnTomeRemote:IsA('RemoteFunction') then
+                                    return learnTomeRemote:InvokeServer({ secret = data.secret })
+                                else
+                                    learnTomeRemote:FireServer({ secret = data.secret })
+                                    return { success = true, element = "element" }
+                                end
+                            end)
+                            
+                            if success and type(response) == "table" and response.success then
+                                local elementName = response.element or "element"
+                                vape:CreateNotification("AutoWhimElement", "Successfully learned element: " .. tostring(elementName), 3)
                             end
                         end)
-                        
-                        if success and type(response) == "table" and response.success then
-                            local elementName = response.element or "element"
-                            vape:CreateNotification("AutoWhimElement", "Successfully learned element: " .. tostring(elementName), 3)
-                        end
-                    end
-                end))
-                
-                -- Workspace fallback scanner for already existing tomes
-                local lastCheck = 0
-                AutoWhimElement:Clean(game:GetService('RunService').Heartbeat:Connect(function()
-                    if not AutoWhimElement.Enabled then return end
-                    if tick() - lastCheck < DelaySlider.Value then return end
-                    lastCheck = tick()
-                    
-                    if entitylib.isAlive then
-                        local localPosition = entitylib.character.RootPart.Position
-                        
-                        for _, obj in ipairs(workspace:GetDescendants()) do
-                            if not AutoWhimElement.Enabled then break end
-                            
-                            local targetPart = nil
-                            local secretVal = nil
-                            
-                            if obj:IsA('ProximityPrompt') then
-                                targetPart = obj.Parent and (obj.Parent:IsA('BasePart') and obj.Parent or obj.Parent:FindFirstChildWhichIsA('BasePart'))
-                                secretVal = obj:GetAttribute('secret') or obj:GetAttribute('Secret') or (targetPart and (targetPart:GetAttribute('secret') or targetPart:GetAttribute('Secret')))
-                            elseif obj:IsA('BasePart') and (obj.Name:lower():find('tome') or obj.Name:lower():find('element') or obj.Name:lower():find('secret')) then
-                                targetPart = obj
-                                secretVal = obj:GetAttribute('secret') or obj:GetAttribute('Secret')
-                            end
-                            
-                            if targetPart and secretVal then
-                                local mag = (localPosition - targetPart.Position).Magnitude
-                                if mag <= Range.Value then
-                                    local success, response = pcall(function()
-                                        if learnTomeRemote:IsA('RemoteFunction') then
-                                            return learnTomeRemote:InvokeServer({ secret = secretVal })
-                                        else
-                                            learnTomeRemote:FireServer({ secret = secretVal })
-                                            return { success = true, element = obj.Name }
-                                        end
-                                    end)
-                                    
-                                    if success and type(response) == "table" and response.success then
-                                        local elementName = response.element or "element"
-                                        vape:CreateNotification("AutoWhimElement", "Successfully learned element: " .. tostring(elementName), 3)
-                                        task.wait(DelaySlider.Value)
-                                        break
-                                    end
-                                end
-                            end
-                        end
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically listens to SpawnElementTome and learns elements instantly.'
-    })
-    
-    Range = AutoWhimElement:CreateSlider({
-        Name = 'Range',
-        Min = 0,
-        Max = 500,
-        Default = 500,
-        Suffix = function(val)
-            return val >= 1 and 'studs' or 'stud'
-        end,
-        Tooltip = 'The range it can claim tomes from'
+        Tooltip = 'Automatically listens to SpawnElementTome and learns elements instantly without lag.'
     })
     
     DelaySlider = AutoWhimElement:CreateSlider({
@@ -21681,80 +21623,170 @@ run(function()
 end)
 
 run(function()
-	local FPSBoost
-	local Kill
-	local Visualizer
-	local effects, util = {}, {}
+	local FPSBooster
+	local Cosmetics
+	local Animations
+	local Clouds
+	local Quality
+	local Shadows
+	local hidden = {}
+	local qualityold
+	local shadowsold
 	
-	FPSBoost = vape.Legit:CreateModule({
-		Name = 'FPS Boost',
+	local function setSpeed(speed)
+		for _, ent in entitylib.List do
+			if ent.Player ~= lplr then
+				local humanoid = ent.Character:FindFirstChildWhichIsA('Humanoid')
+				local animator = humanoid and humanoid:FindFirstChildWhichIsA('Animator')
+	
+				for _, v in animator and animator:GetPlayingAnimationTracks() or {} do
+					v:AdjustSpeed(speed)
+				end
+			end
+		end
+	end
+	
+	local function Added(ent)
+		if not Cosmetics.Enabled or ent.Player == lplr then return end
+	
+		for _, v in ent.Character:GetChildren() do
+			if v.Name == 'Clothing' or v.Name == '3DClothing' then
+				hidden[v] = v.Parent
+				v.Parent = nil
+			end
+		end
+	end
+	
+	local function Removed(ent)
+		for i, v in hidden do
+			if v == ent.Character then
+				hidden[i] = nil
+			end
+		end
+	end
+	
+	FPSBooster = vape.Categories.Render:CreateModule({
+		Name = 'FPSBooster',
 		Function = function(callback)
 			if callback then
-				if Kill.Enabled then
-					for i, v in bedwars.KillEffectController.killEffects do
-						if not i:find('Custom') then
-							effects[i] = v
-							bedwars.KillEffectController.killEffects[i] = {
-								new = function() 
-									return {
-										onKill = function() end, 
-										isPlayDefaultKillEffect = function() 
-											return true 
-										end
-									} 
-								end
-							}
-						end
+				if Quality.Enabled then
+					pcall(function()
+						qualityold = settings().Rendering.QualityLevel
+						settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+					end)
+				end
+	
+				if Shadows.Enabled then
+					shadowsold = lightingService.GlobalShadows
+					lightingService.GlobalShadows = false
+				end
+	
+				if Clouds.Enabled then
+					local clouds = workspace:FindFirstChild('Clouds')
+					if clouds then
+						hidden[clouds] = clouds.Parent
+						clouds.Parent = nil
 					end
 				end
 	
-				if Visualizer.Enabled then
-					for i, v in bedwars.VisualizerUtils do
-						util[i] = v
-						bedwars.VisualizerUtils[i] = function() end
+				if Cosmetics.Enabled then
+					FPSBooster:Clean(entitylib.Events.EntityAdded:Connect(Added))
+					FPSBooster:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
+					for _, ent in entitylib.List do
+						Added(ent)
 					end
 				end
 	
-				repeat task.wait() until store.matchState ~= 0
-				if not bedwars.AppController then return end
-				bedwars.NametagController.addGameNametag = function() end
-				for _, v in bedwars.AppController:getOpenApps() do
-					if tostring(v):find('Nametag') then
-						bedwars.AppController:closeApp(tostring(v))
-					end
+				if Animations.Enabled then
+					task.spawn(function()
+						repeat
+							setSpeed(0)
+							task.wait(0.5)
+						until not FPSBooster.Enabled or not Animations.Enabled
+					end)
 				end
 			else
-				for i, v in effects do 
-					bedwars.KillEffectController.killEffects[i] = v 
+				for i, v in hidden do
+					if v.Parent then
+						i.Parent = v
+					end
 				end
-				for i, v in util do 
-					bedwars.VisualizerUtils[i] = v 
+	
+				table.clear(hidden)
+				setSpeed(1)
+	
+				if qualityold then
+					pcall(function()
+						settings().Rendering.QualityLevel = qualityold
+					end)
+					qualityold = nil
 				end
-				table.clear(effects)
-				table.clear(util)
+	
+				if shadowsold ~= nil then
+					lightingService.GlobalShadows = shadowsold
+					shadowsold = nil
+				end
 			end
 		end,
-		Tooltip = 'Improves the framerate by turning off certain effects'
+		Tooltip = 'Strips the parts of the scene that actually cost frames'
 	})
-	Kill = FPSBoost:CreateToggle({
-		Name = 'Kill Effects',
+	Cosmetics = FPSBooster:CreateToggle({
+		Name = 'Cosmetics',
 		Function = function()
-			if FPSBoost.Enabled then
-				FPSBoost:Toggle()
-				FPSBoost:Toggle()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
 			end
 		end,
-		Default = true
+		Default = true,
+		Tooltip = 'Hides everyone else\'s skins, the biggest win of the four.\nBodies and held items stay visible'
 	})
-	Visualizer = FPSBoost:CreateToggle({
-		Name = 'Visualizer',
-		Function = function()
-			if FPSBoost.Enabled then
-				FPSBoost:Toggle()
-				FPSBoost:Toggle()
+	Animations = FPSBooster:CreateToggle({
+		Name = 'Freeze animations',
+		Function = function(callback)
+			if FPSBooster.Enabled and not callback then
+				setSpeed(1)
+			end
+	
+			if FPSBooster.Enabled and callback then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
 			end
 		end,
-		Default = true
+		Tooltip = 'Stops everyone else animating, they slide around instead.\nUnverified on your machine, A/B it yourself'
+	})
+	Clouds = FPSBooster:CreateToggle({
+		Name = 'Clouds',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Removes the cloud decoration, around 700 parts on most maps'
+	})
+	Quality = FPSBooster:CreateToggle({
+		Name = 'Render quality',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Drops the engine render quality to its lowest level'
+	})
+	Shadows = FPSBooster:CreateToggle({
+		Name = 'Shadows',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Turns off global shadows'
 	})
 end)
 
