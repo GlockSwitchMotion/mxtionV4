@@ -14555,6 +14555,7 @@ end)
 run(function()
     local RavenTeleport
     local DistanceSlider
+    local Targets
     
     RavenTeleport = vape.Categories.Utility:CreateModule({
         Name = 'RavenTeleport',
@@ -14579,8 +14580,8 @@ run(function()
                         Range = DistanceSlider.Value,
                         Part = 'RootPart',
                         Wallcheck = false,
-                        Players = true,
-                        NPCs = true,
+                        Players = Targets.Players.Enabled,
+                        NPCs = Targets.NPCs.Enabled,
                         Sort = function(a, b)
                             return (a.RootPart.Position - entitylib.character.RootPart.Position).Magnitude < (b.RootPart.Position - entitylib.character.RootPart.Position).Magnitude
                         end
@@ -14627,7 +14628,12 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically spawns, teleports, and detonates the raven using Avin Call.'
+        Tooltip = 'Automatically spawns, teleports, and detonates the raven onto the closest target within range.'
+    })
+    
+    Targets = RavenTeleport:CreateTargets({
+        Players = true,
+        NPCs = true,
     })
     
     DistanceSlider = RavenTeleport:CreateSlider({
