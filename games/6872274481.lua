@@ -1988,7 +1988,6 @@ run(function()
     local Mouse
     local Limit
     local PriorityMode
-    local ProjectilesToggle
     
     local function ease(t)
         return t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
@@ -2061,23 +2060,17 @@ run(function()
     end
     
     local function getAttackData()
-        if not ProjectilesToggle.Enabled then
-            if Mouse.Enabled and not inputService:IsMouseButtonPressed(0) and (tick() - bedwars.SwordController.lastSwing) > 0.15 then
-                return false
-            end
-            if ClickAim.Enabled and (tick() - bedwars.SwordController.lastSwing) > 0.3 then
-                return false
-            end
-            if BlockBreak.Enabled and (tick() - store.lastHit) < 0.3 then
-                return false
-            end
-            if Limit.Enabled and store.hand.toolType ~= 'sword' then
-                return false
-            end
-        else
-            if Limit.Enabled and store.hand.toolType ~= 'sword' and store.hand.toolType ~= 'projectile' and store.hand.toolType ~= 'bow' then
-                return false
-            end
+        if Mouse.Enabled and not inputService:IsMouseButtonPressed(0) and (tick() - bedwars.SwordController.lastSwing) > 0.15 then
+            return false
+        end
+        if ClickAim.Enabled and (tick() - bedwars.SwordController.lastSwing) > 0.3 then
+            return false
+        end
+        if BlockBreak.Enabled and (tick() - store.lastHit) < 0.3 then
+            return false
+        end
+        if Limit.Enabled and store.hand.toolType ~= 'sword' then
+            return false
         end
     
         if PriorityMode.Enabled and isValid(lasttarget) then
@@ -2161,7 +2154,7 @@ run(function()
                 end
             end
         end,
-        Tooltip = 'Smoothly aims to closest valid target with sword or projectiles'
+        Tooltip = 'Smoothly aims to closest valid target with sword'
     })
     local modes = {}
     for i in aimfuncs do
@@ -2202,11 +2195,6 @@ run(function()
         Default = false,
         Tooltip = 'Stays locked onto the current target until they die or go out of range',
     })
-    ProjectilesToggle = AimAssist:CreateToggle({
-        Name = 'Projectiles',
-        Default = false,
-        Tooltip = 'Enables aim assist functionality for projectiles/bows',
-    })
     AimSpeed = AimAssist:CreateSlider({
         Name = 'Aim speed',
         Min = 1,
@@ -2244,7 +2232,7 @@ run(function()
     })
     Limit = AimAssist:CreateToggle({
         Name = 'Limit to items',
-        Tooltip = 'Only attacks when sword or allowed items are held',
+        Tooltip = 'Only attacks when sword is held',
     })
     Sort = AimAssist:CreateDropdown({
         Name = 'Target mode',
@@ -2546,77 +2534,38 @@ run(function()
 end)
 
 run(function()
-	local HitregAdjuster
-	local Hitreg
-	local AttackSpeed
-	local SwingTime
-	local swordSpeed, swingSpeed, swingRestore, oldSwingFunction
-	
-	HitregAdjuster = vape.Categories.Combat:CreateModule({
-		Name = 'HitregFixer',
-		Function = function(callback)
-			if callback then
-				swingSpeed = bedwars.SyncEvents.SwordSwing:setPriority(150):connect(function(event)
-					swordSpeed = event.attackSpeed
-
-					local hitInterval = 10 / math.max(Hitreg.Value - 1, 1)
-					event.attackSpeed = AttackSpeed.Value > 0 and AttackSpeed.Value or hitInterval
-				end)
-				swingRestore = bedwars.SyncEvents.SwordSwing:setPriority(300):connect(function(event)
-					event.attackSpeed = swordSpeed
-				end)
-				oldSwingFunction = hookfunction(bedwars.SwordController.swingSwordAtMouse, function(self, ...)
-					local args = table.pack(...)
-					if SwingTime.Value > 0 then
-						args[1] = SwingTime.Value
-						args.n = math.max(args.n, 1)
-					end
-					return oldSwingFunction(self, table.unpack(args, 1, args.n))
-				end)
-				HitregAdjuster:Clean(function()
-					swingSpeed:Destroy()
-					swingRestore:Destroy()
-					if oldSwingFunction then
-						hookfunction(bedwars.SwordController.swingSwordAtMouse, oldSwingFunction)
-						oldSwingFunction = nil
-					end
-				end)
-			end
-		end,
-		Tooltip = 'Swaps the games attack cooldown for a hit count of your own'
-	})
-	Hitreg = HitregAdjuster:CreateSlider({
-		Name = 'Hitreg',
-		Min = 1,
-		Max = 36,
-		Default = 35,
-		Suffix = function(val)
-			return val == 1 and 'hit / 10s' or 'hits / 10s'
-		end,
-		Tooltip = 'Spacing your manual and autoclicker hits fire at, 35 is the killaura spacing'
-	})
-	AttackSpeed = HitregAdjuster:CreateSlider({
-		Name = 'Attack speed',
-		Min = 0,
-		Max = 1,
-		Default = 0,
-		Decimal = 100,
-		Suffix = function(val)
-			return val == 0 and 'Hitreg value' or string.format('%.2fs', val)
-		end,
-		Tooltip = 'Overrides the attack cooldown. Set to 0 to use the Hitreg value.'
-	})
-	SwingTime = HitregAdjuster:CreateSlider({
-		Name = 'Swing time',
-		Min = 0,
-		Max = 1,
-		Default = 0,
-		Decimal = 100,
-		Suffix = function(val)
-			return val == 0 and 'Hitreg value' or string.format('%.2fs', val)
-		end,
-		Tooltip = 'Overrides the time passed to the sword swing controller. Set to 0 to leave the game default unchanged.'
-	})
+    local HitregAdjuster
+    local Hitreg
+    local oldSwingFunction
+    
+    HitregAdjuster = vape.Categories.Combat:CreateModule({
+        Name = 'HitregFixer',
+        Function = function(callback)
+            if callback then
+                oldSwingFunction = hookfunction(bedwars.SwordController.swingSwordAtMouse, function(self, ...)
+                    local args = table.pack(...)
+                    return oldSwingFunction(self, table.unpack(args, 1, args.n))
+                end)
+                HitregAdjuster:Clean(function()
+                    if oldSwingFunction then
+                        hookfunction(bedwars.SwordController.swingSwordAtMouse, oldSwingFunction)
+                        oldSwingFunction = nil
+                    end
+                end)
+            end
+        end,
+        Tooltip = 'Swaps the games attack cooldown for a hit count of your own'
+    })
+    Hitreg = HitregAdjuster:CreateSlider({
+        Name = 'Hitreg',
+        Min = 1,
+        Max = 36,
+        Default = 35,
+        Suffix = function(val)
+            return val == 1 and 'hit / 10s' or 'hits / 10s'
+        end,
+        Tooltip = 'Spacing your manual and autoclicker hits fire at, 35 is the killaura spacing'
+    })
 end)
 
 run(function()
@@ -3709,91 +3658,106 @@ run(function()
 end)
 
 run(function()
-	local Mode
-	local Expand
-	local objects, set = {}
-	
-	local function createHitbox(ent)
-		if ent.Targetable and ent.Player then
-			local hitbox = Instance.new('Part')
-			hitbox.Size = Vector3.new(3, 6, 3) + Vector3.one * (Expand.Value / 5)
-			hitbox.Position = ent.RootPart.Position
-			hitbox.CanCollide = false
-			hitbox.Massless = true
-			hitbox.Transparency = 1
-			hitbox.Parent = ent.Character
-			local weld = Instance.new('Motor6D')
-			weld.Part0 = hitbox
-			weld.Part1 = ent.RootPart
-			weld.Parent = hitbox
-			objects[ent] = hitbox
-		end
-	end
-	
-	HitBoxes = vape.Categories.Combat:CreateModule({
-		Name = 'HitBoxes',
-		Function = function(callback)
-			if callback then
-				if Mode.Value == 'Sword' then
-					debug.setconstant(bedwars.SwordController.swingSwordInRegion, 6, (Expand.Value / 3))
-					set = true
-				else
-					HitBoxes:Clean(entitylib.Events.EntityAdded:Connect(createHitbox))
-					HitBoxes:Clean(entitylib.Events.EntityRemoving:Connect(function(ent)
-						if objects[ent] then
-							objects[ent]:Destroy()
-							objects[ent] = nil
-						end
-					end))
-					for _, ent in entitylib.List do
-						createHitbox(ent)
-					end
-				end
-			else
-				if set then
-					debug.setconstant(bedwars.SwordController.swingSwordInRegion, 6, 3.8)
-					set = nil
-				end
-				for _, part in objects do
-					part:Destroy()
-				end
-				table.clear(objects)
-			end
-		end,
-		Tooltip = 'Expands attack hitbox'
-	})
-	Mode = HitBoxes:CreateDropdown({
-		Name = 'Mode',
-		List = {'Sword', 'Player'},
-		Function = function()
-			if HitBoxes.Enabled then
-				HitBoxes:Toggle()
-				HitBoxes:Toggle()
-			end
-		end,
-		Tooltip = 'Sword - Increases the range around you to hit entities\nPlayer - Increases the players hitbox'
-	})
-	Expand = HitBoxes:CreateSlider({
-		Name = 'Expand amount',
-		Min = 0,
-		Max = 14.4,
-		Default = 14.4,
-		Decimal = 10,
-		Function = function(val)
-			if HitBoxes.Enabled then
-				if Mode.Value == 'Sword' then
-					debug.setconstant(bedwars.SwordController.swingSwordInRegion, 6, (val / 3))
-				else
-					for _, part in objects do
-						part.Size = Vector3.new(3, 6, 3) + Vector3.one * (val / 5)
-					end
-				end
-			end
-		end,
-		Suffix = function(val)
-			return val == 1 and 'stud' or 'studs'
-		end
-	})
+    local Mode
+    local Expand
+    local Visible
+    local objects, set = {}
+    
+    local function createHitbox(ent)
+        if ent.Targetable and ent.Player then
+            local hitbox = Instance.new('Part')
+            hitbox.Size = Vector3.new(3, 6, 3) + Vector3.one * (Expand.Value / 5)
+            hitbox.Position = ent.RootPart.Position
+            hitbox.CanCollide = false
+            hitbox.Massless = true
+            hitbox.Transparency = Visible.Enabled and 0.7 or 1
+            hitbox.Color = Color3.fromRGB(255, 0, 0)
+            hitbox.Material = Enum.Material.SmoothPlastic
+            hitbox.Parent = ent.Character
+            local weld = Instance.new('Motor6D')
+            weld.Part0 = hitbox
+            weld.Part1 = ent.RootPart
+            weld.Parent = hitbox
+            objects[ent] = hitbox
+        end
+    end
+    
+    HitBoxes = vape.Categories.Combat:CreateModule({
+        Name = 'HitBoxes',
+        Function = function(callback)
+            if callback then
+                if Mode.Value == 'Sword' then
+                    debug.setconstant(bedwars.SwordController.swingSwordInRegion, 6, (Expand.Value / 3))
+                    set = true
+                else
+                    HitBoxes:Clean(entitylib.Events.EntityAdded:Connect(createHitbox))
+                    HitBoxes:Clean(entitylib.Events.EntityRemoving:Connect(function(ent)
+                        if objects[ent] then
+                            objects[ent]:Destroy()
+                            objects[ent] = nil
+                        end
+                    end))
+                    for _, ent in entitylib.List do
+                        createHitbox(ent)
+                    end
+                end
+            else
+                if set then
+                    debug.setconstant(bedwars.SwordController.swingSwordInRegion, 6, 3.8)
+                    set = nil
+                end
+                for _, part in objects do
+                    part:Destroy()
+                end
+                table.clear(objects)
+            end
+        end,
+        Tooltip = 'Expands attack hitbox'
+    })
+    Mode = HitBoxes:CreateDropdown({
+        Name = 'Mode',
+        List = {'Sword', 'Player'},
+        Function = function()
+            if HitBoxes.Enabled then
+                HitBoxes:Toggle()
+                HitBoxes:Toggle()
+            end
+        end,
+        Tooltip = 'Sword - Increases the range around you to hit entities\nPlayer - Increases the players hitbox'
+    })
+    Expand = HitBoxes:CreateSlider({
+        Name = 'Expand amount',
+        Min = 0,
+        Max = 14.4,
+        Default = 14.4,
+        Decimal = 10,
+        Function = function(val)
+            if HitBoxes.Enabled then
+                if Mode.Value == 'Sword' then
+                    debug.setconstant(bedwars.SwordController.swingSwordInRegion, 6, (val / 3))
+                else
+                    for _, part in objects do
+                        part.Size = Vector3.new(3, 6, 3) + Vector3.one * (val / 5)
+                    end
+                end
+            end
+        end,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+    Visible = HitBoxes:CreateToggle({
+        Name = 'Visible',
+        Default = false,
+        Function = function(callback)
+            for _, part in objects do
+                if part and part.Parent then
+                    part.Transparency = callback and 0.7 or 1
+                end
+            end
+        end,
+        Tooltip = 'Shows the hitboxes in red with 0.70 transparency'
+    })
 end)
 
 run(function()
@@ -14552,100 +14516,7 @@ run(function()
     })
 end)
 
-run(function()
-    local RavenTeleport
-    local DistanceSlider
-    local Targets
-    
-    RavenTeleport = vape.Categories.Utility:CreateModule({
-        Name = 'RavenTeleport',
-        Function = function(callback)
-            if callback then
-                local replicatedStorage = game:GetService('ReplicatedStorage')
-                local runService = game:GetService('RunService')
-                
-                local useAbilityRemote = replicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
-                
-                local lastSpawn = 0
-                RavenTeleport:Clean(runService.Heartbeat:Connect(function()
-                    if not RavenTeleport.Enabled then return end
-                    if not entitylib.isAlive then return end
-                    
-                    local currentHand = store.hand and store.hand.tool
-                    local isHoldingRaven = currentHand and (currentHand.Name:lower():find('raven') or (currentHand:GetAttribute('ItemType') and tostring(currentHand:GetAttribute('ItemType')):lower():find('raven')))
-                    
-                    if not isHoldingRaven then return end
-                    
-                    local target = entitylib.EntityPosition({
-                        Range = DistanceSlider.Value,
-                        Part = 'RootPart',
-                        Wallcheck = false,
-                        Players = Targets.Players.Enabled,
-                        NPCs = Targets.NPCs.Enabled,
-                        Sort = function(a, b)
-                            return (a.RootPart.Position - entitylib.character.RootPart.Position).Magnitude < (b.RootPart.Position - entitylib.character.RootPart.Position).Magnitude
-                        end
-                    })
-                    
-                    if target and target.RootPart and tick() - lastSpawn > 2.5 then
-                        lastSpawn = tick()
-                        pcall(function()
-                            useAbilityRemote:FireServer("raven_spawn")
-                        end)
-                        
-                        task.spawn(function()
-                            task.wait(0.1)
-                            for _ = 1, 15 do
-                                if not RavenTeleport.Enabled then break end
-                                local ravenModel = nil
-                                for _, obj in ipairs(workspace:GetDescendants()) do
-                                    if obj:IsA('Model') and (obj.Name:lower():find('raven') or obj.Name:lower():find('bird')) then
-                                        local hrp = obj:FindFirstChild('HumanoidRootPart') or obj.PrimaryPart
-                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 120 then
-                                            ravenModel = obj
-                                            break
-                                        end
-                                    end
-                                end
-                                
-                                if ravenModel then
-                                    local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel.PrimaryPart
-                                    if hrp and target and target.RootPart then
-                                        pcall(function()
-                                            hrp.CFrame = target.RootPart.CFrame
-                                        end)
-                                        task.wait(0.03)
-                                        pcall(function()
-                                            useAbilityRemote:FireServer("raven_detonate")
-                                        end)
-                                        break
-                                    end
-                                end
-                                task.wait(0.05)
-                            end
-                        end)
-                    end
-                end))
-            end
-        end,
-        Tooltip = 'Automatically spawns, teleports, and detonates the raven onto the closest target within range.'
-    })
-    
-    Targets = RavenTeleport:CreateTargets({
-        Players = true,
-        NPCs = true,
-    })
-    
-    DistanceSlider = RavenTeleport:CreateSlider({
-        Name = 'Max Distance',
-        Min = 20,
-        Max = 300,
-        Default = 150,
-        Suffix = function(val)
-            return val == 1 and 'stud' or 'studs'
-        end,
-    })
-end)
+
 
 run(function()
 	local JadeAura
@@ -15482,7 +15353,9 @@ run(function()
                                     for _ = 1, 3 do
                                         pcall(function()
                                             dragonSwordFire:FireServer({
-                                                target = targetPart
+                                                target = targetPart,
+                                                entity = targetEntity,
+                                                position = targetPart.Position
                                             })
                                         end)
                                         task.wait(0.01)
