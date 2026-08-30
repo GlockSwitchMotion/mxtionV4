@@ -5157,46 +5157,132 @@ end)
 
 run(function()
     local InventoryESP
-    local Empty
-    local Color = {}
-    local windows = {} -- Track all player windows
-    local playerWindows = {} -- Map player to their window
-    local headshots, nametags = {}, {}
-    local invLabels, invGrids, personalLabels, personalGrids = {}, {}, {}, {}
-    local armordividers, armorholders = {}, {}
-    local slots, personalslots, armorslots = {}, {}, {}
+    local windows = {}
+    local playerWindows = {}
     
-    local SlotCount = 24
-    local PersonalSlotCount = 24
-    local SlotSize = 28
-    local SlotPadding = 2
-    local Columns = 6
+    local WindowWidth = 280
+    local WindowSpacing = 10
     local HeaderHeight = 40
-    local WindowWidth = 200
-    local WindowSpacing = 5
+    local SlotSize = 32
+    local SlotPadding = 4
+    local Columns = 8
+    local SlotCount = 32
+    local PersonalSlotCount = 27
+    
+    local kitCache = {}
+    local kitCacheTime = {}
+    local enchantCache = {}
+    local enchantCacheTime = {}
+    
+    local function getPlayerKitDirect(player)
+        if player:GetAttribute('SelectedKit') then
+            return player:GetAttribute('SelectedKit')
+        end
+        
+        local playerDataFolder = player:FindFirstChild('PlayerData')
+        if playerDataFolder then
+            local selectedKit = playerDataFolder:FindFirstChild('SelectedKit')
+            if selectedKit then
+                return selectedKit.Value or tostring(selectedKit)
+            end
+        end
+        
+        return nil
+    end
+    
+    local function getPlayerKitCached(player, bypassCache)
+        if not bypassCache and kitCache[player] and (tick() - (kitCacheTime[player] or 0)) < 5 then
+            return kitCache[player]
+        end
+        
+        local kit = getPlayerKitDirect(player)
+        kitCache[player] = kit
+        kitCacheTime[player] = tick()
+        
+        return kit
+    end
+    
+    local function getPlayerEnchantCached(player, bypassCache)
+        if not bypassCache and enchantCache[player] and (tick() - (enchantCacheTime[player] or 0)) < 3 then
+            return enchantCache[player]
+        end
+        
+        if store.enchants and store.enchants[player] then
+            local enchantResult = store.enchants[player].async()
+            enchantCache[player] = enchantResult
+            enchantCacheTime[player] = tick()
+            return enchantResult
+        end
+        
+        return nil
+    end
+    
+    local function getKitIconImage(kitName)
+        if bedwars and bedwars.getIcon then
+            local success, result = pcall(function()
+                return bedwars.getIcon({itemType = kitName}, true)
+            end)
+            if success and result ~= '' then
+                return result
+            end
+        end
+        
+        if bedwars and bedwars.ItemMeta and bedwars.ItemMeta[kitName] then
+            local itemMeta = bedwars.ItemMeta[kitName]
+            if itemMeta.icon then
+                return itemMeta.icon
+            end
+            if itemMeta.displayImage then
+                return itemMeta.displayImage
+            end
+        end
+        
+        return nil
+    end
+    
+    local function getEnchantIconImage(enchantName)
+        if bedwars and bedwars.EnchantMeta and bedwars.EnchantMeta[enchantName] then
+            return bedwars.EnchantMeta[enchantName].image
+        end
+        return nil
+    end
+
+    local function addBlur(parent)
+        local blur = Instance.new('ImageLabel')
+        blur.Name = 'Blur'
+        blur.Size = UDim2.new(1, 89, 1, 52)
+        blur.Position = UDim2.fromOffset(-48, -31)
+        blur.BackgroundTransparency = 1
+        blur.Image = getcustomasset('mxtionv4/assets/new/blur.png')
+        blur.ScaleType = Enum.ScaleType.Slice
+        blur.SliceCenter = Rect.new(52, 31, 261, 502)
+        blur.Parent = parent
+        return blur
+    end
 
     local function createSlot(parent)
-        local slot = Instance.new('Frame')
+        local slot = Instance.new('ImageButton')
+        slot.Name = 'Slot'
         slot.Size = UDim2.fromOffset(SlotSize, SlotSize)
         slot.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
         slot.BorderSizePixel = 0
-        slot.Visible = false
+        slot.AutoButtonColor = false
         slot.Parent = parent
         
         local corner = Instance.new('UICorner')
-        corner.CornerRadius = UDim.new(0, 4)
+        corner.CornerRadius = UDim.new(0, 3)
         corner.Parent = slot
         
         local stroke = Instance.new('UIStroke')
         stroke.Color = color.Light(uipallet.Main, 0.034)
+        stroke.Thickness = 1
         stroke.Parent = slot
         
         local icon = Instance.new('ImageLabel')
         icon.Name = 'Icon'
-        icon.Size = UDim2.fromOffset(SlotSize - 8, SlotSize - 8)
-        icon.Position = UDim2.fromScale(0.5, 0.5)
-        icon.AnchorPoint = Vector2.new(0.5, 0.5)
+        icon.Size = UDim2.fromScale(1, 1)
         icon.BackgroundTransparency = 1
+        icon.Image = ''
         icon.Parent = slot
         
         local amount = Instance.new('TextLabel')
@@ -5244,12 +5330,11 @@ run(function()
         corner.CornerRadius = UDim.new(0, 5)
         corner.Parent = window
         
-        -- Priority outline (light grey stroke for target/closest)
         local priorityStroke = Instance.new('UIStroke')
         priorityStroke.Name = 'PriorityStroke'
         priorityStroke.Color = Color3.fromRGB(200, 200, 200)
         priorityStroke.Thickness = 3
-        priorityStroke.Transparency = 1 -- Hidden by default
+        priorityStroke.Transparency = 1
         priorityStroke.Parent = window
 
         local headshot = Instance.new('ImageLabel')
@@ -5273,7 +5358,7 @@ run(function()
 
         local nametag = Instance.new('TextLabel')
         nametag.Name = 'Name'
-        nametag.Size = UDim2.new(1, -70, 0, 20)
+        nametag.Size = UDim2.new(1, -90, 0, 20)
         nametag.Position = UDim2.fromOffset(62, 10)
         nametag.BackgroundTransparency = 1
         nametag.Text = ''
@@ -5283,6 +5368,15 @@ run(function()
         nametag.TextTruncate = Enum.TextTruncate.AtEnd
         nametag.FontFace = uipallet.Font
         nametag.Parent = window
+
+        local enchantIcon = Instance.new('ImageLabel')
+        enchantIcon.Name = 'EnchantIcon'
+        enchantIcon.Size = UDim2.fromOffset(16, 16)
+        enchantIcon.Position = UDim2.fromOffset(250, 12)
+        enchantIcon.BackgroundTransparency = 1
+        enchantIcon.Image = ''
+        enchantIcon.Visible = false
+        enchantIcon.Parent = window
 
         local divider = Instance.new('Frame')
         divider.Name = 'Divider'
@@ -5358,6 +5452,8 @@ run(function()
             window = window,
             headshot = headshot,
             nametag = nametag,
+            kitLogo = kitLogo,
+            enchantIcon = enchantIcon,
             invLabel = invLabel,
             invGrid = invGrid,
             personalLabel = personalLabel,
@@ -5418,10 +5514,28 @@ run(function()
 
         windowData.nametag.Text = player.DisplayName
         windowData.headshot.Image = 'rbxthumb://type=AvatarHeadShot&id=' .. player.UserId .. '&w=420&h=420'
+        
+        local playerKit = getPlayerKitCached(player)
+        if playerKit then
+            local kitIcon = getKitIconImage(playerKit)
+            if kitIcon and kitIcon ~= '' then
+                windowData.kitLogo.Image = kitIcon
+            end
+        end
+        
+        local enchantName = getPlayerEnchantCached(player)
+        if enchantName then
+            local enchantIcon = getEnchantIconImage(enchantName)
+            if enchantIcon and enchantIcon ~= '' then
+                windowData.enchantIcon.Image = enchantIcon
+                windowData.enchantIcon.Visible = true
+            else
+                windowData.enchantIcon.Visible = false
+            end
+        else
+            windowData.enchantIcon.Visible = false
+        end
 
-        ---------------------------------------------------------
-        -- INVENTORY
-        ---------------------------------------------------------
         local shownInventory = 0
         for i, slot in windowData.slots do
             local item = inventory.items and inventory.items[i]
@@ -5441,9 +5555,6 @@ run(function()
         windowData.invGrid.Size = UDim2.new(1, -20, 0, invGridHeight)
         currentY += invGridHeight + 6
 
-        ---------------------------------------------------------
-        -- PERSONAL CHEST
-        ---------------------------------------------------------
         local personalFolder = replicatedStorage:FindFirstChild('Inventories')
         personalFolder = personalFolder and personalFolder:FindFirstChild(player.Name .. '_personal') or nil
 
@@ -5482,27 +5593,6 @@ run(function()
             windowData.personalGrid.Visible = false
         end
 
-        ---------------------------------------------------------
-        -- ARMOR
-        ---------------------------------------------------------
-        if false then -- Armor disabled
-            windowData.armordivider.Visible = true
-            windowData.armorholder.Visible = true
-            windowData.armordivider.Position = UDim2.fromOffset(0, currentY - 1)
-
-            for i = 1, 3 do
-                local item = inventory.armor[i + 3]
-                setSlot(windowData.armorslots[i], item)
-            end
-            setSlot(windowData.armorslots[4], hand, true)
-
-            windowData.armorholder.Position = UDim2.fromOffset(10, currentY + 7)
-            currentY += SlotSize + 15
-        else
-            windowData.armordivider.Visible = false
-            windowData.armorholder.Visible = false
-        end
-
         windowData.window.Size = UDim2.fromOffset(WindowWidth, currentY)
         windowData.window.Visible = true
     end
@@ -5511,7 +5601,6 @@ run(function()
         local targetEnt = getTarget()
         local targetPlayer = targetEnt and targetEnt.Player or nil
 
-        -- Collect all valid players
         local validPlayers = {}
         for _, player in game:GetService('Players'):GetPlayers() do
             if player ~= lplr and player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
@@ -5519,7 +5608,6 @@ run(function()
             end
         end
 
-        -- Sort by distance (target first, then by distance)
         table.sort(validPlayers, function(a, b)
             local aIsTarget = a == targetPlayer and 1 or 0
             local bIsTarget = b == targetPlayer and 1 or 0
@@ -5529,7 +5617,6 @@ run(function()
             return getPlayerDistance(a) < getPlayerDistance(b)
         end)
 
-        -- Update or create windows
         local currentY = 75
         for i, player in validPlayers do
             if not playerWindows[player] then
@@ -5538,10 +5625,9 @@ run(function()
             end
 
             local windowData = playerWindows[player]
-            local isPriority = player == targetPlayer or i == 1 -- First in sorted list is highest priority
+            local isPriority = player == targetPlayer or i == 1
             refreshWindow({player = player, windowData = windowData}, isPriority)
             
-            -- Show outline for priority target
             if isPriority then
                 windowData.priorityStroke.Transparency = 0
             else
@@ -5553,7 +5639,6 @@ run(function()
             currentY += windowData.window.Size.Y.Offset + WindowSpacing
         end
 
-        -- Hide windows for players no longer in game
         for player, windowData in pairs(playerWindows) do
             if not table.find(validPlayers, player) then
                 windowData.window.Visible = false
@@ -5584,6 +5669,7 @@ run(function()
         end,
         Tooltip = 'Shows the inventory and personal chest of all enemy players. Targeted player displayed first.'
     })
+    
     Empty = InventoryESP:CreateToggle({
         Name = 'Show without data',
         Tooltip = 'Keeps the panel up when the server has not shared their inventory yet'
