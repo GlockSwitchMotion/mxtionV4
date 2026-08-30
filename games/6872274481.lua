@@ -9835,7 +9835,7 @@ run(function()
                     if not RavenTeleport.Enabled then return end
                     if not entitylib.isAlive then return end
                     
-                    -- Check if holding raven
+                    -- Check if holding raven tool
                     local currentHand = store.hand and store.hand.tool
                     local isHoldingRaven = currentHand and (currentHand.Name:lower():find('raven') or (currentHand:GetAttribute('ItemType') and tostring(currentHand:GetAttribute('ItemType')):lower():find('raven')))
                     
@@ -9852,21 +9852,20 @@ run(function()
                         end
                     })
                     
-                    if target and target.RootPart and tick() - lastSpawn > 3 then
+                    if target and target.RootPart and tick() - lastSpawn > 2.5 then
                         if ModeDropdown.Value == 'Send Raven' then
-                            -- Send Raven Mode: Uses SpawnRaven Remote & Instant Teleportation + Detonate
+                            lastSpawn = tick()
                             pcall(function()
                                 spawnRavenRemote:InvokeServer()
                             end)
-                            lastSpawn = tick()
                             
                             task.spawn(function()
-                                task.wait(0.1)
+                                task.wait(0.08)
                                 local ravenModel = nil
                                 for _, obj in ipairs(workspace:GetDescendants()) do
                                     if obj:IsA('Model') and obj.Name:lower():find('raven') then
                                         local hrp = obj:FindFirstChild('HumanoidRootPart') or obj:PrimaryPart
-                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 100 then
+                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 120 then
                                             ravenModel = obj
                                             break
                                         end
@@ -9877,25 +9876,26 @@ run(function()
                                     local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel:PrimaryPart
                                     if hrp and target.RootPart then
                                         hrp.CFrame = target.RootPart.CFrame
-                                        task.wait(0.05)
-                                        useAbilityRemote:FireServer("raven_detonate")
+                                        task.wait(0.03)
+                                        pcall(function()
+                                            useAbilityRemote:FireServer("raven_detonate")
+                                        end)
                                     end
                                 end
                             end)
                         elseif ModeDropdown.Value == 'Avin Call' then
-                            -- Avin Call Mode: Uses useAbility raven_spawn & Teleportation + Detonate
+                            lastSpawn = tick()
                             pcall(function()
                                 useAbilityRemote:FireServer("raven_spawn")
                             end)
-                            lastSpawn = tick()
                             
                             task.spawn(function()
-                                task.wait(0.2)
+                                task.wait(0.12)
                                 local ravenModel = nil
                                 for _, obj in ipairs(workspace:GetDescendants()) do
                                     if obj:IsA('Model') and (obj.Name:lower():find('raven') or obj.Name:lower():find('bird')) then
                                         local hrp = obj:FindFirstChild('HumanoidRootPart') or obj:PrimaryPart
-                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 100 then
+                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 120 then
                                             ravenModel = obj
                                             break
                                         end
@@ -9906,8 +9906,10 @@ run(function()
                                     local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel:PrimaryPart
                                     if hrp and target.RootPart then
                                         hrp.CFrame = target.RootPart.CFrame
-                                        task.wait(0.05)
-                                        useAbilityRemote:FireServer("raven_detonate")
+                                        task.wait(0.03)
+                                        pcall(function()
+                                            useAbilityRemote:FireServer("raven_detonate")
+                                        end)
                                     end
                                 end
                             end)
@@ -9916,7 +9918,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically manages raven spawning, targeting, and detonation via multiple modes.'
+        Tooltip = 'Automatically spawns, teleports, and detonates the raven onto target players.'
     })
     
     ModeDropdown = RavenTeleport:CreateDropdown({
