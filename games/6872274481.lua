@@ -14529,7 +14529,131 @@ run(function()
     })
 end)
 
-
+run(function()
+    local RavenTeleport
+    local DistanceSlider
+    local CooldownSlider
+    local Targets
+    
+    RavenTeleport = vape.Categories.Utility:CreateModule({
+        Name = 'RavenTeleport',
+        Function = function(callback)
+            if callback then
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                local runService = game:GetService('RunService')
+                
+                local useAbilityRemote = replicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
+                
+                local lastSpawn = 0
+                RavenTeleport:Clean(runService.Heartbeat:Connect(function()
+                    if not RavenTeleport.Enabled then return end
+                    if not entitylib.isAlive then return end
+                    
+                    local inventory = store.inventory or store.localInventory
+                    local hasRaven = false
+                    local ravenCount = 0
+                    
+                    if inventory and inventory.items then
+                        for _, item in pairs(inventory.items) do
+                            if item and (item.toolType == 'raven' or (item.itemType and tostring(item.itemType):lower():find('raven')) or (item.tool and item.tool.Name:lower():find('raven'))) then
+                                hasRaven = true
+                                ravenCount = item.amount or item.stack or 1
+                                break
+                            end
+                        end
+                    end
+                    
+                    if not hasRaven and store.hand and store.hand.tool then
+                        local toolName = store.hand.tool.Name:lower()
+                        if toolName:find('raven') then
+                            hasRaven = true
+                            ravenCount = 1
+                        end
+                    end
+                    
+                    if not hasRaven or ravenCount <= 0 then return end
+                    
+                    local target = entitylib.EntityPosition({
+                        Range = DistanceSlider.Value,
+                        Part = 'RootPart',
+                        Wallcheck = false,
+                        Players = Targets.Players.Enabled,
+                        NPCs = Targets.NPCs.Enabled,
+                        Sort = function(a, b)
+                            return (a.RootPart.Position - entitylib.character.RootPart.Position).Magnitude < (b.RootPart.Position - entitylib.character.RootPart.Position).Magnitude
+                        end
+                    })
+                    
+                    if target and target.RootPart and (tick() - lastSpawn) >= CooldownSlider.Value then
+                        lastSpawn = tick()
+                        pcall(function()
+                            useAbilityRemote:FireServer("raven_projectile")
+                        end)
+                        
+                        task.spawn(function()
+                            task.wait(0.1)
+                            for _ = 1, 15 do
+                                if not RavenTeleport.Enabled then break end
+                                local ravenModel = nil
+                                for _, obj in ipairs(workspace:GetDescendants()) do
+                                    if obj:IsA('Model') and (obj.Name:lower():find('raven') or obj.Name:lower():find('bird')) then
+                                        local hrp = obj:FindFirstChild('HumanoidRootPart') or obj.PrimaryPart
+                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 120 then
+                                            ravenModel = obj
+                                            break
+                                        end
+                                    end
+                                end
+                                
+                                if ravenModel then
+                                    local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel.PrimaryPart
+                                    if hrp and target and target.RootPart then
+                                        pcall(function()
+                                            hrp.CFrame = target.RootPart.CFrame
+                                        end)
+                                        task.wait(0.03)
+                                        pcall(function()
+                                            useAbilityRemote:FireServer("raven_detonate")
+                                        end)
+                                        break
+                                    end
+                                end
+                                task.wait(0.05)
+                            end
+                        end)
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Automatically fires raven projectile when targets are within range and raven is in inventory.'
+    })
+    
+    Targets = RavenTeleport:CreateTargets({
+        Players = true,
+        NPCs = true,
+    })
+    
+    DistanceSlider = RavenTeleport:CreateSlider({
+        Name = 'Max Distance',
+        Min = 0,
+        Max = 60,
+        Default = 50,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end,
+    })
+    
+    CooldownSlider = RavenTeleport:CreateSlider({
+        Name = 'Cooldown',
+        Min = 0.5,
+        Max = 5,
+        Default = 2.5,
+        Decimal = 10,
+        Suffix = function(val)
+            return 's'
+        end,
+    })
+end)
 
 run(function()
 	local JadeAura
