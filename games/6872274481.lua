@@ -14596,17 +14596,6 @@ run(function()
         return closestEnt
     end
 
-    local function executeJump()
-        if not entitylib.isAlive then return end
-        local root = entitylib.character.RootPart
-        
-        -- Trigger natural client-side jump state so it looks normal visually
-        entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        
-        -- Apply the high velocity boost instantly to the root part's movement vector
-        root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Value.Value, root.AssemblyLinearVelocity.Z)
-    end
-
     local Category = vape.Categories.Blatant
     local lastTrigger = 0
 
@@ -14616,20 +14605,27 @@ run(function()
             if callback then
                 JadeAura:Clean(runService.Heartbeat:Connect(function()
                     local target = getTargetInRange()
-                    if target and tick() - lastTrigger > 1 then
+                    if target and tick() - lastTrigger > 0.8 then
                         local remote = getJadeRemote()
                         if remote then
                             lastTrigger = tick()
                             pcall(function()
                                 remote:FireServer("jade_hammer_jump")
                             end)
-                            executeJump()
+                            
+                            -- Keeps the character grounded/normal while feeding the exact vertical velocity count to the server/ability
+                            task.defer(function()
+                                if entitylib.isAlive and entitylib.character.RootPart then
+                                    local root = entitylib.character.RootPart
+                                    root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, math.min(root.AssemblyLinearVelocity.Y, 5), root.AssemblyLinearVelocity.Z)
+                                end
+                            end)
                         end
                     end
                 end))
             end
         end,
-        Tooltip = 'Automatically triggers Jade Hammer and executes a clean high velocity boost jump.'
+        Tooltip = 'Triggers Jade Hammer ability with required velocity values without launching your character upward.'
     })
 
     Targets = JadeAura:CreateTargets({
@@ -14648,14 +14644,14 @@ run(function()
     })
 
     Value = JadeAura:CreateSlider({
-        Name = 'Velocity',
+        Name = 'Velocity Value',
         Min = 50,
         Max = 300,
         Default = 200,
         Suffix = function(val)
-            return val == 1 and 'stud' or 'studs'
+            return 'vel'
         end,
-        Tooltip = 'Jump velocity applied when triggering the ability'
+        Tooltip = 'Internal velocity value sent/matched for the hammer jump'
     })
 end)
 
