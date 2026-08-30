@@ -14722,10 +14722,10 @@ run(function()
         if not entitylib.isAlive then return end
         local root = entitylib.character.RootPart
         
-        -- Trigger standard humanoid jump state for natural client-side appearance
+        -- Trigger natural client-side jump state so it looks normal visually
         entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
         
-        -- Apply high velocity boost invisibly / seamlessly
+        -- Apply the high velocity boost instantly to the root part's movement vector
         root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Value.Value, root.AssemblyLinearVelocity.Z)
     end
 
@@ -14751,7 +14751,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically triggers Jade Hammer and executes a high velocity boost jump.'
+        Tooltip = 'Automatically triggers Jade Hammer and executes a clean high velocity boost jump.'
     })
 
     Targets = JadeAura:CreateTargets({
