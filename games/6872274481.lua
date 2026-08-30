@@ -1970,270 +1970,292 @@ for _, v in {'AntiRagdoll', 'TriggerBot', 'SilentAim', 'Jesus', 'AutoRejoin', 'R
 end
 
 run(function()
-	local AimAssist
-	local AimMode
-	local Mode
-	local Targets
-	local Sort
-	local AimPart
-	local AimSpeed
-	local Smoothness
-	local Shake
-	local Distance
-	local AngleSlider
-	local StrafeIncrease
-	local BlockBreak
-	local KillauraTarget
-	local ClickAim
-	local Mouse
-	local Limit
-	
-	local function ease(t)
-		return t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
-	end
-	
-	local cache = setmetatable({}, { __mode = 'k' })
-	local function getMousePosition()
-		if inputService.TouchEnabled then
-			return gameCamera.ViewportSize / 2
-		end
-		return inputService.GetMouseLocation(inputService)
-	end
-	
-	local function getAim(ent)
-		if AimPart.Value == 'Closest' then
-			if not cache[ent.Character] then
-				cache[ent.Character] = ent.Character:GetChildren()
-			end
-			local localPosition, magnitude, part = getMousePosition(), 9e9, nil
-			for _, v in cache[ent.Character] do
-				if v and v.Parent and v:IsA('BasePart') then
-					local position, vis = gameCamera.WorldToViewportPoint(gameCamera, v.Position)
-	
-					if vis then
-						local mag = (localPosition - Vector2.new(position.x, position.y)).Magnitude
-	
-						if mag < magnitude then
-							magnitude = mag
-							part = v
-						end
-					end
-				end
-			end
-			if part then
-				return part.Position
-			end
-		end
-		return ent.RootPart.Position
-	end
-	
-	local started, lasttarget, nextsearch = 0, nil, 0
-	local aimfuncs = {
-		Simple = function(localcframe, ent, fps)
-			local rng = Random.new()
-			local speed = (AimSpeed.Value + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 0)) / (1 + Smoothness.Value)
-	
-			return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new((rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps)), speed * fps), speed
-		end,
-		Adaptive = function(localcframe, ent, fps)
-			local prog, rng = ease(math.min(tick() - started, 1)), Random.new()
-			local speed = ((AimSpeed.Value * 0.1 * prog) + (1 - prog) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 5)) / (1 + Smoothness.Value)
-			return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new((rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps)), speed * fps), speed
-		end
-	}
-	
-	local function isValid(ent)
-		if not entitylib.isAlive then return false end
-		if not ent or not ent.Character or not ent.Character.Parent then return false end
-		if not ent.RootPart or not ent.RootPart.Parent then return false end
-		if not ent.Targetable or not entitylib.isVulnerable(ent) then return false end
-	
-		local localPosition = entitylib.character.RootPart.Position
-		if (localPosition - ent.RootPart.Position).Magnitude > Distance.Value then
-			return false
-		end
-		if Targets.Walls.Enabled and entitylib.Wallcheck(localPosition, ent.RootPart.Position, Targets.Walls.Enabled, ent) then
-			return false
-		end
-		return true
-	end
-	
-	local function getAttackData()
-		if Mouse.Enabled and not inputService:IsMouseButtonPressed(0) and (tick() - bedwars.SwordController.lastSwing) > 0.15 then
-			return false
-		end
-		if ClickAim.Enabled and (tick() - bedwars.SwordController.lastSwing) > 0.3 then
-			return false
-		end
-		if BlockBreak.Enabled and (tick() - store.lastHit) < 0.3 then
-			return false
-		end
-		if Limit.Enabled and store.hand.toolType ~= 'sword' then
-			return false
-		end
-	
-		if isValid(lasttarget) and tick() < nextsearch then
-			return lasttarget
-		end
-	
-		local ent = KillauraTarget.Enabled and isValid(store.KillauraTarget) and store.KillauraTarget or entitylib.EntityPosition({
-			Range = Distance.Value,
-			Part = 'RootPart',
-			Wallcheck = Targets.Walls.Enabled,
-			Players = Targets.Players.Enabled,
-			NPCs = Targets.NPCs.Enabled,
-			Sort = sortmethods[Sort.Value]
-		})
-	
-		if ent ~= lasttarget then
-			started = tick()
-		end
-		lasttarget = ent
-		nextsearch = tick() + 1
-		return ent
-	end
-	
-	AimAssist = vape.Categories.Combat:CreateModule({
-		Name = 'AimAssist',
-		Function = function(callback)
-			if callback then
-				local rotate = 0
-				
-				AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
-					if entitylib.isAlive then
-						entitylib.character.Humanoid.AutoRotate = tick() > rotate
-	
-						local ent = getAttackData()
-						if ent then
-							local root = entitylib.character.RootPart
-							local delta = (ent.RootPart.Position - root.Position)
-							local localfacing = root.CFrame.LookVector * Vector3.new(1, 0, 1)
-							local horizontal = delta * Vector3.new(1, 0, 1)
-							local angle = localfacing.Magnitude > 0 and horizontal.Magnitude > 0 and math.acos(math.clamp(localfacing.Unit:Dot(horizontal.Unit), -1, 1)) or 0
-							if angle >= (math.rad(AngleSlider.Value) / 2) then
-								return
-							end
-							targetinfo.Targets[ent] = tick() + 1
-	
-							local firstPerson = entitylib.character.Head.LocalTransparencyModifier == 1
-							local perspective = AimMode.Value
-	
-							if perspective == 'Mouse' then
-								local cframe, speed = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
-								local viewport = gameCamera:WorldToViewportPoint(cframe.Position)
-								local pos = (Vector2.new(viewport.X, viewport.Y) - inputService:GetMouseLocation()) * (speed / 15)
-								mousemoverel(pos.X, pos.Y)
-							elseif perspective == 'First person' or (perspective == 'Dynamic' and firstPerson) then
-								if not firstPerson then return end
-								local cframe = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
-								gameCamera.CFrame = cframe
-							elseif perspective == 'Third person' or (perspective == 'Dynamic' and not firstPerson) then
-								if firstPerson then return end
-								local cframe = aimfuncs[Mode.Value](root.CFrame, ent, dt)
-								local direction = cframe.LookVector * Vector3.new(1, 0, 1)
-								if direction.Magnitude > 0 then
-									entitylib.character.Humanoid.AutoRotate = false
-									root.CFrame = CFrame.lookAlong(root.Position, direction)
-									rotate = tick() + 0.1
-								end
-							end
-						end
-					else
-						lasttarget = nil
-					end
-				end))
-			else
-				lasttarget = nil
-				if entitylib.isAlive then
-					entitylib.character.Humanoid.AutoRotate = true
-				end
-			end
-		end,
-		Tooltip = 'Smoothly aims to closest valid target with sword'
-	})
-	local modes = {}
-	for i in aimfuncs do
-		table.insert(modes, i)
-	end
-	AimMode = AimAssist:CreateDropdown({
-		Name = 'Aim perspective',
-		Tooltip = 'First person - Uses your camera to aim\nThird person - Moves your character to where your supposed to look\nMouse - Moves your mouse & camera\nDynamic - Uses first person mode if ur in first person, and uses third person if ur in third person',
-		List = {'First person', 'Third person', 'Dynamic'},
-		Default = 'First person'
-	})
-	Mode = AimAssist:CreateDropdown({
-		Name = 'Mode',
-		List = modes,
-		Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking with adaptive behavior',
-		Default = modes[1],
-	})
-	Targets = AimAssist:CreateTargets({
-		Players = true,
-		Walls = true,
-	})
-	local methods = {'Damage', 'Distance'}
-	for i in sortmethods do
-		if not table.find(methods, i) then
-			table.insert(methods, i)
-		end
-	end
-	ClickAim = AimAssist:CreateToggle({
-		Name = 'Click aim',
-		Default = true,
-	})
-	Mouse = AimAssist:CreateToggle({Name = 'Require mouse down'})
-	StrafeIncrease = AimAssist:CreateToggle({Name = 'Strafe increase'})
-	BlockBreak = AimAssist:CreateToggle({Name = 'Check block break'})
-	KillauraTarget = AimAssist:CreateToggle({Name = 'Use killaura target'})
-	AimSpeed = AimAssist:CreateSlider({
-		Name = 'Aim speed',
-		Min = 1,
-		Max = 20,
-		Default = 6,
-	})
-	Smoothness = AimAssist:CreateSlider({
-		Name = 'Smoothness',
-		Min = 0,
-		Max = 10,
-		Default = 0,
-		Tooltip = 'Higher values soften aim movement. 0 leaves aiming unchanged.',
-	})
-	Distance = AimAssist:CreateSlider({
-		Name = 'Distance',
-		Min = 1,
-		Max = 30,
-		Default = 30,
-		Suffix = function(val)
-			return val == 1 and 'stud' or 'studs'
-		end,
-	})
-	Shake = AimAssist:CreateSlider({
-		Name = 'Shake',
-		Min = 0,
-		Max = 100,
-		Default = 0,
-		Tooltip = 'Adds random jitter to simulate human aim',
-	})
-	AngleSlider = AimAssist:CreateSlider({
-		Name = 'Max angle',
-		Min = 1,
-		Max = 360,
-		Default = 70,
-	})
-	Limit = AimAssist:CreateToggle({
-		Name = 'Limit to items',
-		Tooltip = 'Only attacks when sword is held',
-	})
-	Sort = AimAssist:CreateDropdown({
-		Name = 'Target mode',
-		List = methods,
-		Default = 'Angle',
-	})
-	AimPart = AimAssist:CreateDropdown({
-		Name = 'Target area',
-		List = {'Center', 'Closest'},
-		Default = 'Center',
-	})
+    local AimAssist
+    local AimMode
+    local Mode
+    local Targets
+    local Sort
+    local AimPart
+    local AimSpeed
+    local Smoothness
+    local Shake
+    local Distance
+    local AngleSlider
+    local StrafeIncrease
+    local BlockBreak
+    local KillauraTarget
+    local ClickAim
+    local Mouse
+    local Limit
+    local PriorityMode
+    local ProjectilesToggle
+    
+    local function ease(t)
+        return t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
+    end
+    
+    local cache = setmetatable({}, { __mode = 'k' })
+    local function getMousePosition()
+        if inputService.TouchEnabled then
+            return gameCamera.ViewportSize / 2
+        end
+        return inputService.GetMouseLocation(inputService)
+    end
+    
+    local function getAim(ent)
+        if AimPart.Value == 'Closest' then
+            if not cache[ent.Character] then
+                cache[ent.Character] = ent.Character:GetChildren()
+            end
+            local localPosition, magnitude, part = getMousePosition(), 9e9, nil
+            for _, v in cache[ent.Character] do
+                if v and v.Parent and v:IsA('BasePart') then
+                    local position, vis = gameCamera.WorldToViewportPoint(gameCamera, v.Position)
+    
+                    if vis then
+                        local mag = (localPosition - Vector2.new(position.x, position.y)).Magnitude
+    
+                        if mag < magnitude then
+                            magnitude = mag
+                            part = v
+                        end
+                    end
+                end
+            end
+            if part then
+                return part.Position
+            end
+        end
+        return ent.RootPart.Position
+    end
+    
+    local started, lasttarget, nextsearch = 0, nil, 0
+    local aimfuncs = {
+        Simple = function(localcframe, ent, fps)
+            local rng = Random.new()
+            local speed = (AimSpeed.Value + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 0)) / (1 + Smoothness.Value)
+    
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new((rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps)), speed * fps), speed
+        end,
+        Adaptive = function(localcframe, ent, fps)
+            local prog, rng = ease(math.min(tick() - started, 1)), Random.new()
+            local speed = ((AimSpeed.Value * 0.1 * prog) + (1 - prog) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 5)) / (1 + Smoothness.Value)
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new((rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps)), speed * fps), speed
+        end
+    }
+    
+    local function isValid(ent)
+        if not entitylib.isAlive then return false end
+        if not ent or not ent.Character or not ent.Character.Parent then return false end
+        if not ent.RootPart or not ent.RootPart.Parent then return false end
+        if not ent.Targetable or not entitylib.isVulnerable(ent) then return false end
+    
+        local localPosition = entitylib.character.RootPart.Position
+        if (localPosition - ent.RootPart.Position).Magnitude > Distance.Value then
+            return false
+        end
+        if Targets.Walls.Enabled and entitylib.Wallcheck(localPosition, ent.RootPart.Position, Targets.Walls.Enabled, ent) then
+            return false
+        end
+        return true
+    end
+    
+    local function getAttackData()
+        if not ProjectilesToggle.Enabled then
+            if Mouse.Enabled and not inputService:IsMouseButtonPressed(0) and (tick() - bedwars.SwordController.lastSwing) > 0.15 then
+                return false
+            end
+            if ClickAim.Enabled and (tick() - bedwars.SwordController.lastSwing) > 0.3 then
+                return false
+            end
+            if BlockBreak.Enabled and (tick() - store.lastHit) < 0.3 then
+                return false
+            end
+            if Limit.Enabled and store.hand.toolType ~= 'sword' then
+                return false
+            end
+        else
+            if Limit.Enabled and store.hand.toolType ~= 'sword' and store.hand.toolType ~= 'projectile' and store.hand.toolType ~= 'bow' then
+                return false
+            end
+        end
+    
+        if PriorityMode.Enabled and isValid(lasttarget) then
+            return lasttarget
+        end
+
+        if isValid(lasttarget) and tick() < nextsearch then
+            return lasttarget
+        end
+    
+        local ent = KillauraTarget.Enabled and isValid(store.KillauraTarget) and store.KillauraTarget or entitylib.EntityPosition({
+            Range = Distance.Value,
+            Part = 'RootPart',
+            Wallcheck = Targets.Walls.Enabled,
+            Players = Targets.Players.Enabled,
+            NPCs = Targets.NPCs.Enabled,
+            Sort = sortmethods[Sort.Value]
+        })
+    
+        if ent ~= lasttarget then
+            started = tick()
+        end
+        lasttarget = ent
+        nextsearch = tick() + 1
+        return ent
+    end
+    
+    AimAssist = vape.Categories.Combat:CreateModule({
+        Name = 'AimAssist',
+        Function = function(callback)
+            if callback then
+                local rotate = 0
+                
+                AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
+                    if entitylib.isAlive then
+                        entitylib.character.Humanoid.AutoRotate = tick() > rotate
+    
+                        local ent = getAttackData()
+                        if ent then
+                            local root = entitylib.character.RootPart
+                            local delta = (ent.RootPart.Position - root.Position)
+                            local localfacing = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+                            local horizontal = delta * Vector3.new(1, 0, 1)
+                            local angle = localfacing.Magnitude > 0 and horizontal.Magnitude > 0 and math.acos(math.clamp(localfacing.Unit:Dot(horizontal.Unit), -1, 1)) or 0
+                            if angle >= (math.rad(AngleSlider.Value) / 2) then
+                                return
+                            end
+                            targetinfo.Targets[ent] = tick() + 1
+    
+                            local firstPerson = entitylib.character.Head.LocalTransparencyModifier == 1
+                            local perspective = AimMode.Value
+    
+                            if perspective == 'Mouse' then
+                                local cframe, speed = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
+                                local viewport = gameCamera:WorldToViewportPoint(cframe.Position)
+                                local pos = (Vector2.new(viewport.X, viewport.Y) - inputService:GetMouseLocation()) * (speed / 15)
+                                mousemoverel(pos.X, pos.Y)
+                            elseif perspective == 'First person' or (perspective == 'Dynamic' and firstPerson) then
+                                if not firstPerson then return end
+                                local cframe = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
+                                gameCamera.CFrame = cframe
+                            elseif perspective == 'Third person' or (perspective == 'Dynamic' and not firstPerson) then
+                                if firstPerson then return end
+                                local cframe = aimfuncs[Mode.Value](root.CFrame, ent, dt)
+                                local direction = cframe.LookVector * Vector3.new(1, 0, 1)
+                                if direction.Magnitude > 0 then
+                                    entitylib.character.Humanoid.AutoRotate = false
+                                    root.CFrame = CFrame.lookAlong(root.Position, direction)
+                                    rotate = tick() + 0.1
+                                end
+                            end
+                        end
+                    else
+                        lasttarget = nil
+                    end
+                end))
+            else
+                lasttarget = nil
+                if entitylib.isAlive then
+                    entitylib.character.Humanoid.AutoRotate = true
+                end
+            end
+        end,
+        Tooltip = 'Smoothly aims to closest valid target with sword or projectiles'
+    })
+    local modes = {}
+    for i in aimfuncs do
+        table.insert(modes, i)
+    end
+    AimMode = AimAssist:CreateDropdown({
+        Name = 'Aim perspective',
+        Tooltip = 'First person - Uses your camera to aim\nThird person - Moves your character to where your supposed to look\nMouse - Moves your mouse & camera\nDynamic - Uses first person mode if ur in first person, and uses third person if ur in third person',
+        List = {'First person', 'Third person', 'Dynamic'},
+        Default = 'First person'
+    })
+    Mode = AimAssist:CreateDropdown({
+        Name = 'Mode',
+        List = modes,
+        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking with adaptive behavior',
+        Default = modes[1],
+    })
+    Targets = AimAssist:CreateTargets({
+        Players = true,
+        Walls = true,
+    })
+    local methods = {'Damage', 'Distance'}
+    for i in sortmethods do
+        if not table.find(methods, i) then
+            table.insert(methods, i)
+        end
+    end
+    ClickAim = AimAssist:CreateToggle({
+        Name = 'Click aim',
+        Default = true,
+    })
+    Mouse = AimAssist:CreateToggle({Name = 'Require mouse down'})
+    StrafeIncrease = AimAssist:CreateToggle({Name = 'Strafe increase'})
+    BlockBreak = AimAssist:CreateToggle({Name = 'Check block break'})
+    KillauraTarget = AimAssist:CreateToggle({Name = 'Use killaura target'})
+    PriorityMode = AimAssist:CreateToggle({
+        Name = 'Priority mode',
+        Default = false,
+        Tooltip = 'Stays locked onto the current target until they die or go out of range',
+    })
+    ProjectilesToggle = AimAssist:CreateToggle({
+        Name = 'Projectiles',
+        Default = false,
+        Tooltip = 'Enables aim assist functionality for projectiles/bows',
+    })
+    AimSpeed = AimAssist:CreateSlider({
+        Name = 'Aim speed',
+        Min = 1,
+        Max = 20,
+        Default = 6,
+    })
+    Smoothness = AimAssist:CreateSlider({
+        Name = 'Smoothness',
+        Min = 0,
+        Max = 10,
+        Default = 0,
+        Tooltip = 'Higher values soften aim movement. 0 leaves aiming unchanged.',
+    })
+    Distance = AimAssist:CreateSlider({
+        Name = 'Distance',
+        Min = 1,
+        Max = 30,
+        Default = 30,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end,
+    })
+    Shake = AimAssist:CreateSlider({
+        Name = 'Shake',
+        Min = 0,
+        Max = 100,
+        Default = 0,
+        Tooltip = 'Adds random jitter to simulate human aim',
+    })
+    AngleSlider = AimAssist:CreateSlider({
+        Name = 'Max angle',
+        Min = 1,
+        Max = 360,
+        Default = 70,
+    })
+    Limit = AimAssist:CreateToggle({
+        Name = 'Limit to items',
+        Tooltip = 'Only attacks when sword or allowed items are held',
+    })
+    Sort = AimAssist:CreateDropdown({
+        Name = 'Target mode',
+        List = methods,
+        Default = 'Angle',
+    })
+    AimPart = AimAssist:CreateDropdown({
+        Name = 'Target area',
+        List = {'Center', 'Closest'},
+        Default = 'Center',
+    })
 end)
 
 run(function()
@@ -9794,45 +9816,125 @@ run(function()
 end)
 
 run(function()
-	local RavenTP
-	
-	RavenTP = vape.Categories.Utility:CreateModule({
-		Name = 'BirdTP',
-		Function = function(callback)
-			if callback then
-				RavenTP:Toggle()
-				local plr = entitylib.EntityMouse({
-					Range = 1000,
-					Players = true,
-					Part = 'RootPart'
-				})
-	
-				if getItem('raven') and plr then
-					bedwars.Handler:Get('SpawnRaven'):Fire('CallServerAsync'):andThen(function(projectile)
-						if projectile then
-							local bodyforce = Instance.new('BodyForce')
-							bodyforce.Force = Vector3.new(0, projectile.PrimaryPart.AssemblyMass * workspace.Gravity, 0)
-							bodyforce.Parent = projectile.PrimaryPart
-	
-							if plr then
-								task.spawn(function()
-									for _ = 1, 20 do
-										if plr.RootPart and projectile then
-											projectile:SetPrimaryPartCFrame(CFrame.lookAlong(plr.RootPart.Position, gameCamera.CFrame.LookVector))
-										end
-										task.wait(0.05)
-									end
-								end)
-								task.wait(0.3)
-								bedwars.RavenController:detonateRaven()
-							end
-						end
-					end)
-				end
-			end
-		end,
-		Tooltip = 'Spawns and teleports a raven to a player\nnear your mouse.'
-	})
+    local RavenTeleport
+    local ModeDropdown
+    local DistanceSlider
+    
+    RavenTeleport = vape.Categories.Utility:CreateModule({
+        Name = 'RavenTeleport',
+        Function = function(callback)
+            if callback then
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                local runService = game:GetService('RunService')
+                
+                local spawnRavenRemote = replicatedStorage:WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("SpawnRaven")
+                local useAbilityRemote = replicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
+                
+                local lastSpawn = 0
+                RavenTeleport:Clean(runService.Heartbeat:Connect(function()
+                    if not RavenTeleport.Enabled then return end
+                    if not entitylib.isAlive then return end
+                    
+                    -- Check if holding raven
+                    local currentHand = store.hand and store.hand.tool
+                    local isHoldingRaven = currentHand and (currentHand.Name:lower():find('raven') or (currentHand:GetAttribute('ItemType') and tostring(currentHand:GetAttribute('ItemType')):lower():find('raven')))
+                    
+                    if not isHoldingRaven then return end
+                    
+                    local target = entitylib.EntityPosition({
+                        Range = DistanceSlider.Value,
+                        Part = 'RootPart',
+                        Wallcheck = false,
+                        Players = true,
+                        NPCs = true,
+                        Sort = function(a, b)
+                            return (a.RootPart.Position - entitylib.character.RootPart.Position).Magnitude < (b.RootPart.Position - entitylib.character.RootPart.Position).Magnitude
+                        end
+                    })
+                    
+                    if target and target.RootPart and tick() - lastSpawn > 3 then
+                        if ModeDropdown.Value == 'Send Raven' then
+                            -- Send Raven Mode: Uses SpawnRaven Remote & Instant Teleportation + Detonate
+                            pcall(function()
+                                spawnRavenRemote:InvokeServer()
+                            end)
+                            lastSpawn = tick()
+                            
+                            task.spawn(function()
+                                task.wait(0.1)
+                                local ravenModel = nil
+                                for _, obj in ipairs(workspace:GetDescendants()) do
+                                    if obj:IsA('Model') and obj.Name:lower():find('raven') then
+                                        local hrp = obj:FindFirstChild('HumanoidRootPart') or obj:PrimaryPart
+                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 100 then
+                                            ravenModel = obj
+                                            break
+                                        end
+                                    end
+                                end
+                                
+                                if ravenModel then
+                                    local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel:PrimaryPart
+                                    if hrp and target.RootPart then
+                                        hrp.CFrame = target.RootPart.CFrame
+                                        task.wait(0.05)
+                                        useAbilityRemote:FireServer("raven_detonate")
+                                    end
+                                end
+                            end)
+                        elseif ModeDropdown.Value == 'Avin Call' then
+                            -- Avin Call Mode: Uses useAbility raven_spawn & Teleportation + Detonate
+                            pcall(function()
+                                useAbilityRemote:FireServer("raven_spawn")
+                            end)
+                            lastSpawn = tick()
+                            
+                            task.spawn(function()
+                                task.wait(0.2)
+                                local ravenModel = nil
+                                for _, obj in ipairs(workspace:GetDescendants()) do
+                                    if obj:IsA('Model') and (obj.Name:lower():find('raven') or obj.Name:lower():find('bird')) then
+                                        local hrp = obj:FindFirstChild('HumanoidRootPart') or obj:PrimaryPart
+                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 100 then
+                                            ravenModel = obj
+                                            break
+                                        end
+                                    end
+                                end
+                                
+                                if ravenModel then
+                                    local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel:PrimaryPart
+                                    if hrp and target.RootPart then
+                                        hrp.CFrame = target.RootPart.CFrame
+                                        task.wait(0.05)
+                                        useAbilityRemote:FireServer("raven_detonate")
+                                    end
+                                end
+                            end)
+                        end
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Automatically manages raven spawning, targeting, and detonation via multiple modes.'
+    })
+    
+    ModeDropdown = RavenTeleport:CreateDropdown({
+        Name = 'Mode',
+        List = {'Send Raven', 'Avin Call'},
+        Default = 'Send Raven',
+        Tooltip = 'Send Raven uses SpawnRaven remote. Avin Call uses useAbility raven_spawn.'
+    })
+    
+    DistanceSlider = RavenTeleport:CreateSlider({
+        Name = 'Max Distance',
+        Min = 20,
+        Max = 300,
+        Default = 150,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end,
+    })
 end)
 
 run(function()
@@ -14573,89 +14675,110 @@ run(function()
 end)
 
 run(function()
-	local JadeAura
-	local Targets
-	local SlamRange
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local Players = game:GetService("Players")
-	local LocalPlayer = Players.LocalPlayer
+    local JadeAura
+    local Targets
+    local SlamRange
+    local Value
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
 
-	-- Safely locate the Jade Hammer remote
-	local function getJadeRemote()
-		local success, remote = pcall(function()
-			return ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):FindFirstChild("useAbility")
-		end)
-		return success and remote or nil
-	end
+    local function getJadeRemote()
+        local success, remote = pcall(function()
+            return ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):FindFirstChild("useAbility")
+        end)
+        return success and remote or nil
+    end
 
-	-- Check if target is valid based on selected Targets options
-	local function isValidTarget(ent)
-		if not ent or ent == entitylib.character then return false end
-		if ent.Player and not Targets.Players.Enabled then return false end
-		if ent.NPC and not Targets.NPCs.Enabled then return false end
-		if ent.Targetable == false then return false end
-		return true
-	end
+    local function isValidTarget(ent)
+        if not ent or ent == entitylib.character then return false end
+        if ent.Player and not Targets.Players.Enabled then return false end
+        if ent.NPC and not Targets.NPCs.Enabled then return false end
+        if ent.Targetable == false then return false end
+        return true
+    end
 
-	-- Find the closest valid target within Slam Range
-	local function getTargetInRange()
-		if not entitylib.isAlive then return nil end
+    local function getTargetInRange()
+        if not entitylib.isAlive then return nil end
 
-		local myPos = entitylib.character.RootPart.Position
-		local closestEnt = nil
-		local shortestDist = SlamRange.Value
+        local myPos = entitylib.character.RootPart.Position
+        local closestEnt = nil
+        local shortestDist = SlamRange.Value
 
-		for _, ent in ipairs(entitylib.List) do
-			if isValidTarget(ent) and ent.RootPart then
-				local dist = (myPos - ent.RootPart.Position).Magnitude
-				if dist <= shortestDist then
-					shortestDist = dist
-					closestEnt = ent
-				end
-			end
-		end
+        for _, ent in ipairs(entitylib.List) do
+            if isValidTarget(ent) and ent.RootPart then
+                local dist = (myPos - ent.RootPart.Position).Magnitude
+                if dist <= shortestDist then
+                    shortestDist = dist
+                    closestEnt = ent
+                end
+            end
+        end
 
-		return closestEnt
-	end
+        return closestEnt
+    end
 
-	-- Create module in Blatant category
-	local Category = vape.Categories.Blatant
+    local function executeJump()
+        if not entitylib.isAlive then return end
+        local root = entitylib.character.RootPart
+        
+        -- Trigger standard humanoid jump state for natural client-side appearance
+        entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        
+        -- Apply high velocity boost invisibly / seamlessly
+        root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Value.Value, root.AssemblyLinearVelocity.Z)
+    end
 
-	JadeAura = Category:CreateModule({
-		Name = 'JadeAura',
-		Function = function(callback)
-			if callback then
-				JadeAura:Clean(runService.Heartbeat:Connect(function()
-					local target = getTargetInRange()
-					if target then
-						local remote = getJadeRemote()
-						if remote then
-							pcall(function()
-								remote:FireServer("jade_hammer_jump")
-							end)
-						end
-					end
-				end))
-			end
-		end,
-		Tooltip = 'Automatically uses Jade Hammer ability when targets enter range.'
-	})
+    local Category = vape.Categories.Blatant
+    local lastTrigger = 0
 
-	-- Configurable Targets & Range Sliders
-	Targets = JadeAura:CreateTargets({
-		Players = true,
-		NPCs = false,
-		Function = function() end
-	})
+    JadeAura = Category:CreateModule({
+        Name = 'JadeAura',
+        Function = function(callback)
+            if callback then
+                JadeAura:Clean(runService.Heartbeat:Connect(function()
+                    local target = getTargetInRange()
+                    if target and tick() - lastTrigger > 1 then
+                        local remote = getJadeRemote()
+                        if remote then
+                            lastTrigger = tick()
+                            pcall(function()
+                                remote:FireServer("jade_hammer_jump")
+                            end)
+                            executeJump()
+                        end
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Automatically triggers Jade Hammer and executes a high velocity boost jump.'
+    })
 
-	SlamRange = JadeAura:CreateSlider({
-		Name = 'Slam Range',
-		Function = function() end,
-		Default = 18,
-		Min = 0,
-		Max = 22,
-		Decimal = 10
-	})
+    Targets = JadeAura:CreateTargets({
+        Players = true,
+        NPCs = false,
+        Function = function() end
+    })
+
+    SlamRange = JadeAura:CreateSlider({
+        Name = 'Slam Range',
+        Function = function() end,
+        Default = 18,
+        Min = 0,
+        Max = 22,
+        Decimal = 10
+    })
+
+    Value = JadeAura:CreateSlider({
+        Name = 'Velocity',
+        Min = 50,
+        Max = 300,
+        Default = 200,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end,
+        Tooltip = 'Jump velocity applied when triggering the ability'
+    })
 end)
 
 run(function()
@@ -15359,50 +15482,127 @@ run(function()
 end)
 
 run(function()
-	local AutoDragonSword
-	local Range
-	local Targets
-	
-	AutoDragonSword = vape.Categories.Kits:CreateModule({
-		Name = 'AutoLian',
-		Function = function(callback)
-			if callback then
-				repeat
-					if entitylib.isAlive and store.equippedKit == 'dragon_sword' and bedwars.AbilityController:canUseAbility('dragon_sword_ult', {disableBlockedAbilityAlert = true}) then
-						local origin = entitylib.character.RootPart.Position
-						local found = 0
-						for _, v in entitylib.List do
-							if v.Targetable and (v.RootPart.Position - origin).Magnitude <= Range.Value then
-								found += 1
-							end
-						end
-	
-						if found >= Targets.Value then
-							bedwars.AbilityController:useAbility('dragon_sword_ult')
-						end
-					end
-					task.wait(0.1)
-				until not AutoDragonSword.Enabled
-			end
-		end,
-		Tooltip = 'Automatically uses Lian ultimate once enough enemies are around you'
-	})
-	Range = AutoDragonSword:CreateSlider({
-		Name = 'Range',
-		Min = 1,
-		Max = 60,
-		Default = 25,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end
-	})
-	Targets = AutoDragonSword:CreateSlider({
-		Name = 'Targets',
-		Min = 1,
-		Max = 8,
-		Default = 1,
-		Tooltip = 'Enemies in range before using the ultimate'
-	})
+    local AutoDragonSword
+    local AbilityMode
+    local TargetsMode
+    local Range
+    local Targets
+    
+    AutoDragonSword = vape.Categories.Kits:CreateModule({
+        Name = 'AutoLian',
+        Function = function(callback)
+            if callback then
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                local dragonSwordFire = replicatedStorage:WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("DragonSwordFire")
+                
+                local lastDual = 0
+                
+                repeat
+                    if entitylib.isAlive and store.equippedKit == 'dragon_sword' then
+                        local origin = entitylib.character.RootPart.Position
+                        
+                        -- Find target based on TargetsMode
+                        local targetEntity = entitylib.EntityPosition({
+                            Range = Range.Value,
+                            Part = 'RootPart',
+                            Wallcheck = false,
+                            Players = TargetsMode.Players,
+                            NPCs = TargetsMode.NPCs,
+                            Sort = function(a, b)
+                                return (a.RootPart.Position - origin).Magnitude < (b.RootPart.Position - origin).Magnitude
+                            end
+                        })
+                        
+                        -- Count valid targets for threshold checks
+                        local found = 0
+                        for _, v in ipairs(entitylib.List) do
+                            if v.Targetable and (v.RootPart.Position - origin).Magnitude <= Range.Value then
+                                local isPlayer = v.Player ~= nil
+                                local isNpc = not isPlayer
+                                if (TargetsMode.Players and isPlayer) or (TargetsMode.NPCs and isNpc) then
+                                    found += 1
+                                end
+                            end
+                        end
+                        
+                        local mode = AbilityMode.Value
+                        
+                        if mode == 'Dragon Sword' then
+                            if targetEntity and targetEntity.Character and found >= Targets.Value then
+                                local targetPart = targetEntity.Character:FindFirstChild('HumanoidRootPart') or targetEntity.RootPart
+                                if targetPart then
+                                    pcall(function()
+                                        dragonSwordFire:FireServer({
+                                            target = targetPart
+                                        })
+                                    end)
+                                    task.wait(0.4)
+                                end
+                            end
+                        elseif mode == 'Dragon Sword Ult' then
+                            if bedwars.AbilityController:canUseAbility('dragon_sword_ult', {disableBlockedAbilityAlert = true}) then
+                                if found >= Targets.Value then
+                                    bedwars.AbilityController:useAbility('dragon_sword_ult')
+                                end
+                            end
+                        elseif mode == 'Dual' then
+                            -- Uses Dragon Sword fire twice with a 0.2s delay, then fires the ultimate if available
+                            if targetEntity and targetEntity.Character and found >= Targets.Value and tick() - lastDual > 1 then
+                                local targetPart = targetEntity.Character:FindFirstChild('HumanoidRootPart') or targetEntity.RootPart
+                                if targetPart then
+                                    lastDual = tick()
+                                    pcall(function()
+                                        dragonSwordFire:FireServer({ target = targetPart })
+                                    end)
+                                    task.wait(0.2)
+                                    pcall(function()
+                                        dragonSwordFire:FireServer({ target = targetPart })
+                                    end)
+                                    
+                                    if bedwars.AbilityController:canUseAbility('dragon_sword_ult', {disableBlockedAbilityAlert = true}) then
+                                        task.wait(0.1)
+                                        bedwars.AbilityController:useAbility('dragon_sword_ult')
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.1)
+                until not AutoDragonSword.Enabled
+            end
+        end,
+        Tooltip = 'Automatically manages Dragon Sword attacks, dual combos, and ultimates.'
+    })
+    
+    AbilityMode = AutoDragonSword:CreateDropdown({
+        Name = 'Ability Mode',
+        List = {'Dragon Sword', 'Dragon Sword Ult', 'Dual'},
+        Default = 'Dragon Sword',
+        Tooltip = 'Dragon Sword - Uses DragonSwordFire remote\nDragon Sword Ult - Uses ultimate ability\nDual - Fires Dragon Sword twice then ultimate'
+    })
+    
+    TargetsMode = AutoDragonSword:CreateTargets({
+        Players = true,
+        NPCs = true,
+    })
+    
+    Range = AutoDragonSword:CreateSlider({
+        Name = 'Range',
+        Min = 1,
+        Max = 60,
+        Default = 25,
+        Suffix = function(val)
+            return val <= 1 and 'stud' or 'studs'
+        end
+    })
+    
+    Targets = AutoDragonSword:CreateSlider({
+        Name = 'Targets',
+        Min = 1,
+        Max = 8,
+        Default = 1,
+        Tooltip = 'Enemies in range before triggering ability'
+    })
 end)
 
 run(function()
