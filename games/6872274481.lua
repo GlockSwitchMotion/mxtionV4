@@ -14573,6 +14573,8 @@ run(function()
                     
                     if not hasRaven or ravenCount <= 0 then return end
                     
+                    if (tick() - lastSpawn) < CooldownSlider.Value then return end
+                    
                     local target = entitylib.EntityPosition({
                         Range = DistanceSlider.Value,
                         Part = 'RootPart',
@@ -14584,7 +14586,7 @@ run(function()
                         end
                     })
                     
-                    if target and target.RootPart and (tick() - lastSpawn) >= CooldownSlider.Value then
+                    if target and target.RootPart then
                         lastSpawn = tick()
                         pcall(function()
                             useAbilityRemote:FireServer("raven_projectile")
@@ -14598,7 +14600,7 @@ run(function()
                                 for _, obj in ipairs(workspace:GetDescendants()) do
                                     if obj:IsA('Model') and (obj.Name:lower():find('raven') or obj.Name:lower():find('bird')) then
                                         local hrp = obj:FindFirstChild('HumanoidRootPart') or obj.PrimaryPart
-                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 120 then
+                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < (DistanceSlider.Value + 70) then
                                             ravenModel = obj
                                             break
                                         end
@@ -14625,7 +14627,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Automatically fires raven projectile when targets are within range and raven is in inventory.'
+        Tooltip = 'Automatically fires raven projectile the instant cooldown ends when a target is within the set slider range.'
     })
     
     Targets = RavenTeleport:CreateTargets({
@@ -21769,9 +21771,52 @@ run(function()
 	local Clouds
 	local Quality
 	local Shadows
+	local Post
+	local Water
+	local Kill
+	local Visualizer
+	local Particles
+	local Nametags
+	local Compatibility
 	local hidden = {}
+	local watching = setmetatable({}, {__mode = 'k'})
+	local effects = {}
+	local killeffects, visualizers, particlesold = {}, {}, {}
+	local waterold
 	local qualityold
 	local shadowsold
+	local technologyold
+	local nametagold
+	local posthook
+	local particlehook
+	local particleclasses = {'ParticleEmitter', 'Trail', 'Beam', 'Smoke', 'Fire', 'Sparkles'}
+	
+	local function silenceParticle(obj)
+		if not table.find(particleclasses, obj.ClassName) or particlesold[obj] ~= nil then return end
+		particlesold[obj] = obj.Enabled
+		obj.Enabled = false
+	end
+	
+	local function isGuiEffect(effect)
+		for _, v in vape.BlurEffects or {} do
+			if v == effect then
+				return true
+			end
+		end
+		return false
+	end
+	
+	local function stripEffect(effect)
+		if effects[effect] ~= nil or isGuiEffect(effect) then return end
+	
+		if effect:IsA('PostEffect') then
+			effects[effect] = effect.Enabled
+			effect.Enabled = false
+		elseif effect:IsA('Atmosphere') then
+			effects[effect] = effect.Density
+			effect.Density = 0
+		end
+	end
 	
 	local function setSpeed(speed)
 		for _, ent in entitylib.List do
@@ -21795,9 +21840,27 @@ run(function()
 				v.Parent = nil
 			end
 		end
+	
+		if not watching[ent.Character] then
+			watching[ent.Character] = ent.Character.ChildAdded:Connect(function(obj)
+				if FPSBooster.Enabled and Cosmetics.Enabled and (obj.Name == 'Clothing' or obj.Name == '3DClothing') then
+					task.defer(function()
+						if FPSBooster.Enabled and Cosmetics.Enabled and obj.Parent == ent.Character then
+							hidden[obj] = ent.Character
+							obj.Parent = nil
+						end
+					end)
+				end
+			end)
+		end
 	end
 	
 	local function Removed(ent)
+		if watching[ent.Character] then
+			watching[ent.Character]:Disconnect()
+			watching[ent.Character] = nil
+		end
+	
 		for i, v in hidden do
 			if v == ent.Character then
 				hidden[i] = nil
@@ -21819,6 +21882,92 @@ run(function()
 				if Shadows.Enabled then
 					shadowsold = lightingService.GlobalShadows
 					lightingService.GlobalShadows = false
+				end
+	
+				if Post.Enabled then
+					for _, v in lightingService:GetChildren() do
+						stripEffect(v)
+					end
+	
+					posthook = lightingService.ChildAdded:Connect(function(v)
+						if FPSBooster.Enabled and Post.Enabled and not isGuiEffect(v) then
+							task.defer(stripEffect, v)
+						end
+					end)
+				end
+	
+				if Water.Enabled then
+					waterold = {
+						Size = workspace.Terrain.WaterWaveSize,
+						Speed = workspace.Terrain.WaterWaveSpeed,
+						Reflectance = workspace.Terrain.WaterReflectance,
+						Transparency = workspace.Terrain.WaterTransparency
+					}
+					workspace.Terrain.WaterWaveSize = 0
+					workspace.Terrain.WaterWaveSpeed = 0
+					workspace.Terrain.WaterReflectance = 0
+					workspace.Terrain.WaterTransparency = 1
+				end
+	
+				if Compatibility.Enabled then
+					technologyold = lightingService.Technology
+					lightingService.Technology = Enum.Technology.Compatibility
+				end
+	
+				if Kill.Enabled then
+					for i, v in bedwars.KillEffectController.killEffects do
+						if not i:find('Custom') then
+							killeffects[i] = v
+							bedwars.KillEffectController.killEffects[i] = {
+								new = function()
+									return {
+										onKill = function() end,
+										isPlayDefaultKillEffect = function()
+											return true
+										end
+									}
+								end
+							}
+						end
+					end
+				end
+	
+				if Visualizer.Enabled then
+					for i, v in bedwars.VisualizerUtils do
+						visualizers[i] = v
+						bedwars.VisualizerUtils[i] = function() end
+					end
+				end
+	
+				if Particles.Enabled then
+					particlehook = workspace.DescendantAdded:Connect(silenceParticle)
+					task.spawn(function()
+						local clock = os.clock()
+						for _, v in workspace:GetDescendants() do
+							silenceParticle(v)
+	
+							if os.clock() - clock > 0.002 then
+								task.wait()
+								if not FPSBooster.Enabled or not Particles.Enabled then return end
+								clock = os.clock()
+							end
+						end
+					end)
+				end
+	
+				if Nametags.Enabled then
+					task.spawn(function()
+						repeat task.wait() until store.matchState ~= 0 or not FPSBooster.Enabled
+						if not FPSBooster.Enabled or not Nametags.Enabled or not bedwars.AppController then return end
+	
+						nametagold = bedwars.NametagController.addGameNametag
+						bedwars.NametagController.addGameNametag = function() end
+						for _, v in bedwars.AppController:getOpenApps() do
+							if tostring(v):find('Nametag') then
+								bedwars.AppController:closeApp(tostring(v))
+							end
+						end
+					end)
 				end
 	
 				if Clouds.Enabled then
@@ -21846,6 +21995,67 @@ run(function()
 					end)
 				end
 			else
+				if posthook then
+					posthook:Disconnect()
+					posthook = nil
+				end
+	
+				if particlehook then
+					particlehook:Disconnect()
+					particlehook = nil
+				end
+	
+				for i, v in effects do
+					if i.Parent then
+						if i:IsA('Atmosphere') then
+							i.Density = v
+						else
+							i.Enabled = v
+						end
+					end
+				end
+				table.clear(effects)
+	
+				for i, v in killeffects do
+					bedwars.KillEffectController.killEffects[i] = v
+				end
+				table.clear(killeffects)
+	
+				for i, v in visualizers do
+					bedwars.VisualizerUtils[i] = v
+				end
+				table.clear(visualizers)
+	
+				for i, v in particlesold do
+					if i.Parent then
+						i.Enabled = v
+					end
+				end
+				table.clear(particlesold)
+	
+				if nametagold then
+					bedwars.NametagController.addGameNametag = nametagold
+					nametagold = nil
+				end
+	
+				if technologyold then
+					lightingService.Technology = technologyold
+					technologyold = nil
+				end
+	
+				if waterold then
+					workspace.Terrain.WaterWaveSize = waterold.Size
+					workspace.Terrain.WaterWaveSpeed = waterold.Speed
+					workspace.Terrain.WaterReflectance = waterold.Reflectance
+					workspace.Terrain.WaterTransparency = waterold.Transparency
+					waterold = nil
+				end
+	
+				for _, v in watching do
+					v:Disconnect()
+				end
+				table.clear(watching)
+	
 				for i, v in hidden do
 					if v.Parent then
 						i.Parent = v
@@ -21927,6 +22137,83 @@ run(function()
 		end,
 		Default = true,
 		Tooltip = 'Turns off global shadows'
+	})
+	Post = FPSBooster:CreateToggle({
+		Name = 'Post effects',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Turns off sun rays, depth of field and colour correction, whole render passes the card does every frame.\nThe GUI blur is left alone'
+	})
+	Water = FPSBooster:CreateToggle({
+		Name = 'Water',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Flattens terrain water, no waves and no reflection.\nOnly does anything on maps that have water'
+	})
+	Compatibility = FPSBooster:CreateToggle({
+		Name = 'Compatibility lighting',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Drops the map to compatibility lighting, the cheapest renderer Roblox has'
+	})
+	Kill = FPSBooster:CreateToggle({
+		Name = 'Kill effects',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Stops other peoples kill effects from playing'
+	})
+	Visualizer = FPSBooster:CreateToggle({
+		Name = 'Visualizer',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Turns off the games own visual effect helpers'
+	})
+	Particles = FPSBooster:CreateToggle({
+		Name = 'Particles',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Stops every particle, trail and beam in the map from rendering'
+	})
+	Nametags = FPSBooster:CreateToggle({
+		Name = 'Nametags',
+		Function = function()
+			if FPSBooster.Enabled then
+				FPSBooster:Toggle()
+				FPSBooster:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides the game nametags once the match starts'
 	})
 end)
 
