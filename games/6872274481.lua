@@ -14599,7 +14599,7 @@ run(function()
                                 local ravenModel = nil
                                 for _, obj in ipairs(workspace:GetDescendants()) do
                                     if obj:IsA('Model') and (obj.Name:lower():find('raven') or obj.Name:lower():find('bird')) then
-                                        local hrp = obj:FindFirstChild('HumanoidRootPart') or obj:PrimaryPart
+                                        local hrp = obj:FindFirstChild('HumanoidRootPart') or obj.PrimaryPart
                                         if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 120 then
                                             ravenModel = obj
                                             break
@@ -14608,7 +14608,7 @@ run(function()
                                 end
                                 
                                 if ravenModel then
-                                    local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel:PrimaryPart
+                                    local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel.PrimaryPart
                                     if hrp and target and target.RootPart then
                                         pcall(function()
                                             hrp.CFrame = target.RootPart.CFrame
