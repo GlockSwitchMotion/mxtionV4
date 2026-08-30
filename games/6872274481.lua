@@ -14553,106 +14553,178 @@ run(function()
 end)
 
 run(function()
-    local JadeAura
-    local Targets
-    local SlamRange
-    local Value
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-
-    local function getJadeRemote()
-        local success, remote = pcall(function()
-            return ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):FindFirstChild("useAbility")
-        end)
-        return success and remote or nil
-    end
-
-    local function isValidTarget(ent)
-        if not ent or ent == entitylib.character then return false end
-        if ent.Player and not Targets.Players.Enabled then return false end
-        if ent.NPC and not Targets.NPCs.Enabled then return false end
-        if ent.Targetable == false then return false end
-        return true
-    end
-
-    local function getTargetInRange()
-        if not entitylib.isAlive then return nil end
-
-        local myPos = entitylib.character.RootPart.Position
-        local closestEnt = nil
-        local shortestDist = SlamRange.Value
-
-        for _, ent in ipairs(entitylib.List) do
-            if isValidTarget(ent) and ent.RootPart then
-                local dist = (myPos - ent.RootPart.Position).Magnitude
-                if dist <= shortestDist then
-                    shortestDist = dist
-                    closestEnt = ent
-                end
-            end
-        end
-
-        return closestEnt
-    end
-
-    local Category = vape.Categories.Blatant
-    local lastTrigger = 0
-
-    JadeAura = Category:CreateModule({
-        Name = 'JadeAura',
+    local RavenTeleport
+    local DistanceSlider
+    
+    RavenTeleport = vape.Categories.Utility:CreateModule({
+        Name = 'RavenTeleport',
         Function = function(callback)
             if callback then
-                JadeAura:Clean(runService.Heartbeat:Connect(function()
-                    local target = getTargetInRange()
-                    if target and tick() - lastTrigger > 0.8 then
-                        local remote = getJadeRemote()
-                        if remote then
-                            lastTrigger = tick()
-                            pcall(function()
-                                remote:FireServer("jade_hammer_jump")
-                            end)
-                            
-                            -- Keeps the character grounded/normal while feeding the exact vertical velocity count to the server/ability
-                            task.defer(function()
-                                if entitylib.isAlive and entitylib.character.RootPart then
-                                    local root = entitylib.character.RootPart
-                                    root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, math.min(root.AssemblyLinearVelocity.Y, 5), root.AssemblyLinearVelocity.Z)
-                                end
-                            end)
+                local replicatedStorage = game:GetService('ReplicatedStorage')
+                local runService = game:GetService('RunService')
+                
+                local useAbilityRemote = replicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):WaitForChild("useAbility")
+                
+                local lastSpawn = 0
+                RavenTeleport:Clean(runService.Heartbeat:Connect(function()
+                    if not RavenTeleport.Enabled then return end
+                    if not entitylib.isAlive then return end
+                    
+                    local currentHand = store.hand and store.hand.tool
+                    local isHoldingRaven = currentHand and (currentHand.Name:lower():find('raven') or (currentHand:GetAttribute('ItemType') and tostring(currentHand:GetAttribute('ItemType')):lower():find('raven')))
+                    
+                    if not isHoldingRaven then return end
+                    
+                    local target = entitylib.EntityPosition({
+                        Range = DistanceSlider.Value,
+                        Part = 'RootPart',
+                        Wallcheck = false,
+                        Players = true,
+                        NPCs = true,
+                        Sort = function(a, b)
+                            return (a.RootPart.Position - entitylib.character.RootPart.Position).Magnitude < (b.RootPart.Position - entitylib.character.RootPart.Position).Magnitude
                         end
+                    })
+                    
+                    if target and target.RootPart and tick() - lastSpawn > 2.5 then
+                        lastSpawn = tick()
+                        pcall(function()
+                            useAbilityRemote:FireServer("raven_spawn")
+                        end)
+                        
+                        task.spawn(function()
+                            task.wait(0.1)
+                            for _ = 1, 15 do
+                                if not RavenTeleport.Enabled then break end
+                                local ravenModel = nil
+                                for _, obj in ipairs(workspace:GetDescendants()) do
+                                    if obj:IsA('Model') and (obj.Name:lower():find('raven') or obj.Name:lower():find('bird')) then
+                                        local hrp = obj:FindFirstChild('HumanoidRootPart') or obj:PrimaryPart
+                                        if hrp and (hrp.Position - entitylib.character.RootPart.Position).Magnitude < 120 then
+                                            ravenModel = obj
+                                            break
+                                        end
+                                    end
+                                end
+                                
+                                if ravenModel then
+                                    local hrp = ravenModel:FindFirstChild('HumanoidRootPart') or ravenModel:PrimaryPart
+                                    if hrp and target and target.RootPart then
+                                        pcall(function()
+                                            hrp.CFrame = target.RootPart.CFrame
+                                        end)
+                                        task.wait(0.03)
+                                        pcall(function()
+                                            useAbilityRemote:FireServer("raven_detonate")
+                                        end)
+                                        break
+                                    end
+                                end
+                                task.wait(0.05)
+                            end
+                        end)
                     end
                 end))
             end
         end,
-        Tooltip = 'Triggers Jade Hammer ability with required velocity values without launching your character upward.'
+        Tooltip = 'Automatically spawns, teleports, and detonates the raven using Avin Call.'
     })
-
-    Targets = JadeAura:CreateTargets({
-        Players = true,
-        NPCs = false,
-        Function = function() end
-    })
-
-    SlamRange = JadeAura:CreateSlider({
-        Name = 'Slam Range',
-        Function = function() end,
-        Default = 18,
-        Min = 0,
-        Max = 22,
-        Decimal = 10
-    })
-
-    Value = JadeAura:CreateSlider({
-        Name = 'Velocity Value',
-        Min = 50,
+    
+    DistanceSlider = RavenTeleport:CreateSlider({
+        Name = 'Max Distance',
+        Min = 20,
         Max = 300,
-        Default = 200,
+        Default = 150,
         Suffix = function(val)
-            return 'vel'
+            return val == 1 and 'stud' or 'studs'
         end,
-        Tooltip = 'Internal velocity value sent/matched for the hammer jump'
     })
+end)
+
+run(function()
+	local JadeAura
+	local Targets
+	local SlamRange
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local Players = game:GetService("Players")
+	local LocalPlayer = Players.LocalPlayer
+
+	-- Safely locate the Jade Hammer remote
+	local function getJadeRemote()
+		local success, remote = pcall(function()
+			return ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events"):FindFirstChild("useAbility")
+		end)
+		return success and remote or nil
+	end
+
+	-- Check if target is valid based on selected Targets options
+	local function isValidTarget(ent)
+		if not ent or ent == entitylib.character then return false end
+		if ent.Player and not Targets.Players.Enabled then return false end
+		if ent.NPC and not Targets.NPCs.Enabled then return false end
+		if ent.Targetable == false then return false end
+		return true
+	end
+
+	-- Find the closest valid target within Slam Range
+	local function getTargetInRange()
+		if not entitylib.isAlive then return nil end
+
+		local myPos = entitylib.character.RootPart.Position
+		local closestEnt = nil
+		local shortestDist = SlamRange.Value
+
+		for _, ent in ipairs(entitylib.List) do
+			if isValidTarget(ent) and ent.RootPart then
+				local dist = (myPos - ent.RootPart.Position).Magnitude
+				if dist <= shortestDist then
+					shortestDist = dist
+					closestEnt = ent
+				end
+			end
+		end
+
+		return closestEnt
+	end
+
+	-- Create module in Blatant category
+	local Category = vape.Categories.Blatant
+
+	JadeAura = Category:CreateModule({
+		Name = 'JadeAura',
+		Function = function(callback)
+			if callback then
+				JadeAura:Clean(runService.Heartbeat:Connect(function()
+					local target = getTargetInRange()
+					if target then
+						local remote = getJadeRemote()
+						if remote then
+							pcall(function()
+								remote:FireServer("jade_hammer_jump")
+							end)
+						end
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Automatically uses Jade Hammer ability when targets enter range.'
+	})
+
+	-- Configurable Targets & Range Sliders
+	Targets = JadeAura:CreateTargets({
+		Players = true,
+		NPCs = false,
+		Function = function() end
+	})
+
+	SlamRange = JadeAura:CreateSlider({
+		Name = 'Slam Range',
+		Function = function() end,
+		Default = 18,
+		Min = 0,
+		Max = 22,
+		Decimal = 10
+	})
 end)
 
 run(function()
@@ -15369,13 +15441,10 @@ run(function()
                 local replicatedStorage = game:GetService('ReplicatedStorage')
                 local dragonSwordFire = replicatedStorage:WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("DragonSwordFire")
                 
-                local lastDual = 0
-                
                 repeat
                     if entitylib.isAlive and store.equippedKit == 'dragon_sword' then
                         local origin = entitylib.character.RootPart.Position
                         
-                        -- Find target based on TargetsMode
                         local targetEntity = entitylib.EntityPosition({
                             Range = Range.Value,
                             Part = 'RootPart',
@@ -15387,7 +15456,6 @@ run(function()
                             end
                         })
                         
-                        -- Count valid targets for threshold checks
                         local found = 0
                         for _, v in ipairs(entitylib.List) do
                             if v.Targetable and (v.RootPart.Position - origin).Magnitude <= Range.Value then
@@ -15405,12 +15473,14 @@ run(function()
                             if targetEntity and targetEntity.Character and found >= Targets.Value then
                                 local targetPart = targetEntity.Character:FindFirstChild('HumanoidRootPart') or targetEntity.RootPart
                                 if targetPart then
-                                    pcall(function()
-                                        dragonSwordFire:FireServer({
-                                            target = targetPart
-                                        })
-                                    end)
-                                    task.wait(0.4)
+                                    for _ = 1, 3 do
+                                        pcall(function()
+                                            dragonSwordFire:FireServer({
+                                                target = targetPart
+                                            })
+                                        end)
+                                        task.wait(0.01)
+                                    end
                                 end
                             end
                         elseif mode == 'Dragon Sword Ult' then
@@ -15419,40 +15489,20 @@ run(function()
                                     bedwars.AbilityController:useAbility('dragon_sword_ult')
                                 end
                             end
-                        elseif mode == 'Dual' then
-                            -- Uses Dragon Sword fire twice with a 0.2s delay, then fires the ultimate if available
-                            if targetEntity and targetEntity.Character and found >= Targets.Value and tick() - lastDual > 1 then
-                                local targetPart = targetEntity.Character:FindFirstChild('HumanoidRootPart') or targetEntity.RootPart
-                                if targetPart then
-                                    lastDual = tick()
-                                    pcall(function()
-                                        dragonSwordFire:FireServer({ target = targetPart })
-                                    end)
-                                    task.wait(0.2)
-                                    pcall(function()
-                                        dragonSwordFire:FireServer({ target = targetPart })
-                                    end)
-                                    
-                                    if bedwars.AbilityController:canUseAbility('dragon_sword_ult', {disableBlockedAbilityAlert = true}) then
-                                        task.wait(0.1)
-                                        bedwars.AbilityController:useAbility('dragon_sword_ult')
-                                    end
-                                end
-                            end
                         end
                     end
                     task.wait(0.1)
                 until not AutoDragonSword.Enabled
             end
         end,
-        Tooltip = 'Automatically manages Dragon Sword attacks, dual combos, and ultimates.'
+        Tooltip = 'Automatically manages Dragon Sword attacks and ultimates.'
     })
     
     AbilityMode = AutoDragonSword:CreateDropdown({
         Name = 'Ability Mode',
-        List = {'Dragon Sword', 'Dragon Sword Ult', 'Dual'},
+        List = {'Dragon Sword', 'Dragon Sword Ult'},
         Default = 'Dragon Sword',
-        Tooltip = 'Dragon Sword - Uses DragonSwordFire remote\nDragon Sword Ult - Uses ultimate ability\nDual - Fires Dragon Sword twice then ultimate'
+        Tooltip = 'Dragon Sword - Fires 3x rapidly using DragonSwordFire remote\nDragon Sword Ult - Uses ultimate ability'
     })
     
     TargetsMode = AutoDragonSword:CreateTargets({
