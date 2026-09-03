@@ -2252,24 +2252,61 @@ run(function()
 	local Wool
 	local BlockCPS = {}
 	local Thread
+	local ActiveButtons = {} -- Track which buttons are currently held
 	
-	local function AutoClick()
+	-- Enhanced button support: Main buttons + side buttons
+	local SUPPORTED_BUTTONS = {
+		Enum.UserInputType.MouseButton1, -- Left click
+		Enum.UserInputType.MouseButton2, -- Right click
+		Enum.UserInputType.MouseButton3, -- Middle click
+		Enum.UserInputType.MouseButton4, -- Side button back
+		Enum.UserInputType.MouseButton5, -- Side button forward
+	}
+	
+	local function isAttackButton(inputType)
+		for _, btn in ipairs(SUPPORTED_BUTTONS) do
+			if inputType == btn then
+				return true
+			end
+		end
+		return false
+	end
+	
+	local function stopClicking()
 		if Thread then
 			task.cancel(Thread)
+			Thread = nil
 		end
+	end
 	
-		Thread = task.delay(1 / (store.hand.toolType == 'block' and BlockCPS or CPS).GetRandomValue(), function()
+	local function AutoClick()
+		stopClicking()
+		
+		local cpsValue = store.hand.toolType == 'block' and BlockCPS or CPS
+		local delay = 1 / cpsValue.GetRandomValue()
+		
+		Thread = task.delay(delay, function()
 			repeat
 				if not bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN) then
 					local blockPlacer = bedwars.BlockPlacementController.blockPlacer
-					if store.hand.toolType == 'block' and (Wool.Enabled and store.hand.tool.Name:find('wool_') or not Wool.Enabled) and blockPlacer and canPlace() then
-						if inputService.TouchEnabled then
-							task.spawn(blockPlacer.autoBridge, blockPlacer, workspace:GetServerTimeNow() - bedwars.KnockbackController:getLastKnockbackTime() >= 0.2)
-						else
-							if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
-								local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
-								if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
-									task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
+					local isBlockTool = store.hand.toolType == 'block'
+					
+					if isBlockTool then
+						local shouldPlace = Wool.Enabled and store.hand.tool.Name:find('wool_') or not Wool.Enabled
+						
+						if shouldPlace and blockPlacer and canPlace() then
+							if inputService.TouchEnabled then
+								task.spawn(blockPlacer.autoBridge, blockPlacer, workspace:GetServerTimeNow() - bedwars.KnockbackController:getLastKnockbackTime() >= 0.2)
+							else
+								local lastPlaceTime = bedwars.BlockCpsController.lastPlaceTimestamp
+								local currentTime = workspace:GetServerTimeNow()
+								local minDelay = (1 / 12) * 0.5
+								
+								if (currentTime - lastPlaceTime) >= minDelay then
+									local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
+									if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
+										task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
+									end
 								end
 							end
 						end
@@ -2277,9 +2314,10 @@ run(function()
 						bedwars.SwordController:swingSwordAtMouse(0.39)
 					end
 				end
-	
-				task.wait(1 / (store.hand.toolType == 'block' and BlockCPS or CPS).GetRandomValue())
-			until not AutoClicker.Enabled
+				
+				local cpsValue = store.hand.toolType == 'block' and BlockCPS or CPS
+				task.wait(1 / cpsValue.GetRandomValue())
+			until not AutoClicker.Enabled or next(ActiveButtons) == nil
 		end)
 	end
 	
@@ -2287,37 +2325,46 @@ run(function()
 		Name = 'AutoClicker',
 		Function = function(callback)
 			if callback then
+				-- Handle keyboard and mouse input
 				AutoClicker:Clean(inputService.InputBegan:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 then
+					if isAttackButton(input.UserInputType) then
+						ActiveButtons[input.UserInputType] = true
 						AutoClick()
 					end
 				end))
-	
+				
 				AutoClicker:Clean(inputService.InputEnded:Connect(function(input)
-					if input.UserInputType == Enum.UserInputType.MouseButton1 and Thread then
-						task.cancel(Thread)
-						Thread = nil
+					if isAttackButton(input.UserInputType) then
+						ActiveButtons[input.UserInputType] = nil
+						if next(ActiveButtons) == nil then
+							stopClicking()
+						end
 					end
 				end))
-	
+				
+				-- Touch support for mobile
 				if inputService.TouchEnabled then
 					local hooked = {}
+					
 					local function hookButton(button)
-						if hooked[button] or not button:IsA('GuiButton') or not tonumber(button.Name) then return end
+						if hooked[button] or not button:IsA('GuiButton') or not tonumber(button.Name) then 
+							return 
+						end
 						hooked[button] = true
-						AutoClicker:Clean(button.MouseButton1Down:Connect(AutoClick))
+						
+						AutoClicker:Clean(button.MouseButton1Down:Connect(function()
+							AutoClick()
+						end))
+						
 						AutoClicker:Clean(button.MouseButton1Up:Connect(function()
-							if Thread then
-								task.cancel(Thread)
-								Thread = nil
-							end
+							stopClicking()
 						end))
 					end
-	
+					
 					task.spawn(function()
 						local mobileUI = lplr.PlayerGui:WaitForChild('MobileUI', 20)
 						if not mobileUI or not AutoClicker.Enabled then return end
-	
+						
 						for _, v in mobileUI:GetChildren() do
 							hookButton(v)
 						end
@@ -2325,14 +2372,13 @@ run(function()
 					end)
 				end
 			else
-				if Thread then
-					task.cancel(Thread)
-					Thread = nil
-				end
+				stopClicking()
+				ActiveButtons = {}
 			end
 		end,
-		Tooltip = 'Hold attack button to automatically click'
+		Tooltip = 'Hold attack button to automatically click (supports LMB, RMB, MMB, and side buttons)'
 	})
+	
 	CPS = AutoClicker:CreateTwoSlider({
 		Name = 'CPS',
 		Min = 1,
@@ -2340,6 +2386,7 @@ run(function()
 		DefaultMin = 7,
 		DefaultMax = 7
 	})
+	
 	AutoClicker:CreateToggle({
 		Name = 'Place Blocks',
 		Default = true,
@@ -2347,13 +2394,19 @@ run(function()
 			if BlockCPS.Object then
 				BlockCPS.Object.Visible = callback
 			end
-	
+			
 			if Wool and Wool.Object then
 				Wool.Object.Visible = callback
 			end
 		end
 	})
-	Wool = AutoClicker:CreateToggle({Name = 'Wool only', Tooltip = 'Only clicks when you are holding wool.', Darker = true})
+	
+	Wool = AutoClicker:CreateToggle({
+		Name = 'Wool only', 
+		Tooltip = 'Only clicks when you are holding wool.',
+		Darker = true
+	})
+	
 	BlockCPS = AutoClicker:CreateTwoSlider({
 		Name = 'Block CPS',
 		Min = 1,
