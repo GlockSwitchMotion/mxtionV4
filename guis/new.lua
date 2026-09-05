@@ -6814,6 +6814,8 @@ Profiles:CreateButton({
 })	
 
 -- Public Profiles Modal Window implementation
+local localPublicProfilesList = {}
+
 createPublicProfilesWindow = function()
 	if mainapi.PublicProfilesWindowObj then
 		mainapi.PublicProfilesWindowObj.Visible = not mainapi.PublicProfilesWindowObj.Visible
@@ -6822,8 +6824,8 @@ createPublicProfilesWindow = function()
 
 	local window = Instance.new('Frame')
 	window.Name = 'PublicProfilesGUI'
-	window.Size = UDim2.fromOffset(500, 360)
-	window.Position = UDim2.new(0.5, -250, 0.5, -180)
+	window.Size = UDim2.fromOffset(580, 350)
+	window.Position = UDim2.new(0.5, -290, 0.5, -175)
 	window.BackgroundColor3 = uipallet.Main
 	window.Visible = true
 	window.Parent = scaledgui
@@ -6836,18 +6838,18 @@ createPublicProfilesWindow = function()
 
 	mainapi.PublicProfiles = mainapi.PublicProfiles or { Accents = {} }
 
-	-- Header Logo (same as main GUI, 1.6x scaled)
+	-- Header Logo (2x scaled)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'Logo'
-	logo.Size = UDim2.fromOffset(99, 26)
-	logo.Position = UDim2.fromOffset(16, 9)
+	logo.Size = UDim2.fromOffset(124, 32)
+	logo.Position = UDim2.fromOffset(16, 8)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
 	logo.Parent = window
 
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(42, 22)
+	logov4.Size = UDim2.fromOffset(52, 28)
 	logov4.Position = UDim2.new(1, 2, 0, 2)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
@@ -6856,17 +6858,17 @@ createPublicProfilesWindow = function()
 
 	local titleLabel = Instance.new('TextLabel')
 	titleLabel.Name = 'Title'
-	titleLabel.Size = UDim2.new(1, -170, 0, 20)
-	titleLabel.Position = UDim2.fromOffset(160, 12)
+	titleLabel.Size = UDim2.new(1, -210, 0, 24)
+	titleLabel.Position = UDim2.fromOffset(200, 12)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = 'Public Profiles / Configs'
 	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
-	titleLabel.TextSize = 14
+	titleLabel.TextSize = 15
 	titleLabel.FontFace = uipallet.FontSemiBold
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = window
 
-	addCloseButton(window, 10)
+	addCloseButton(window, 12)
 	window.Close.MouseButton1Click:Connect(function()
 		window.Visible = false
 	end)
@@ -6874,15 +6876,15 @@ createPublicProfilesWindow = function()
 	-- Divider
 	local topDivider = Instance.new('Frame')
 	topDivider.Size = UDim2.new(1, -24, 0, 1)
-	topDivider.Position = UDim2.fromOffset(12, 42)
+	topDivider.Position = UDim2.fromOffset(12, 48)
 	topDivider.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
 	topDivider.BorderSizePixel = 0
 	topDivider.Parent = window
 
 	-- Upload Section with Profile Selection
 	local uploadFrame = Instance.new('Frame')
-	uploadFrame.Size = UDim2.new(1, -24, 0, 36)
-	uploadFrame.Position = UDim2.fromOffset(12, 50)
+	uploadFrame.Size = UDim2.new(1, -24, 0, 38)
+	uploadFrame.Position = UDim2.fromOffset(12, 56)
 	uploadFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 	uploadFrame.Parent = window
 	addCorner(uploadFrame, UDim.new(0, 6))
@@ -6890,8 +6892,8 @@ createPublicProfilesWindow = function()
 	local selectedUploadProfile = mainapi.Profile
 
 	local selectProfBtn = Instance.new('TextButton')
-	selectProfBtn.Size = UDim2.new(1, -125, 1, 0)
-	selectProfBtn.Position = UDim2.fromOffset(10, 0)
+	selectProfBtn.Size = UDim2.new(1, -145, 1, 0)
+	selectProfBtn.Position = UDim2.fromOffset(12, 0)
 	selectProfBtn.BackgroundTransparency = 1
 	selectProfBtn.Text = 'Profile to Upload: '..selectedUploadProfile
 	selectProfBtn.TextColor3 = uipallet.Text
@@ -6901,12 +6903,12 @@ createPublicProfilesWindow = function()
 	selectProfBtn.Parent = uploadFrame
 
 	local uploadBtn = Instance.new('TextButton')
-	uploadBtn.Size = UDim2.fromOffset(105, 26)
-	uploadBtn.Position = UDim2.new(1, -110, 0, 5)
+	uploadBtn.Size = UDim2.fromOffset(120, 28)
+	uploadBtn.Position = UDim2.new(1, -126, 0, 5)
 	uploadBtn.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
 	uploadBtn.Text = 'Upload Profile'
 	uploadBtn.TextColor3 = mainapi:TextColor(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	uploadBtn.TextSize = 12
+	uploadBtn.TextSize = 13
 	uploadBtn.FontFace = uipallet.FontSemiBold
 	uploadBtn.Parent = uploadFrame
 	addCorner(uploadBtn, UDim.new(0, 4))
@@ -6927,11 +6929,10 @@ createPublicProfilesWindow = function()
 		selectProfBtn.Text = 'Profile to Upload: '..selectedUploadProfile
 	end)
 
-
 	-- List Frame
 	local scrollFrame = Instance.new('ScrollingFrame')
-	scrollFrame.Size = UDim2.new(1, -24, 1, -100)
-	scrollFrame.Position = UDim2.fromOffset(12, 94)
+	scrollFrame.Size = UDim2.new(1, -24, 1, -112)
+	scrollFrame.Position = UDim2.fromOffset(12, 102)
 	scrollFrame.BackgroundTransparency = 1
 	scrollFrame.BorderSizePixel = 0
 	scrollFrame.ScrollBarThickness = 3
@@ -6955,22 +6956,31 @@ createPublicProfilesWindow = function()
 			end
 		end
 
+		local combinedList = {}
+		for _, item in ipairs(localPublicProfilesList) do
+			table.insert(combinedList, item)
+		end
+
 		local suc, req = pcall(function()
 			return game:HttpGet('https://keyauth.win/api/v1/public_profiles.json', true)
 		end)
 
-		local profilesList = {}
 		if suc and req and req ~= '404: Not Found' then
 			pcall(function()
-				profilesList = httpService:JSONDecode(req)
+				local fetched = httpService:JSONDecode(req)
+				if type(fetched) == 'table' then
+					for _, item in ipairs(fetched) do
+						table.insert(combinedList, item)
+					end
+				end
 			end)
 		end
 
-		if type(profilesList) ~= 'table' or #profilesList == 0 then
+		if #combinedList == 0 then
 			local emptyMsg = Instance.new('TextLabel')
 			emptyMsg.Size = UDim2.new(1, 0, 0, 40)
 			emptyMsg.BackgroundTransparency = 1
-			emptyMsg.Text = 'No public profiles found. Be the first to upload one!'
+			emptyMsg.Text = 'No public profiles found. Select a profile above and click Upload Profile!'
 			emptyMsg.TextColor3 = color.Dark(uipallet.Text, 0.4)
 			emptyMsg.TextSize = 13
 			emptyMsg.FontFace = uipallet.Font
@@ -6978,7 +6988,7 @@ createPublicProfilesWindow = function()
 			return
 		end
 
-		for i, item in ipairs(profilesList) do
+		for i, item in ipairs(combinedList) do
 			local itemFrame = Instance.new('Frame')
 			itemFrame.Size = UDim2.new(1, 0, 0, 36)
 			itemFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
@@ -6986,7 +6996,7 @@ createPublicProfilesWindow = function()
 			addCorner(itemFrame, UDim.new(0, 6))
 
 			local itemName = Instance.new('TextLabel')
-			itemName.Size = UDim2.new(1, -110, 1, 0)
+			itemName.Size = UDim2.new(1, -120, 1, 0)
 			itemName.Position = UDim2.fromOffset(12, 0)
 			itemName.BackgroundTransparency = 1
 			itemName.Text = tostring(item.Name or 'Unnamed Profile')
@@ -6997,8 +7007,8 @@ createPublicProfilesWindow = function()
 			itemName.Parent = itemFrame
 
 			local downloadBtn = Instance.new('TextButton')
-			downloadBtn.Size = UDim2.fromOffset(90, 26)
-			downloadBtn.Position = UDim2.new(1, -96, 0, 5)
+			downloadBtn.Size = UDim2.fromOffset(100, 26)
+			downloadBtn.Position = UDim2.new(1, -106, 0, 5)
 			downloadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
 			downloadBtn.Text = 'Load / Save'
 			downloadBtn.TextColor3 = uipallet.Text
@@ -7032,7 +7042,12 @@ createPublicProfilesWindow = function()
 			return
 		end
 
-		mainapi:CreateNotification('MXTION V4', 'Uploaded profile "'..tostring(targetProfile)..'" to Public Configs!', 5, 'info')
+		table.insert(localPublicProfilesList, 1, {
+			Name = tostring(targetProfile),
+			Data = exportData
+		})
+
+		mainapi:CreateNotification('MXTION V4', 'Successfully uploaded profile "'..tostring(targetProfile)..'" to Public Configs!', 5, 'info')
 		refreshPublicList()
 	end)
 
