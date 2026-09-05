@@ -5174,20 +5174,7 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 	end)
 	settings.MouseButton1Click:Connect(function()
-		if categorysettings.Profiles then
-			jsonMode = not jsonMode
-			if jsonMode then
-				addvalue.PlaceholderText = 'Enter JSON'
-				addvalue.Text = ''
-				settings.ImageColor3 = Color3.fromRGB(255, 255, 255)
-			else
-				addvalue.PlaceholderText = categorysettings.Placeholder or 'Type name'
-				addvalue.Text = ''
-				settings.ImageColor3 = color.Light(uipallet.Main, 0.37)
-			end
-		else
-			childrentwo.Visible = not childrentwo.Visible
-		end
+		childrentwo.Visible = not childrentwo.Visible
 	end)
 	window.InputBegan:Connect(function(inputObj)
 		if inputObj.Position.Y < window.AbsolutePosition.Y + 41 and inputObj.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -6793,6 +6780,7 @@ mainapi:Clean(friends.ColorUpdate)
 	Profiles & Public Profiles Cloud
 ]]
 local createPublicProfilesWindow
+local createPresetProfilesWindow
 
 local Profiles = mainapi:CreateCategoryList({
 	Name = 'Profiles',
@@ -6804,6 +6792,10 @@ local Profiles = mainapi:CreateCategoryList({
 	PublicCallback = function()
 		if not createPublicProfilesWindow then return end
 		createPublicProfilesWindow()
+	end,
+	PresetCallback = function()
+		if not createPresetProfilesWindow then return end
+		createPresetProfilesWindow()
 	end
 })
 
@@ -6841,7 +6833,7 @@ Profiles:CreateButton({
 			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
 		end
 	end,
-	Tooltip = 'This will set your profile to the default settings of Motion V4'
+	Tooltip = 'This will set your profile to the default settings of motion v4'
 })	
 
 -- Public Profiles Modal Window implementation
@@ -7360,14 +7352,6 @@ createPresetProfilesWindow = function()
 				mainapi:CreateNotification('MXTION V4', profName or 'Failed to load preset.', 5, 'alert')
 			end
 		end)
-	end
-end
-
--- Connect PresetCallback to createPresetProfilesWindow
-if Profiles then
-	Profiles.PresetCallback = function()
-		if not createPresetProfilesWindow then return end
-		createPresetProfilesWindow()
 	end
 end
 	
