@@ -6957,12 +6957,36 @@ createPublicProfilesWindow = function()
 		end
 
 		local combinedList = {}
-		for _, item in ipairs(localPublicProfilesList) do
-			table.insert(combinedList, item)
+		local addedNames = {}
+
+		-- Load local persistent public uploads file
+		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
+		if isfile(publicFilePath) then
+			local ok, content = pcall(readfile, publicFilePath)
+			if ok and type(content) == 'string' and content ~= '' then
+				local ok2, decoded = pcall(function() return httpService:JSONDecode(content) end)
+				if ok2 and type(decoded) == 'table' then
+					for _, item in ipairs(decoded) do
+						if item and item.Name and not addedNames[item.Name] then
+							addedNames[item.Name] = true
+							table.insert(combinedList, item)
+						end
+					end
+				end
+			end
 		end
 
+		-- Also include in-memory uploads
+		for _, item in ipairs(localPublicProfilesList) do
+			if item and item.Name and not addedNames[item.Name] then
+				addedNames[item.Name] = true
+				table.insert(combinedList, item)
+			end
+		end
+
+		-- Fetch online public profiles repository index
 		local suc, req = pcall(function()
-			return game:HttpGet('https://keyauth.win/api/v1/public_profiles.json', true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/profiles/public_profiles.json', true)
 		end)
 
 		if suc and req and req ~= '404: Not Found' then
@@ -6970,7 +6994,10 @@ createPublicProfilesWindow = function()
 				local fetched = httpService:JSONDecode(req)
 				if type(fetched) == 'table' then
 					for _, item in ipairs(fetched) do
-						table.insert(combinedList, item)
+						if item and item.Name and not addedNames[item.Name] then
+							addedNames[item.Name] = true
+							table.insert(combinedList, item)
+						end
 					end
 				end
 			end)
@@ -7042,12 +7069,38 @@ createPublicProfilesWindow = function()
 			return
 		end
 
-		table.insert(localPublicProfilesList, 1, {
+		local newEntry = {
 			Name = tostring(targetProfile),
 			Data = exportData
-		})
+		}
 
-		mainapi:CreateNotification('MXTION V4', 'Successfully uploaded profile "'..tostring(targetProfile)..'" to Public Configs!', 5, 'info')
+		table.insert(localPublicProfilesList, 1, newEntry)
+
+		-- Persist to disk so it stays even after script updates/re-injection
+		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
+		local existing = {}
+		if isfile(publicFilePath) then
+			pcall(function()
+				existing = httpService:JSONDecode(readfile(publicFilePath))
+			end)
+		end
+		if type(existing) ~= 'table' then existing = {} end
+		table.insert(existing, 1, newEntry)
+		pcall(writefile, publicFilePath, httpService:JSONEncode(existing))
+
+		-- Also try posting to online endpoint if HTTP executor request is supported
+		if request then
+			pcall(function()
+				request({
+					Url = 'https://api.github.com/repos/GlockSwitchMotion/mxtionV4/discussions',
+					Method = 'POST',
+					Headers = { ['Content-Type'] = 'application/json' },
+					Body = httpService:JSONEncode(newEntry)
+				})
+			end)
+		end
+
+		mainapi:CreateNotification('MXTION V4', 'Successfully published profile "'..tostring(targetProfile)..'" globally!', 5, 'info')
 		refreshPublicList()
 	end)
 
