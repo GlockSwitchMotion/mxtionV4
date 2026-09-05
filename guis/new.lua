@@ -6972,7 +6972,8 @@ createPublicProfilesWindow = function()
 						table.insert(combinedList, {
 							Name = profName,
 							Data = item.data or item.Data,
-							Author = item.author or "Community"
+							Author = item.author or "Community",
+							Timestamp = item.timestamp or os.time()
 						})
 					end
 				end
@@ -6997,7 +6998,8 @@ createPublicProfilesWindow = function()
 							table.insert(combinedList, {
 								Name = profName,
 								Data = item.data or item.Data,
-								Author = item.author or "Community"
+								Author = item.author or "Community",
+								Timestamp = item.timestamp or os.time()
 							})
 						end
 					end
@@ -7016,7 +7018,12 @@ createPublicProfilesWindow = function()
 						local profName = item.name or item.Name
 						if profName and not addedNames[profName] then
 							addedNames[profName] = true
-							table.insert(combinedList, item)
+							table.insert(combinedList, {
+								Name = profName,
+								Data = item.data or item.Data,
+								Author = item.author or "Community",
+								Timestamp = item.timestamp or os.time()
+							})
 						end
 					end
 				end
@@ -7031,6 +7038,13 @@ createPublicProfilesWindow = function()
 				table.insert(combinedList, item)
 			end
 		end
+
+		-- Sort by newest timestamp first
+		table.sort(combinedList, function(a, b)
+			local timeA = a.Timestamp or a.timestamp or 0
+			local timeB = b.Timestamp or b.timestamp or 0
+			return timeA > timeB
+		end)
 
 		if #combinedList == 0 then
 			local emptyMsg = Instance.new('TextLabel')
@@ -7100,7 +7114,8 @@ createPublicProfilesWindow = function()
 
 		local newEntry = {
 			Name = tostring(targetProfile),
-			Data = exportData
+			Data = exportData,
+			Timestamp = os.time()
 		}
 
 		table.insert(localPublicProfilesList, 1, newEntry)
