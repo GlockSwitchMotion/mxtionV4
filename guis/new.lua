@@ -4774,9 +4774,8 @@ function mainapi:CreateCategoryList(categorysettings)
 				local currentFile = 'mxtionv4/profiles/' .. mainapi.Profile .. mainapi.Place .. '.txt'
 				if isfile(currentFile) then
 					local profileData = readfile(currentFile)
-					local publicconfigs = isfile('mxtionv4/libraries/publicconfigs.lua') and loadstring(readfile('mxtionv4/libraries/publicconfigs.lua'))() or nil
-					if publicconfigs then
-						publicconfigs.Upload(pText, mainapi.Place, profileData, game:GetService('Players').LocalPlayer and game:GetService('Players').LocalPlayer.Name)
+					if publicconfigsHelper then
+						publicconfigsHelper.Upload(pText, mainapi.Place, profileData, game:GetService('Players').LocalPlayer and game:GetService('Players').LocalPlayer.Name)
 					end
 				end
 				addvalue2.Text = ''
@@ -6371,7 +6370,7 @@ function mainapi:CreatePublicConfigsGUI()
 			local empty = Instance.new('TextLabel')
 			empty.Size = UDim2.new(1, 0, 0, 40)
 			empty.BackgroundTransparency = 1
-			empty.Text = showAllGames and 'No public configs found globally.' or 'No public configs found for this game. Click "Current Game" to switch to "All Games"!'
+			empty.Text = showAllGames and 'No public configs found globally.' or 'No public configs found for this game.'
 			empty.TextColor3 = color.Dark(uipallet.Text, 0.4)
 			empty.TextSize = 12
 			empty.FontFace = uipallet.Font
@@ -6437,9 +6436,7 @@ function mainapi:CreatePublicConfigsGUI()
 
 	uploadBtn.MouseButton1Click:Connect(function()
 		local customName = nameBox.Text:match('^%s*(.-)%s*$')
-		if customName == '' then
-			customName = mainapi.Profile
-		end
+		if customName == '' then customName = mainapi.Profile end
 		mainapi:Save()
 		local currentFile = 'mxtionv4/profiles/' .. mainapi.Profile .. mainapi.Place .. '.txt'
 		if isfile(currentFile) then
@@ -7326,17 +7323,6 @@ Profiles:CreateButton({
 	end,
 	Tooltip = 'This will set your profile to the default settings of Cat Vape'
 })	
-Profiles:CreateButton({
-	Name = 'Public Configs',
-	LayoutOrder = 8,
-	Function = function()
-		if not mainapi.PublicConfigsGUI then
-			mainapi:CreatePublicConfigsGUI()
-		end
-		mainapi.PublicConfigsGUI:Open()
-	end,
-	Tooltip = 'Upload custom configs or download community configs'
-})
 
 --[[
 	Targets
