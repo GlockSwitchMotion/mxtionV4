@@ -23964,9 +23964,12 @@ run(function()
 end)
 
 run(function()
-	local BedNotifier
+	local BedAlert
 	local DetectionRange
-	local detectedPlayers = {} -- Track who we've already notified
+	local VolumeSlider
+	local detectedPlayers = {}
+	local lastAlarmTime = 0
+	local alarmCooldown = 0.5
 	
 	local function getPlayerTeamId()
 		local playerTeam = lplr:GetAttribute('Team')
@@ -23974,11 +23977,9 @@ run(function()
 	end
 	
 	local function getBedPosition()
-		-- Try to find the bed for your team
 		local playerTeam = getPlayerTeamId()
 		if not playerTeam then return nil end
 		
-		-- Search for bed in the map
 		local workspace = game:GetService('Workspace')
 		local teamFolders = workspace:FindFirstChild('Teams')
 		
@@ -23992,7 +23993,6 @@ run(function()
 			end
 		end
 		
-		-- Fallback to player position
 		if lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart') then
 			return lplr.Character.HumanoidRootPart.Position
 		end
@@ -24011,35 +24011,67 @@ run(function()
 		return (player.Character.HumanoidRootPart.Position - bedPos).Magnitude
 	end
 	
+	local function triggerBedAlarm(bedPosition, teamId, soundMultiplier)
+		local event = replicatedStorage:FindFirstChild('rbxts_include')
+		if event then event = event:FindFirstChild('node_modules') end
+		if event then event = event:FindFirstChild('@rbxts') end
+		if event then event = event:FindFirstChild('net') end
+		if event then event = event:FindFirstChild('out') end
+		if event then event = event:FindFirstChild('_NetManaged') end
+		if event then event = event:FindFirstChild('BedAlarmTriggered') end
+		
+		if not event then
+			return
+		end
+		
+		pcall(function()
+			firesignal(event.OnClientEvent, {
+				bedPosition = bedPosition,
+				teamId = tostring(teamId),
+				soundMultiplier = soundMultiplier
+			})
+		end)
+	end
+	
 	local function checkBedProximity()
 		local playerTeam = getPlayerTeamId()
 		local range = DetectionRange.Value
+		local soundMultiplier = VolumeSlider.Value
+		local currentTime = tick()
+		local bedPos = getBedPosition()
+		
+		if not bedPos or not playerTeam then return end
+		
+		local enemyDetected = false
 		
 		for _, player in pairs(game:GetService('Players'):GetPlayers()) do
-			-- Skip self and teammates
 			if player ~= lplr and player:GetAttribute('Team') ~= playerTeam then
 				local distance = getPlayerDistance(player)
 				
-				-- Check if enemy is within range
 				if distance <= range then
-					-- Only notify once per player
+					enemyDetected = true
+					
 					if not detectedPlayers[player.UserId] then
 						local playerName = player.DisplayName or player.Name
-						notif('BedNotifier', 'ENEMY NEAR BED ' .. playerName, 10, 'warning')
+						notif('BedAlert', 'ENEMY NEAR BED: ' .. playerName, 10, 'warning')
 						detectedPlayers[player.UserId] = true
 					end
 				else
-					-- Reset detection if they left the range
 					if detectedPlayers[player.UserId] then
 						detectedPlayers[player.UserId] = nil
 					end
 				end
 			end
 		end
+		
+		if enemyDetected and (currentTime - lastAlarmTime) >= alarmCooldown then
+			lastAlarmTime = currentTime
+			triggerBedAlarm(bedPos, playerTeam, soundMultiplier)
+		end
 	end
 	
-	BedNotifier = vape.Categories.World:CreateModule({
-		Name = 'BedNotifier',
+	BedAlert = vape.Categories.World:CreateModule({
+		Name = 'BedAlert',
 		Function = function(callback)
 			if callback then
 				detectedPlayers = {}
@@ -24050,20 +24082,30 @@ run(function()
 					end
 					checkBedProximity()
 					task.wait(0.25)
-				until not BedNotifier.Enabled
+				until not BedAlert.Enabled
 			else
 				detectedPlayers = {}
 			end
 		end,
-		Tooltip = 'Alerts you when enemy players get close to your bed.'
+		Tooltip = 'Alerts you when enemy players get close to your bed and triggers the bed alarm'
 	})
 	
-	DetectionRange = BedNotifier:CreateSlider({
+	DetectionRange = BedAlert:CreateSlider({
 		Name = 'Detection Range',
 		Min = 0,
 		Max = 300,
 		Default = 120,
 		Unit = ' studs'
+	})
+	
+	VolumeSlider = BedAlert:CreateSlider({
+		Name = 'Sound Multiplier',
+		Min = 0,
+		Max = 2,
+		Default = 1,
+		Increment = 0.1,
+		Suffix = function(val) return string.format('%.1fx', val) end,
+		Tooltip = 'Bed alarm sound volume multiplier'
 	})
 end)
 
