@@ -6810,7 +6810,7 @@ Profiles:CreateButton({
 			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
 		end
 	end,
-	Tooltip = 'reset your profile to default settings of Motion V4'
+	Tooltip = 'This will set your profile to the default settings of Cat Vape'
 })	
 
 -- Public Profiles Modal Window implementation
@@ -6984,16 +6984,18 @@ createPublicProfilesWindow = function()
 			end
 		end
 
-		-- Fetch online public profiles repository index
+		-- Fetch online public profiles from global cloud storage API
+		local cloudBinUrl = 'https://api.jsonbin.io/v3/b/66d8f8a1e41b4d34e427cf90/latest'
 		local suc, req = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/profiles/public_profiles.json', true)
+			return game:HttpGet(cloudBinUrl, true)
 		end)
 
-		if suc and req and req ~= '404: Not Found' then
+		if suc and req and type(req) == 'string' and req ~= '' and req ~= '404: Not Found' then
 			pcall(function()
-				local fetched = httpService:JSONDecode(req)
-				if type(fetched) == 'table' then
-					for _, item in ipairs(fetched) do
+				local response = httpService:JSONDecode(req)
+				local record = response and (response.record or response)
+				if type(record) == 'table' then
+					for _, item in ipairs(record) do
 						if item and item.Name and not addedNames[item.Name] then
 							addedNames[item.Name] = true
 							table.insert(combinedList, item)
@@ -7076,7 +7078,7 @@ createPublicProfilesWindow = function()
 
 		table.insert(localPublicProfilesList, 1, newEntry)
 
-		-- Persist to disk so it stays even after script updates/re-injection
+		-- Persist to disk locally
 		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
 		local existing = {}
 		if isfile(publicFilePath) then
@@ -7088,15 +7090,21 @@ createPublicProfilesWindow = function()
 		table.insert(existing, 1, newEntry)
 		pcall(writefile, publicFilePath, httpService:JSONEncode(existing))
 
-		-- Also try posting to online endpoint if HTTP executor request is supported
-		if request then
-			pcall(function()
-				request({
-					Url = 'https://api.github.com/repos/GlockSwitchMotion/mxtionV4/discussions',
-					Method = 'POST',
-					Headers = { ['Content-Type'] = 'application/json' },
-					Body = httpService:JSONEncode(newEntry)
-				})
+		-- Upload live to global public cloud storage API
+		local httpReq = (syn and syn.request) or (http and http.request) or request or http_request
+		if httpReq then
+			task.spawn(function()
+				pcall(function()
+					httpReq({
+						Url = 'https://api.jsonbin.io/v3/b/66d8f8a1e41b4d34e427cf90',
+						Method = 'PUT',
+						Headers = {
+							['Content-Type'] = 'application/json',
+							['X-Master-Key'] = '$2a$10$WkG.1a01H3sJ5PZp8242i.y/UuA1uM6Q6z/5j4W4N58o84k1z4a1u'
+						},
+						Body = httpService:JSONEncode(existing)
+					})
+				end)
 			end)
 		end
 
