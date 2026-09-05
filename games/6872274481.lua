@@ -23963,13 +23963,14 @@ run(function()
 	})
 end)
 
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 run(function()
 	local BedAlert
 	local DetectionRange
 	local VolumeSlider
 	local detectedPlayers = {}
 	local lastAlarmTime = 0
-	local alarmCooldown = 0.5
+	local alarmCooldown = 2
 	
 	local function getPlayerTeamId()
 		local playerTeam = lplr:GetAttribute('Team')
