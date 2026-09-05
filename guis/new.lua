@@ -5927,17 +5927,38 @@ function mainapi:CreatePublicConfigsGUI()
 	addCorner(window)
 	makeDraggable(window)
 
-	local title = Instance.new('TextLabel')
-	title.Name = 'Title'
-	title.Size = UDim2.new(1, -47, 0, 24)
-	title.Position = UDim2.fromOffset(14, 10)
-	title.BackgroundTransparency = 1
-	title.Text = 'Public Configs Community'
-	title.TextColor3 = Color3.fromRGB(240, 240, 240)
-	title.TextSize = 14
-	title.FontFace = uipallet.FontSemiBold
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Parent = window
+	local logo = Instance.new('ImageLabel')
+	logo.Name = 'VapeLogo'
+	logo.Size = UDim2.fromOffset(130, 32)
+	logo.Position = UDim2.fromOffset(-10, 4)
+	logo.BackgroundTransparency = 1
+	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
+	logo.ImageColor3 = select(3, uipallet.Main:ToHSV()) > 0.5 and uipallet.Text or Color3.new(1, 1, 1)
+	logo.ScaleType = Enum.ScaleType.Fit
+	logo.Parent = window
+
+	local logov4 = Instance.new('ImageLabel')
+	logov4.Name = 'V4Logo'
+	logov4.Size = UDim2.fromOffset(26, 15)
+	logov4.Position = UDim2.new(0, 104, 0, 8)
+	logov4.BackgroundTransparency = 1
+	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
+	logov4.ImageRectOffset = Vector2.new(147, 29)
+	logov4.ImageRectSize = Vector2.new(39, 23)
+	logov4.ScaleType = Enum.ScaleType.Fit
+	logov4.Parent = logo
+
+	local subTitle = Instance.new('TextLabel')
+	subTitle.Name = 'SubTitle'
+	subTitle.Size = UDim2.fromOffset(160, 24)
+	subTitle.Position = UDim2.fromOffset(125, 8)
+	subTitle.BackgroundTransparency = 1
+	subTitle.Text = '| PUBLIC CONFIGS'
+	subTitle.TextColor3 = uipallet.MainColor
+	subTitle.TextSize = 13
+	subTitle.FontFace = uipallet.FontSemiBold
+	subTitle.TextXAlignment = Enum.TextXAlignment.Left
+	subTitle.Parent = window
 
 	local close = addCloseButton(window)
 	close.MouseButton1Click:Connect(function()
@@ -6003,6 +6024,19 @@ function mainapi:CreatePublicConfigsGUI()
 	listTitle.TextXAlignment = Enum.TextXAlignment.Left
 	listTitle.Parent = window
 
+	local showAllGames = true
+
+	local filterBtn = Instance.new('TextButton')
+	filterBtn.Size = UDim2.fromOffset(105, 20)
+	filterBtn.Position = UDim2.new(1, -200, 0, 100)
+	filterBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.06)
+	filterBtn.Text = '🌐 All Games'
+	filterBtn.TextColor3 = uipallet.Text
+	filterBtn.TextSize = 11
+	filterBtn.FontFace = uipallet.Font
+	filterBtn.Parent = window
+	addCorner(filterBtn, UDim.new(0, 4))
+
 	local refreshBtn = Instance.new('TextButton')
 	refreshBtn.Size = UDim2.fromOffset(75, 20)
 	refreshBtn.Position = UDim2.new(1, -89, 0, 100)
@@ -6034,12 +6068,13 @@ function mainapi:CreatePublicConfigsGUI()
 			if child:IsA('Frame') or child:IsA('TextLabel') then child:Destroy() end
 		end
 
-		local suc, configs = publicconfigs.FetchAll(mainapi.Place)
+		local filterPlace = showAllGames and nil or mainapi.Place
+		local suc, configs = publicconfigs.FetchAll(filterPlace)
 		if not configs or #configs == 0 then
 			local empty = Instance.new('TextLabel')
 			empty.Size = UDim2.new(1, 0, 0, 40)
 			empty.BackgroundTransparency = 1
-			empty.Text = 'No public configs found. Be the first to upload one!'
+			empty.Text = showAllGames and 'No public configs found globally.' or 'No public configs found for this game. Click "Current Game" to switch to "All Games"!'
 			empty.TextColor3 = color.Dark(uipallet.Text, 0.4)
 			empty.TextSize = 12
 			empty.FontFace = uipallet.Font
@@ -6123,6 +6158,12 @@ function mainapi:CreatePublicConfigsGUI()
 		else
 			mainapi:CreateNotification('MXTION V4', 'Current profile file not found.', 5, 'alert')
 		end
+	end)
+
+	filterBtn.MouseButton1Click:Connect(function()
+		showAllGames = not showAllGames
+		filterBtn.Text = showAllGames and '🌐 All Games' or '🎮 Current Game'
+		populateList()
 	end)
 
 	refreshBtn.MouseButton1Click:Connect(function()
