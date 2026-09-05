@@ -5913,6 +5913,232 @@ function mainapi:CreateChangelogs()
 	return changelogapi
 end
 
+function mainapi:CreatePublicConfigsGUI()
+	local publicconfigs = isfile('mxtionv4/libraries/publicconfigs.lua') and loadstring(readfile('mxtionv4/libraries/publicconfigs.lua'))() or loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/libraries/publicconfigs.lua', true))()
+
+	local window = Instance.new('Frame')
+	window.Name = 'PublicConfigsGUI'
+	window.Size = UDim2.fromOffset(600, 420)
+	window.Position = UDim2.new(0.5, -300, 0.5, -210)
+	window.BackgroundColor3 = uipallet.Main
+	window.Visible = false
+	window.Parent = scaledgui
+	addBlur(window)
+	addCorner(window)
+	makeDraggable(window)
+
+	local title = Instance.new('TextLabel')
+	title.Name = 'Title'
+	title.Size = UDim2.new(1, -47, 0, 24)
+	title.Position = UDim2.fromOffset(14, 10)
+	title.BackgroundTransparency = 1
+	title.Text = 'Public Configs Community'
+	title.TextColor3 = Color3.fromRGB(240, 240, 240)
+	title.TextSize = 14
+	title.FontFace = uipallet.FontSemiBold
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = window
+
+	local close = addCloseButton(window)
+	close.MouseButton1Click:Connect(function()
+		window.Visible = false
+	end)
+
+	local divider = Instance.new('Frame')
+	divider.Size = UDim2.new(1, 0, 0, 1)
+	divider.Position = UDim2.fromOffset(0, 40)
+	divider.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
+	divider.BorderSizePixel = 0
+	divider.Parent = window
+
+	local uploadFrame = Instance.new('Frame')
+	uploadFrame.Size = UDim2.new(1, -24, 0, 44)
+	uploadFrame.Position = UDim2.fromOffset(12, 48)
+	uploadFrame.BackgroundColor3 = color.Dark(uipallet.Main, 0.03)
+	uploadFrame.Parent = window
+	addCorner(uploadFrame, UDim.new(0, 6))
+
+	local uploadLabel = Instance.new('TextLabel')
+	uploadLabel.Size = UDim2.fromOffset(130, 44)
+	uploadLabel.Position = UDim2.fromOffset(10, 0)
+	uploadLabel.BackgroundTransparency = 1
+	uploadLabel.Text = 'Publish Config:'
+	uploadLabel.TextColor3 = uipallet.Text
+	uploadLabel.TextSize = 12
+	uploadLabel.FontFace = uipallet.Font
+	uploadLabel.TextXAlignment = Enum.TextXAlignment.Left
+	uploadLabel.Parent = uploadFrame
+
+	local nameBox = Instance.new('TextBox')
+	nameBox.Size = UDim2.new(1, -260, 0, 26)
+	nameBox.Position = UDim2.fromOffset(120, 9)
+	nameBox.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
+	nameBox.Text = ''
+	nameBox.PlaceholderText = 'Enter custom config name...'
+	nameBox.TextColor3 = uipallet.Text
+	nameBox.TextSize = 12
+	nameBox.FontFace = uipallet.Font
+	nameBox.Parent = uploadFrame
+	addCorner(nameBox, UDim.new(0, 4))
+
+	local uploadBtn = Instance.new('TextButton')
+	uploadBtn.Size = UDim2.fromOffset(120, 26)
+	uploadBtn.Position = UDim2.new(1, -130, 0, 9)
+	uploadBtn.BackgroundColor3 = Color3.fromRGB(5, 133, 104)
+	uploadBtn.Text = 'Upload Config'
+	uploadBtn.TextColor3 = Color3.new(1, 1, 1)
+	uploadBtn.TextSize = 12
+	uploadBtn.FontFace = uipallet.FontSemiBold
+	uploadBtn.Parent = uploadFrame
+	addCorner(uploadBtn, UDim.new(0, 4))
+
+	local listTitle = Instance.new('TextLabel')
+	listTitle.Size = UDim2.fromOffset(200, 20)
+	listTitle.Position = UDim2.fromOffset(14, 100)
+	listTitle.BackgroundTransparency = 1
+	listTitle.Text = 'Available Community Configs'
+	listTitle.TextColor3 = color.Dark(uipallet.Text, 0.2)
+	listTitle.TextSize = 12
+	listTitle.FontFace = uipallet.Font
+	listTitle.TextXAlignment = Enum.TextXAlignment.Left
+	listTitle.Parent = window
+
+	local refreshBtn = Instance.new('TextButton')
+	refreshBtn.Size = UDim2.fromOffset(75, 20)
+	refreshBtn.Position = UDim2.new(1, -89, 0, 100)
+	refreshBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.06)
+	refreshBtn.Text = '🔄 Refresh'
+	refreshBtn.TextColor3 = uipallet.Text
+	refreshBtn.TextSize = 11
+	refreshBtn.FontFace = uipallet.Font
+	refreshBtn.Parent = window
+	addCorner(refreshBtn, UDim.new(0, 4))
+
+	local scroll = Instance.new('ScrollingFrame')
+	scroll.Size = UDim2.new(1, -24, 1, -135)
+	scroll.Position = UDim2.fromOffset(12, 125)
+	scroll.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 4
+	scroll.CanvasSize = UDim2.new()
+	scroll.Parent = window
+	addCorner(scroll, UDim.new(0, 6))
+
+	local listLayout = Instance.new('UIListLayout')
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 6)
+	listLayout.Parent = scroll
+
+	local function populateList()
+		for _, child in ipairs(scroll:GetChildren()) do
+			if child:IsA('Frame') or child:IsA('TextLabel') then child:Destroy() end
+		end
+
+		local suc, configs = publicconfigs.FetchAll(mainapi.Place)
+		if not configs or #configs == 0 then
+			local empty = Instance.new('TextLabel')
+			empty.Size = UDim2.new(1, 0, 0, 40)
+			empty.BackgroundTransparency = 1
+			empty.Text = 'No public configs found. Be the first to upload one!'
+			empty.TextColor3 = color.Dark(uipallet.Text, 0.4)
+			empty.TextSize = 12
+			empty.FontFace = uipallet.Font
+			empty.Parent = scroll
+			return
+		end
+
+		for i, item in ipairs(configs) do
+			local card = Instance.new('Frame')
+			card.Size = UDim2.new(1, -8, 0, 45)
+			card.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
+			card.Parent = scroll
+			addCorner(card, UDim.new(0, 4))
+
+			local cfgName = Instance.new('TextLabel')
+			cfgName.Size = UDim2.new(1, -150, 0, 20)
+			cfgName.Position = UDim2.fromOffset(10, 4)
+			cfgName.BackgroundTransparency = 1
+			cfgName.Text = item.name or 'Unnamed Config'
+			cfgName.TextColor3 = uipallet.Text
+			cfgName.TextSize = 13
+			cfgName.FontFace = uipallet.FontSemiBold
+			cfgName.TextXAlignment = Enum.TextXAlignment.Left
+			cfgName.Parent = card
+
+			local cfgInfo = Instance.new('TextLabel')
+			cfgInfo.Size = UDim2.new(1, -150, 0, 16)
+			cfgInfo.Position = UDim2.fromOffset(10, 24)
+			cfgInfo.BackgroundTransparency = 1
+			cfgInfo.Text = 'By: ' .. (item.author or 'Unknown') .. ' | Place: ' .. (item.place or 'Global')
+			cfgInfo.TextColor3 = color.Dark(uipallet.Text, 0.4)
+			cfgInfo.TextSize = 10
+			cfgInfo.FontFace = uipallet.Font
+			cfgInfo.TextXAlignment = Enum.TextXAlignment.Left
+			cfgInfo.Parent = card
+
+			local dlBtn = Instance.new('TextButton')
+			dlBtn.Size = UDim2.fromOffset(120, 28)
+			dlBtn.Position = UDim2.new(1, -130, 0, 8)
+			dlBtn.BackgroundColor3 = Color3.fromRGB(47, 122, 229)
+			dlBtn.Text = 'Download & Load'
+			dlBtn.TextColor3 = Color3.new(1, 1, 1)
+			dlBtn.TextSize = 11
+			dlBtn.FontFace = uipallet.Font
+			dlBtn.Parent = card
+			addCorner(dlBtn, UDim.new(0, 4))
+
+			dlBtn.MouseButton1Click:Connect(function()
+				local dlSuc, res = publicconfigs.Download(item, mainapi)
+				if dlSuc then
+					mainapi:Load(true, item.name)
+					mainapi:CreateNotification('MXTION V4', 'Loaded public config: ' .. item.name, 5, 'info')
+				else
+					mainapi:CreateNotification('MXTION V4', 'Failed to download config: ' .. tostring(res), 5, 'alert')
+				end
+			end)
+		end
+
+		task.delay(0.05, function()
+			scroll.CanvasSize = UDim2.fromOffset(0, listLayout.AbsoluteContentSize.Y + 10)
+		end)
+	end
+
+	uploadBtn.MouseButton1Click:Connect(function()
+		local customName = nameBox.Text:match('^%s*(.-)%s*$')
+		if customName == '' then
+			customName = mainapi.Profile
+		end
+		mainapi:Save()
+		local currentFile = 'mxtionv4/profiles/' .. mainapi.Profile .. mainapi.Place .. '.txt'
+		if isfile(currentFile) then
+			local profileData = readfile(currentFile)
+			local upSuc, upMsg = publicconfigs.Upload(customName, mainapi.Place, profileData, game:GetService('Players').LocalPlayer and game:GetService('Players').LocalPlayer.Name)
+			if upSuc then
+				nameBox.Text = ''
+				mainapi:CreateNotification('MXTION V4', upMsg, 5, 'info')
+				populateList()
+			else
+				mainapi:CreateNotification('MXTION V4', upMsg, 5, 'alert')
+			end
+		else
+			mainapi:CreateNotification('MXTION V4', 'Current profile file not found.', 5, 'alert')
+		end
+	end)
+
+	refreshBtn.MouseButton1Click:Connect(function()
+		populateList()
+	end)
+
+	local publicConfigsAPI = {}
+	function publicConfigsAPI:Open()
+		window.Visible = true
+		populateList()
+	end
+
+	mainapi.PublicConfigsGUI = publicConfigsAPI
+	return publicConfigsAPI
+end
+
 function mainapi:CreateNotification(title, text, duration, type)
 	if not self.Notifications.Enabled then return end
 	task.delay(0, function()
@@ -6762,6 +6988,17 @@ Profiles:CreateButton({
 	end,
 	Tooltip = 'This will set your profile to the default settings of Cat Vape'
 })	
+Profiles:CreateButton({
+	Name = 'Public Configs',
+	LayoutOrder = 8,
+	Function = function()
+		if not mainapi.PublicConfigsGUI then
+			mainapi:CreatePublicConfigsGUI()
+		end
+		mainapi.PublicConfigsGUI:Open()
+	end,
+	Tooltip = 'Upload custom configs or download community configs'
+})
 
 --[[
 	Targets
