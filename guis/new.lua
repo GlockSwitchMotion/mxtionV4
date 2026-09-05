@@ -7350,13 +7350,6 @@ createPresetProfilesWindow = function()
 			end
 		end)
 	end
-end				mainapi:CreateNotification('MXTION V4', 'Successfully imported & loaded preset: '..profName, 5, 'info')
-				window.Visible = false
-			else
-				mainapi:CreateNotification('MXTION V4', profName or 'Failed to load preset.', 5, 'alert')
-			end
-		end)
-	end
 end
 	
 
