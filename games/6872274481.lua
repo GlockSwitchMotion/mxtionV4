@@ -24085,28 +24085,15 @@ run(function()
 	
 	local function getPlayerTeamId()
 		local playerTeam = lplr:GetAttribute('Team')
-		if playerTeam then
-			return tonumber(playerTeam) or playerTeam
-		end
-		-- Fallback to Roblox Team
-		if lplr.Team then
-			return lplr.Team.Name
-		end
-		return nil
+		return playerTeam
 	end
 	
 	local function isTeammate(player)
 		if not player or not player.Character then return false end
-		local playerTeam = player:GetAttribute('Team')
 		local myTeam = getPlayerTeamId()
-		if playerTeam and myTeam then
-			return playerTeam == myTeam
-		end
-		-- Fallback to Roblox Team comparison
-		if player.Team and lplr.Team then
-			return player.Team == lplr.Team
-		end
-		return false
+		local playerTeam = player:GetAttribute('Team')
+		if not myTeam or not playerTeam then return false end
+		return tostring(playerTeam) == tostring(myTeam)
 	end
 	
 	local function getBedPosition()
