@@ -4649,183 +4649,39 @@ function mainapi:CreateCategoryList(categorysettings)
 	windowlisttwo.SortOrder = Enum.SortOrder.LayoutOrder
 	windowlisttwo.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	windowlisttwo.Parent = childrentwo
-	local addvalue, addvalue2
-	local addbkg, addbkg2
-
-	if categorysettings.Profiles then
-		local container = Instance.new('Frame')
-		container.Name = 'AddContainer'
-		container.Size = UDim2.fromOffset(200, 31)
-		container.Position = UDim2.fromOffset(10, 45)
-		container.BackgroundTransparency = 1
-		container.Parent = children
-
-		-- Box 1: TYPE NAME
-		addbkg = Instance.new('Frame')
-		addbkg.Name = 'AddLocal'
-		addbkg.Size = UDim2.fromOffset(96, 31)
-		addbkg.Position = UDim2.fromOffset(0, 0)
-		addbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		addbkg.Parent = container
-		addCorner(addbkg, UDim.new(0, 5))
-		local addstroke1 = Instance.new('UIStroke')
-		addstroke1.Color = color.Light(uipallet.Main, 0.15)
-		addstroke1.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		addstroke1.Parent = addbkg
-
-		addvalue = Instance.new('TextBox')
-		addvalue.Size = UDim2.new(1, -26, 1, 0)
-		addvalue.Position = UDim2.fromOffset(6, 0)
-		addvalue.BackgroundTransparency = 1
-		addvalue.Text = ''
-		addvalue.PlaceholderText = 'TYPE NAME'
-		addvalue.TextXAlignment = Enum.TextXAlignment.Left
-		addvalue.TextColor3 = Color3.new(1, 1, 1)
-		addvalue.TextSize = 11
-		addvalue.FontFace = uipallet.Font
-		addvalue.ClearTextOnFocus = false
-		addvalue.Parent = addbkg
-
-		local addbutton = Instance.new('ImageButton')
-		addbutton.Name = 'AddButton'
-		addbutton.Size = UDim2.fromOffset(14, 14)
-		addbutton.Position = UDim2.new(1, -20, 0, 8)
-		addbutton.BackgroundTransparency = 1
-		addbutton.Image = getcustomasset('mxtionv4/assets/new/add.png')
-		addbutton.ImageColor3 = Color3.fromRGB(220, 220, 220)
-		addbutton.ImageTransparency = 0.2
-		addbutton.Parent = addbkg
-
-		-- Box 2: PUBLIC
-		addbkg2 = Instance.new('Frame')
-		addbkg2.Name = 'AddPublic'
-		addbkg2.Size = UDim2.fromOffset(96, 31)
-		addbkg2.Position = UDim2.fromOffset(104, 0)
-		addbkg2.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		addbkg2.Parent = container
-		addCorner(addbkg2, UDim.new(0, 5))
-		local addstroke2 = Instance.new('UIStroke')
-		addstroke2.Color = color.Light(uipallet.Main, 0.15)
-		addstroke2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		addstroke2.Parent = addbkg2
-
-		addvalue2 = Instance.new('TextBox')
-		addvalue2.Size = UDim2.new(1, -26, 1, 0)
-		addvalue2.Position = UDim2.fromOffset(6, 0)
-		addvalue2.BackgroundTransparency = 1
-		addvalue2.Text = ''
-		addvalue2.PlaceholderText = 'PUBLIC'
-		addvalue2.TextXAlignment = Enum.TextXAlignment.Left
-		addvalue2.TextColor3 = Color3.new(1, 1, 1)
-		addvalue2.TextSize = 11
-		addvalue2.FontFace = uipallet.Font
-		addvalue2.ClearTextOnFocus = false
-		addvalue2.Parent = addbkg2
-
-		local addbutton2 = Instance.new('ImageButton')
-		addbutton2.Name = 'AddPublicButton'
-		addbutton2.Size = UDim2.fromOffset(14, 14)
-		addbutton2.Position = UDim2.new(1, -20, 0, 8)
-		addbutton2.BackgroundTransparency = 1
-		addbutton2.Image = getcustomasset('mxtionv4/assets/new/add.png')
-		addbutton2.ImageColor3 = Color3.fromRGB(220, 220, 220)
-		addbutton2.ImageTransparency = 0.2
-		addbutton2.Parent = addbkg2
-
-		-- Row 2: Reset Current Profile button
-		local resetBkg = Instance.new('Frame')
-		resetBkg.Name = 'ResetBkg'
-		resetBkg.Size = UDim2.fromOffset(200, 31)
-		resetBkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-		resetBkg.Parent = children
-		addCorner(resetBkg, UDim.new(0, 5))
-		local resetStroke = Instance.new('UIStroke')
-		resetStroke.Color = color.Light(uipallet.Main, 0.15)
-		resetStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		resetStroke.Parent = resetBkg
-
-		local resetBtn = Instance.new('TextButton')
-		resetBtn.Name = 'ResetButton'
-		resetBtn.Size = UDim2.new(1, 0, 1, 0)
-		resetBtn.BackgroundTransparency = 1
-		resetBtn.Text = 'Reset  Current Profile'
-		resetBtn.TextColor3 = color.Dark(uipallet.Text, 0.25)
-		resetBtn.TextSize = 14
-		resetBtn.FontFace = uipallet.Font
-		resetBtn.Parent = resetBkg
-
-		resetBtn.MouseButton1Click:Connect(function()
-			mainapi.Save = function() end
-			if isfile('mxtionv4/profiles/'..mainapi.Profile..mainapi.Place..'.txt') and delfile then
-				delfile('mxtionv4/profiles/'..mainapi.Profile..mainapi.Place..'.txt')
-			end
-			shared.vapereload = true
-			if shared.VapeDeveloper then
-				loadstring(readfile('mxtionv4/init.lua'), 'init')(license)
-			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
-			end
-		end)
-
-		local function handlePublicSubmit()
-			local pText = addvalue2.Text and addvalue2.Text:match('^%s*(.-)%s*$') or ''
-			if pText ~= '' then
-				mainapi:Save()
-				local currentFile = 'mxtionv4/profiles/' .. mainapi.Profile .. mainapi.Place .. '.txt'
-				if isfile(currentFile) then
-					local profileData = readfile(currentFile)
-					if publicconfigsHelper then
-						publicconfigsHelper.Upload(pText, mainapi.Place, profileData, game:GetService('Players').LocalPlayer and game:GetService('Players').LocalPlayer.Name)
-					end
-				end
-				addvalue2.Text = ''
-			end
-			mainapi:OpenPublicConfigsGUI()
-		end
-
-		addbutton2.MouseButton1Click:Connect(handlePublicSubmit)
-		addvalue2.FocusLost:Connect(function(enter)
-			if enter then handlePublicSubmit() end
-		end)
-	else
-		addbkg = Instance.new('Frame')
-		addbkg.Name = 'Add'
-		addbkg.Size = UDim2.fromOffset(200, 31)
-		addbkg.Position = UDim2.fromOffset(10, 45)
-		addbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		addbkg.Parent = children
-		addCorner(addbkg)
-
-		local addbox = addbkg:Clone()
-		addbox.Size = UDim2.new(1, -2, 1, -2)
-		addbox.Position = UDim2.fromOffset(1, 1)
-		addbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-		addbox.Parent = addbkg
-
-		addvalue = Instance.new('TextBox')
-		addvalue.Size = UDim2.new(1, -35, 1, 0)
-		addvalue.Position = UDim2.fromOffset(10, 0)
-		addvalue.BackgroundTransparency = 1
-		addvalue.Text = ''
-		addvalue.PlaceholderText = categorysettings.Placeholder or 'Add entry...'
-		addvalue.TextXAlignment = Enum.TextXAlignment.Left
-		addvalue.TextColor3 = Color3.new(1, 1, 1)
-		addvalue.TextSize = 15
-		addvalue.FontFace = uipallet.Font
-		addvalue.ClearTextOnFocus = false
-		addvalue.Parent = addbkg
-
-		local addbutton = Instance.new('ImageButton')
-		addbutton.Name = 'AddButton'
-		addbutton.Size = UDim2.fromOffset(16, 16)
-		addbutton.Position = UDim2.new(1, -26, 0, 10)
-		addbutton.BackgroundTransparency = 1
-		addbutton.Image = getcustomasset('mxtionv4/assets/new/add.png')
-		addbutton.ImageColor3 = categorysettings.Color
-		addbutton.ImageTransparency = 0.3
-		addbutton.Parent = addbkg
-	end
-
+	local addbkg = Instance.new('Frame')
+	addbkg.Name = 'Add'
+	addbkg.Size = UDim2.fromOffset(200, 31)
+	addbkg.Position = UDim2.fromOffset(10, 45)
+	addbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+	addbkg.Parent = children
+	addCorner(addbkg)
+	local addbox = addbkg:Clone()
+	addbox.Size = UDim2.new(1, -2, 1, -2)
+	addbox.Position = UDim2.fromOffset(1, 1)
+	addbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+	addbox.Parent = addbkg
+	local addvalue = Instance.new('TextBox')
+	addvalue.Size = UDim2.new(1, -35, 1, 0)
+	addvalue.Position = UDim2.fromOffset(10, 0)
+	addvalue.BackgroundTransparency = 1
+	addvalue.Text = ''
+	addvalue.PlaceholderText = categorysettings.Placeholder or 'Add entry...'
+	addvalue.TextXAlignment = Enum.TextXAlignment.Left
+	addvalue.TextColor3 = Color3.new(1, 1, 1)
+	addvalue.TextSize = 15
+	addvalue.FontFace = uipallet.Font
+	addvalue.ClearTextOnFocus = false
+	addvalue.Parent = addbkg
+	local addbutton = Instance.new('ImageButton')
+	addbutton.Name = 'AddButton'
+	addbutton.Size = UDim2.fromOffset(16, 16)
+	addbutton.Position = UDim2.new(1, -26, 0, 10)
+	addbutton.BackgroundTransparency = 1
+	addbutton.Image = getcustomasset('mxtionv4/assets/new/add.png')
+	addbutton.ImageColor3 = categorysettings.Color
+	addbutton.ImageTransparency = 0.3
+	addbutton.Parent = addbkg
 	local jsonMode = false
 
 	local cursedpadding = Instance.new('Frame')
@@ -4872,22 +4728,19 @@ function mainapi:CreateCategoryList(categorysettings)
 
 		for i, v in (categorysettings.Profiles and mainapi.Profiles or self.List) do
 			if categorysettings.Profiles then
-				local isSelected = (v.Name == mainapi.Profile)
 				local object = Instance.new('TextButton')
 				object.Name = v.Name
 				object.Size = UDim2.fromOffset(200, 33)
-				object.BackgroundColor3 = isSelected and Color3.new(1, 1, 1) or color.Light(uipallet.Main, 0.02)
+				object.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 				object.AutoButtonColor = false
 				object.Text = ''
 				object.Parent = children
 				addCorner(object)
-
 				local objectstroke = Instance.new('UIStroke')
-				objectstroke.Color = isSelected and Color3.new(1, 1, 1) or color.Light(uipallet.Main, 0.1)
+				objectstroke.Color = color.Light(uipallet.Main, 0.1)
 				objectstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-				objectstroke.Enabled = isSelected
+				objectstroke.Enabled = false
 				objectstroke.Parent = object
-
 				local objecttitle = Instance.new('TextLabel')
 				objecttitle.Name = 'Title'
 				objecttitle.Size = UDim2.new(1, -10, 1, 0)
@@ -4895,9 +4748,9 @@ function mainapi:CreateCategoryList(categorysettings)
 				objecttitle.BackgroundTransparency = 1
 				objecttitle.Text = v.Name
 				objecttitle.TextXAlignment = Enum.TextXAlignment.Left
-				objecttitle.TextColor3 = isSelected and Color3.fromRGB(30, 30, 30) or color.Dark(uipallet.Text, 0.4)
+				objecttitle.TextColor3 = color.Dark(uipallet.Text, 0.4)
 				objecttitle.TextSize = 15
-				objecttitle.FontFace = isSelected and uipallet.FontSemiBold or uipallet.Font
+				objecttitle.FontFace = uipallet.Font
 				objecttitle.Parent = object
 				local dotsbutton = Instance.new('TextButton')
 				dotsbutton.Name = 'Dots'
@@ -6058,420 +5911,6 @@ function mainapi:CreateChangelogs()
 	self.Changelogs = changelogapi
 
 	return changelogapi
-end
-
-local publicconfigsHelper = {}
-do
-	local API_URL = "https://api.jsonbin.io/v3/b"
-	local BIN_ID = "66d9fb7ce41b4d34e42aa11e"
-	local MASTER_KEY = "$2a$10$T8Z.Yx7Kq9v2kF3A1hJ8u.GZ9e7f8g9h0i1j2k3l4m5n6o7p8q9r"
-	local reqFunc = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
-
-	local function makeReq(options)
-		if reqFunc then
-			local suc, res = pcall(reqFunc, options)
-			if suc and res then return res end
-		end
-		if options.Method == "GET" and game.HttpGet then
-			local suc, res = pcall(function() return game:HttpGet(options.Url, true) end)
-			if suc then return {StatusCode = 200, Body = res} end
-		end
-		return {StatusCode = 500, Body = "Request failed"}
-	end
-
-	publicconfigsHelper.Cache = {}
-
-	function publicconfigsHelper.FetchAll(filterPlaceId)
-		local endpoint = API_URL .. "/" .. BIN_ID .. "/latest"
-		local response = makeReq({
-			Url = endpoint,
-			Method = "GET",
-			Headers = {
-				["X-Master-Key"] = MASTER_KEY,
-				["X-Bin-Meta"] = "false"
-			}
-		})
-
-		local listData = nil
-		if response.StatusCode == 200 or response.StatusCode == 201 then
-			local suc, decoded = pcall(function()
-				return httpService:JSONDecode(response.Body)
-			end)
-			if suc and type(decoded) == "table" then
-				if decoded.record then decoded = decoded.record end
-				listData = decoded
-			end
-		end
-
-		if listData then
-			publicconfigsHelper.Cache = listData
-		else
-			listData = publicconfigsHelper.Cache
-		end
-
-		local filtered = {}
-		for _, item in ipairs(listData) do
-			if not filterPlaceId or tostring(item.place) == tostring(filterPlaceId) or item.place == "all" then
-				table.insert(filtered, item)
-			end
-		end
-		return true, filtered, listData
-	end
-
-	function publicconfigsHelper.Upload(configName, placeId, profileData, authorName)
-		if not configName or configName == "" then return false, "Config name cannot be empty!" end
-		local author = authorName or (game:GetService('Players').LocalPlayer and game:GetService('Players').LocalPlayer.Name) or "Anonymous"
-		local place = placeId or tostring(game.PlaceId)
-
-		local _, _, currentList = publicconfigsHelper.FetchAll(nil)
-		currentList = currentList or {}
-
-		local newEntry = {
-			id = httpService:GenerateGUID(false),
-			name = configName,
-			author = author,
-			place = place,
-			timestamp = os.time(),
-			data = profileData
-		}
-
-		local updated = false
-		for i, item in ipairs(currentList) do
-			if item.name:lower() == configName:lower() and tostring(item.place) == tostring(place) and item.author == author then
-				currentList[i] = newEntry
-				updated = true
-				break
-			end
-		end
-
-		if not updated then
-			table.insert(currentList, 1, newEntry)
-		end
-
-		if #currentList > 100 then
-			table.remove(currentList, #currentList)
-		end
-
-		local jsonPayload = httpService:JSONEncode(currentList)
-		local response = makeReq({
-			Url = API_URL .. "/" .. BIN_ID,
-			Method = "PUT",
-			Headers = {
-				["Content-Type"] = "application/json",
-				["X-Master-Key"] = MASTER_KEY
-			},
-			Body = jsonPayload
-		})
-
-		publicconfigsHelper.Cache = currentList
-		return true, "Successfully published public config '" .. configName .. "'!"
-	end
-
-	function publicconfigsHelper.Download(configEntry, mainapi)
-		if not configEntry or not configEntry.data then return false, "Invalid config data" end
-		local configName = configEntry.name or "PublicConfig"
-		local placeStr = mainapi and mainapi.Place or tostring(game.PlaceId)
-		local filename = "mxtionv4/profiles/" .. configName .. placeStr .. ".txt"
-
-		local dataStr = type(configEntry.data) == "table" and httpService:JSONEncode(configEntry.data) or tostring(configEntry.data)
-
-		local suc, err = pcall(function()
-			if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
-			writefile(filename, dataStr)
-		end)
-
-		if not suc then return false, "Failed to write profile file: " .. tostring(err) end
-
-		if mainapi and mainapi.Profiles then
-			local exists = false
-			for _, v in ipairs(mainapi.Profiles) do
-				if v and v.Name == configName then exists = true; break end
-			end
-			if not exists then table.insert(mainapi.Profiles, {Name = configName, Bind = {}}) end
-		end
-
-		return true, configName
-	end
-end
-shared.PublicConfigsModule = publicconfigsHelper
-
-function mainapi:OpenPublicConfigsGUI()
-	local suc, err = pcall(function()
-		if not self.PublicConfigsGUI then
-			self:CreatePublicConfigsGUI()
-		end
-		if self.PublicConfigsGUI then
-			self.PublicConfigsGUI:Open()
-		end
-	end)
-	if not suc then
-		self:CreateNotification('MXTION V4', 'Error opening Public Configs: '..tostring(err), 5, 'alert')
-	end
-end
-
-function mainapi:CreatePublicConfigsGUI()
-	local publicconfigs = publicconfigsHelper
-
-	local window = Instance.new('Frame')
-	window.Name = 'PublicConfigsGUI'
-	window.Size = UDim2.fromOffset(600, 420)
-	window.Position = UDim2.new(0.5, -300, 0.5, -210)
-	window.BackgroundColor3 = uipallet.Main
-	window.Visible = false
-	window.Parent = scaledgui or clickgui
-	addBlur(window)
-	addCorner(window)
-	makeDraggable(window)
-
-	local logo = Instance.new('ImageLabel')
-	logo.Name = 'VapeLogo'
-	logo.Size = UDim2.fromOffset(130, 32)
-	logo.Position = UDim2.fromOffset(-10, 4)
-	logo.BackgroundTransparency = 1
-	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
-	logo.ImageColor3 = select(3, uipallet.Main:ToHSV()) > 0.5 and uipallet.Text or Color3.new(1, 1, 1)
-	logo.ScaleType = Enum.ScaleType.Fit
-	logo.Parent = window
-
-	local logov4 = Instance.new('ImageLabel')
-	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(26, 15)
-	logov4.Position = UDim2.new(0, 104, 0, 8)
-	logov4.BackgroundTransparency = 1
-	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
-	logov4.ImageRectOffset = Vector2.new(147, 29)
-	logov4.ImageRectSize = Vector2.new(39, 23)
-	logov4.ScaleType = Enum.ScaleType.Fit
-	logov4.Parent = logo
-
-	local subTitle = Instance.new('TextLabel')
-	subTitle.Name = 'SubTitle'
-	subTitle.Size = UDim2.fromOffset(160, 24)
-	subTitle.Position = UDim2.fromOffset(125, 8)
-	subTitle.BackgroundTransparency = 1
-	subTitle.Text = '| PUBLIC CONFIGS'
-	subTitle.TextColor3 = uipallet.MainColor
-	subTitle.TextSize = 13
-	subTitle.FontFace = uipallet.FontSemiBold
-	subTitle.TextXAlignment = Enum.TextXAlignment.Left
-	subTitle.Parent = window
-
-	local close = addCloseButton(window)
-	close.MouseButton1Click:Connect(function()
-		window.Visible = false
-	end)
-
-	local divider = Instance.new('Frame')
-	divider.Size = UDim2.new(1, 0, 0, 1)
-	divider.Position = UDim2.fromOffset(0, 40)
-	divider.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
-	divider.BorderSizePixel = 0
-	divider.Parent = window
-
-	local uploadFrame = Instance.new('Frame')
-	uploadFrame.Size = UDim2.new(1, -24, 0, 44)
-	uploadFrame.Position = UDim2.fromOffset(12, 48)
-	uploadFrame.BackgroundColor3 = color.Dark(uipallet.Main, 0.03)
-	uploadFrame.Parent = window
-	addCorner(uploadFrame, UDim.new(0, 6))
-
-	local uploadLabel = Instance.new('TextLabel')
-	uploadLabel.Size = UDim2.fromOffset(130, 44)
-	uploadLabel.Position = UDim2.fromOffset(10, 0)
-	uploadLabel.BackgroundTransparency = 1
-	uploadLabel.Text = 'Publish Config:'
-	uploadLabel.TextColor3 = uipallet.Text
-	uploadLabel.TextSize = 12
-	uploadLabel.FontFace = uipallet.Font
-	uploadLabel.TextXAlignment = Enum.TextXAlignment.Left
-	uploadLabel.Parent = uploadFrame
-
-	local nameBox = Instance.new('TextBox')
-	nameBox.Size = UDim2.new(1, -260, 0, 26)
-	nameBox.Position = UDim2.fromOffset(120, 9)
-	nameBox.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
-	nameBox.Text = ''
-	nameBox.PlaceholderText = 'Enter custom config name...'
-	nameBox.TextColor3 = uipallet.Text
-	nameBox.TextSize = 12
-	nameBox.FontFace = uipallet.Font
-	nameBox.Parent = uploadFrame
-	addCorner(nameBox, UDim.new(0, 4))
-
-	local uploadBtn = Instance.new('TextButton')
-	uploadBtn.Size = UDim2.fromOffset(120, 26)
-	uploadBtn.Position = UDim2.new(1, -130, 0, 9)
-	uploadBtn.BackgroundColor3 = Color3.fromRGB(5, 133, 104)
-	uploadBtn.Text = 'Upload Config'
-	uploadBtn.TextColor3 = Color3.new(1, 1, 1)
-	uploadBtn.TextSize = 12
-	uploadBtn.FontFace = uipallet.FontSemiBold
-	uploadBtn.Parent = uploadFrame
-	addCorner(uploadBtn, UDim.new(0, 4))
-
-	local listTitle = Instance.new('TextLabel')
-	listTitle.Size = UDim2.fromOffset(200, 20)
-	listTitle.Position = UDim2.fromOffset(14, 100)
-	listTitle.BackgroundTransparency = 1
-	listTitle.Text = 'Available Community Configs'
-	listTitle.TextColor3 = color.Dark(uipallet.Text, 0.2)
-	listTitle.TextSize = 12
-	listTitle.FontFace = uipallet.Font
-	listTitle.TextXAlignment = Enum.TextXAlignment.Left
-	listTitle.Parent = window
-
-	local showAllGames = true
-
-	local filterBtn = Instance.new('TextButton')
-	filterBtn.Size = UDim2.fromOffset(105, 20)
-	filterBtn.Position = UDim2.new(1, -200, 0, 100)
-	filterBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.06)
-	filterBtn.Text = '🌐 All Games'
-	filterBtn.TextColor3 = uipallet.Text
-	filterBtn.TextSize = 11
-	filterBtn.FontFace = uipallet.Font
-	filterBtn.Parent = window
-	addCorner(filterBtn, UDim.new(0, 4))
-
-	local refreshBtn = Instance.new('TextButton')
-	refreshBtn.Size = UDim2.fromOffset(75, 20)
-	refreshBtn.Position = UDim2.new(1, -89, 0, 100)
-	refreshBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.06)
-	refreshBtn.Text = '🔄 Refresh'
-	refreshBtn.TextColor3 = uipallet.Text
-	refreshBtn.TextSize = 11
-	refreshBtn.FontFace = uipallet.Font
-	refreshBtn.Parent = window
-	addCorner(refreshBtn, UDim.new(0, 4))
-
-	local scroll = Instance.new('ScrollingFrame')
-	scroll.Size = UDim2.new(1, -24, 1, -135)
-	scroll.Position = UDim2.fromOffset(12, 125)
-	scroll.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	scroll.BorderSizePixel = 0
-	scroll.ScrollBarThickness = 4
-	scroll.CanvasSize = UDim2.new()
-	scroll.Parent = window
-	addCorner(scroll, UDim.new(0, 6))
-
-	local listLayout = Instance.new('UIListLayout')
-	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	listLayout.Padding = UDim.new(0, 6)
-	listLayout.Parent = scroll
-
-	local function populateList()
-		for _, child in ipairs(scroll:GetChildren()) do
-			if child:IsA('Frame') or child:IsA('TextLabel') then child:Destroy() end
-		end
-
-		local filterPlace = showAllGames and nil or mainapi.Place
-		local suc, configs = publicconfigs.FetchAll(filterPlace)
-		if not configs or #configs == 0 then
-			local empty = Instance.new('TextLabel')
-			empty.Size = UDim2.new(1, 0, 0, 40)
-			empty.BackgroundTransparency = 1
-			empty.Text = showAllGames and 'No public configs found globally.' or 'No public configs found for this game.'
-			empty.TextColor3 = color.Dark(uipallet.Text, 0.4)
-			empty.TextSize = 12
-			empty.FontFace = uipallet.Font
-			empty.Parent = scroll
-			return
-		end
-
-		for i, item in ipairs(configs) do
-			local card = Instance.new('Frame')
-			card.Size = UDim2.new(1, -8, 0, 45)
-			card.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-			card.Parent = scroll
-			addCorner(card, UDim.new(0, 4))
-
-			local cfgName = Instance.new('TextLabel')
-			cfgName.Size = UDim2.new(1, -150, 0, 20)
-			cfgName.Position = UDim2.fromOffset(10, 4)
-			cfgName.BackgroundTransparency = 1
-			cfgName.Text = item.name or 'Unnamed Config'
-			cfgName.TextColor3 = uipallet.Text
-			cfgName.TextSize = 13
-			cfgName.FontFace = uipallet.FontSemiBold
-			cfgName.TextXAlignment = Enum.TextXAlignment.Left
-			cfgName.Parent = card
-
-			local cfgInfo = Instance.new('TextLabel')
-			cfgInfo.Size = UDim2.new(1, -150, 0, 16)
-			cfgInfo.Position = UDim2.fromOffset(10, 24)
-			cfgInfo.BackgroundTransparency = 1
-			cfgInfo.Text = 'By: ' .. (item.author or 'Unknown') .. ' | Place: ' .. (item.place or 'Global')
-			cfgInfo.TextColor3 = color.Dark(uipallet.Text, 0.4)
-			cfgInfo.TextSize = 10
-			cfgInfo.FontFace = uipallet.Font
-			cfgInfo.TextXAlignment = Enum.TextXAlignment.Left
-			cfgInfo.Parent = card
-
-			local dlBtn = Instance.new('TextButton')
-			dlBtn.Size = UDim2.fromOffset(120, 28)
-			dlBtn.Position = UDim2.new(1, -130, 0, 8)
-			dlBtn.BackgroundColor3 = Color3.fromRGB(47, 122, 229)
-			dlBtn.Text = 'Download & Load'
-			dlBtn.TextColor3 = Color3.new(1, 1, 1)
-			dlBtn.TextSize = 11
-			dlBtn.FontFace = uipallet.Font
-			dlBtn.Parent = card
-			addCorner(dlBtn, UDim.new(0, 4))
-
-			dlBtn.MouseButton1Click:Connect(function()
-				local dlSuc, res = publicconfigs.Download(item, mainapi)
-				if dlSuc then
-					mainapi:Load(true, item.name)
-					mainapi:CreateNotification('MXTION V4', 'Loaded public config: ' .. item.name, 5, 'info')
-				else
-					mainapi:CreateNotification('MXTION V4', 'Failed to download config: ' .. tostring(res), 5, 'alert')
-				end
-			end)
-		end
-
-		task.delay(0.05, function()
-			scroll.CanvasSize = UDim2.fromOffset(0, listLayout.AbsoluteContentSize.Y + 10)
-		end)
-	end
-
-	uploadBtn.MouseButton1Click:Connect(function()
-		local customName = nameBox.Text:match('^%s*(.-)%s*$')
-		if customName == '' then customName = mainapi.Profile end
-		mainapi:Save()
-		local currentFile = 'mxtionv4/profiles/' .. mainapi.Profile .. mainapi.Place .. '.txt'
-		if isfile(currentFile) then
-			local profileData = readfile(currentFile)
-			local upSuc, upMsg = publicconfigs.Upload(customName, mainapi.Place, profileData, game:GetService('Players').LocalPlayer and game:GetService('Players').LocalPlayer.Name)
-			if upSuc then
-				nameBox.Text = ''
-				mainapi:CreateNotification('MXTION V4', upMsg, 5, 'info')
-				populateList()
-			else
-				mainapi:CreateNotification('MXTION V4', upMsg, 5, 'alert')
-			end
-		else
-			mainapi:CreateNotification('MXTION V4', 'Current profile file not found.', 5, 'alert')
-		end
-	end)
-
-	filterBtn.MouseButton1Click:Connect(function()
-		showAllGames = not showAllGames
-		filterBtn.Text = showAllGames and '🌐 All Games' or '🎮 Current Game'
-		populateList()
-	end)
-
-	refreshBtn.MouseButton1Click:Connect(function()
-		populateList()
-	end)
-
-	local publicConfigsAPI = {}
-	function publicConfigsAPI:Open()
-		window.Visible = true
-		populateList()
-	end
-
-	mainapi.PublicConfigsGUI = publicConfigsAPI
-	return publicConfigsAPI
 end
 
 function mainapi:CreateNotification(title, text, duration, type)
