@@ -6810,7 +6810,7 @@ Profiles:CreateButton({
 			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
 		end
 	end,
-	Tooltip = 'This will set your profile to the default settings of Cat Vape'
+	Tooltip = 'This will set your profile to the default settings of MOTION V4'
 })	
 
 -- Public Profiles Modal Window implementation
