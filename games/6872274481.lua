@@ -2893,64 +2893,6 @@ run(function()
 end)
 
 run(function()
-    local KnockbackChanger
-    local DirectionMode
-    local VelocityMode
-    local VelocityMultiplier
-    local HorizontalStrength
-    local VerticalStrength
-
-    KnockbackChanger = vape.Categories.Combat:CreateModule({
-        Name = 'KnockbackChanger',
-        Function = function(callback)
-            if callback then
-                -- Hooking into client knockback/velocity handling
-                if bedwars and bedwars.KnockbackTable then
-                    -- Standard Bedwars knockback table modification hook
-                end
-            end
-        end,
-        Tooltip = 'Customizes knockback direction and velocity multiplier up to 5x during combat.'
-    })
-
-    DirectionMode = KnockbackChanger:CreateDropdown({
-        Name = 'Direction',
-        List = {'Forward', 'Right', 'Left', 'Reverse', 'Zero'},
-        Default = 'Forward',
-        Function = function() end
-    })
-
-    VelocityMode = KnockbackChanger:CreateToggle({
-        Name = 'Velocity Mode',
-        Default = true,
-        Tooltip = 'Applies velocity scaling exclusively when receiving knockback.'
-    })
-
-    VelocityMultiplier = KnockbackChanger:CreateDropdown({
-        Name = 'Velocity Multiplier',
-        List = {'0x', '1x', '2x', '3x', '4x', '5x'},
-        Default = '1x',
-        Function = function() end
-    })
-
-    HorizontalStrength = KnockbackChanger:CreateSlider({
-        Name = 'Horizontal Power',
-        Min = 0,
-        Max = 200,
-        Default = 100,
-        Function = function() end
-    })
-
-    VerticalStrength = KnockbackChanger:CreateSlider({
-        Name = 'Vertical Power',
-        Min = 0,
-        Max = 200,
-        Default = 100,
-        Function = function() end
-    })
-end)
-
-run(function()
 	local Sprint
 	local old
 	
@@ -3493,6 +3435,101 @@ run(function()
         end,
         Tooltip = 'Adjusts how much speed boost you receive on damage'
     })
+end)
+
+run(function()
+	local AutoUse
+	local Items
+	local Combat
+	local Delay
+	
+	AutoUse = vape.Categories.Inventory:CreateModule({
+		Name = 'AutoItemConsume',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					repeat
+						if entitylib.isAlive and store.matchState == 1 and not isCasting() and (not Combat.Enabled or (workspace:GetServerTimeNow() - (lplr.Character:GetAttribute('LastDamageTakenTime') or 0)) < 6) then
+							for _, v in Items.ListEnabled do
+								local item = getItem(v)
+								local meta = item and bedwars.ItemMeta[v]
+								local consumable = meta and meta.consumable
+								if consumable then
+									local effect = consumable.statusEffect and consumable.statusEffect.statusEffectType or ({v:gsub('_potion', '')})[1]
+									if not lplr.Character:GetAttribute(`StatusEffect_{effect}`) then
+										bedwars.Handler:Get('ConsumeItem'):Fire('CallServerAsync', {item = item.tool})
+										task.wait(consumable.consumeTime or 1)
+										break
+									end
+								end
+							end
+						end
+						task.wait(Delay.Value)
+					until not AutoUse.Enabled
+				end)
+			end
+		end,
+		Tooltip = 're consumes items after they run out'
+	})
+	Items = AutoUse:CreateTextList({
+		Name = 'Items',
+		Default = {'fury_potion', 'crit_star', 'vitality_star', 'pie'},
+		Tooltip = 'Item ids, anything the game lets you consume\nfury_potion, jump_potion, serpents_touch_potion, crit_star, vitality_star, snow_cone, pie, watermelon, can_of_beans, sparkling_apple_juice'
+	})
+	Combat = AutoUse:CreateToggle({
+		Name = 'In combat only',
+		Tooltip = 'Saves them until something has hit you in the last 6 seconds'
+	})
+	Delay = AutoUse:CreateSlider({
+		Name = 'Delay',
+		Min = 0.1,
+		Max = 5,
+		Default = 0.5,
+		Decimal = 10,
+		Suffix = 'seconds'
+	})
+end)
+
+run(function()
+	local ZoomUnlocker
+	local Distance
+	local FirstPerson
+	local oldmax, oldmin
+	
+	ZoomUnlocker = vape.Categories.Render:CreateModule({
+		Name = 'ZoomUnlocker',
+		Function = function(callback)
+			if callback then
+				oldmax, oldmin = lplr.CameraMaxZoomDistance, lplr.CameraMinZoomDistance
+				repeat
+					local min = FirstPerson.Enabled and 0.5 or math.min(oldmin, Distance.Value)
+					if lplr.CameraMinZoomDistance ~= min or lplr.CameraMaxZoomDistance ~= Distance.Value then
+						lplr.CameraMinZoomDistance = min
+						lplr.CameraMaxZoomDistance = Distance.Value
+					end
+					task.wait()
+				until not ZoomUnlocker.Enabled
+			else
+				lplr.CameraMinZoomDistance = oldmin
+				lplr.CameraMaxZoomDistance = oldmax
+			end
+		end,
+		Tooltip = 'Removes the zoom limit the game puts on your camera'
+	})
+	Distance = ZoomUnlocker:CreateSlider({
+		Name = 'Distance',
+		Min = 1,
+		Max = 500,
+		Default = 128,
+		Suffix = function(val)
+			return val > 1 and 'studs' or 'stud'
+		end
+	})
+	FirstPerson = ZoomUnlocker:CreateToggle({
+		Name = 'Allow first person',
+		Default = true,
+		Tooltip = 'Also unlocks zooming all the way in'
+	})
 end)
 
 run(function()
