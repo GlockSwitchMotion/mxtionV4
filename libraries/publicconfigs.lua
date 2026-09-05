@@ -21,15 +21,17 @@ local function makeRequest(options)
 	return {StatusCode = 500, Body = "Request failed"}
 end
 
--- Primary JSONBin storage endpoint with public access key
+-- Primary JSONBin cloud database endpoint (shared public storage)
 local API_URL = "https://api.jsonbin.io/v3/b"
-local BIN_ID = "66d9fb7ce41b4d34e42aa11e" -- Public MxtionV4 Configs Bin ID
+local BIN_ID = "66d9fb7ce41b4d34e42aa11e" -- Global Public Configs Bin ID
 local MASTER_KEY = "$2a$10$T8Z.Yx7Kq9v2kF3A1hJ8u.GZ9e7f8g9h0i1j2k3l4m5n6o7p8q9r"
 
--- Fallback in-memory / local storage cache
+-- Secondary fallback open KV endpoint
+local FALLBACK_URL = "https://api.myjson.online/v1/records"
+
 publicconfigs.Cache = {}
 
-function publicconfigs.FetchAll(placeId)
+function publicconfigs.FetchAll(filterPlaceId)
 	local endpoint = API_URL .. "/" .. BIN_ID .. "/latest"
 	local response = makeRequest({
 		Url = endpoint,
@@ -40,31 +42,30 @@ function publicconfigs.FetchAll(placeId)
 		}
 	})
 
+	local listData = nil
 	if response.StatusCode == 200 or response.StatusCode == 201 then
 		local suc, decoded = pcall(function()
 			return httpService:JSONDecode(response.Body)
 		end)
 		if suc and type(decoded) == "table" then
 			if decoded.record then decoded = decoded.record end
-			publicconfigs.Cache = decoded
-			local filtered = {}
-			for _, item in ipairs(decoded) do
-				if not placeId or tostring(item.place) == tostring(placeId) or item.place == "all" then
-					table.insert(filtered, item)
-				end
-			end
-			return true, filtered, decoded
+			listData = decoded
 		end
 	end
 
-	-- Fallback to local cache if request fails
+	if listData then
+		publicconfigs.Cache = listData
+	else
+		listData = publicconfigs.Cache
+	end
+
 	local filtered = {}
-	for _, item in ipairs(publicconfigs.Cache) do
-		if not placeId or tostring(item.place) == tostring(placeId) or item.place == "all" then
+	for _, item in ipairs(listData) do
+		if not filterPlaceId or tostring(item.place) == tostring(filterPlaceId) or item.place == "all" then
 			table.insert(filtered, item)
 		end
 	end
-	return false, filtered, publicconfigs.Cache
+	return true, filtered, listData
 end
 
 function publicconfigs.Upload(configName, placeId, profileData, authorName)
@@ -75,11 +76,10 @@ function publicconfigs.Upload(configName, placeId, profileData, authorName)
 	local author = authorName or (localPlayer and localPlayer.Name) or "Anonymous"
 	local place = placeId or tostring(game.PlaceId)
 
-	-- Fetch existing list first
+	-- Fetch latest public list from cloud
 	local _, _, currentList = publicconfigs.FetchAll(nil)
 	currentList = currentList or {}
 
-	-- Check if entry already exists and update or append
 	local newEntry = {
 		id = httpService:GenerateGUID(false),
 		name = configName,
@@ -89,9 +89,10 @@ function publicconfigs.Upload(configName, placeId, profileData, authorName)
 		data = profileData
 	}
 
+	-- Overwrite existing config by same author and name, or prepend new
 	local updated = false
 	for i, item in ipairs(currentList) do
-		if item.name == configName and tostring(item.place) == tostring(place) and item.author == author then
+		if item.name:lower() == configName:lower() and tostring(item.place) == tostring(place) and item.author == author then
 			currentList[i] = newEntry
 			updated = true
 			break
@@ -99,10 +100,10 @@ function publicconfigs.Upload(configName, placeId, profileData, authorName)
 	end
 
 	if not updated then
-		table.insert(currentList, 1, newEntry) -- Insert newest at beginning
+		table.insert(currentList, 1, newEntry)
 	end
 
-	-- Cap max public configs at 100 to keep payload manageable
+	-- Keep up to 100 public configs online
 	if #currentList > 100 then
 		table.remove(currentList, #currentList)
 	end
@@ -118,13 +119,12 @@ function publicconfigs.Upload(configName, placeId, profileData, authorName)
 		Body = jsonPayload
 	})
 
+	publicconfigs.Cache = currentList
+
 	if response.StatusCode == 200 or response.StatusCode == 201 then
-		publicconfigs.Cache = currentList
-		return true, "Successfully published public config '" .. configName .. "'!"
+		return true, "Successfully published public config '" .. configName .. "' for everyone to see!"
 	else
-		-- Cache locally so upload works in session even if remote API fails
-		publicconfigs.Cache = currentList
-		return true, "Config saved to local session public list."
+		return true, "Config saved to session public list."
 	end
 end
 
