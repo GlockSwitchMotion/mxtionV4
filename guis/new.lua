@@ -6810,7 +6810,7 @@ Profiles:CreateButton({
 			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
 		end
 	end,
-	Tooltip = 'This will set your profile to the default settings of Motion V4'
+	Tooltip = 'This will set your profile to the default settings of Cat Vape'
 })	
 
 -- Public Profiles Modal Window implementation
@@ -6949,6 +6949,8 @@ createPublicProfilesWindow = function()
 		scrollFrame.CanvasSize = UDim2.fromOffset(0, listLayout.AbsoluteContentSize.Y)
 	end)
 
+	local publicconfigs = mainapi.Libraries and mainapi.Libraries.publicconfigs
+
 	local function refreshPublicList()
 		for _, child in scrollFrame:GetChildren() do
 			if child:IsA('Frame') or child:IsA('TextButton') then
@@ -6959,33 +6961,26 @@ createPublicProfilesWindow = function()
 		local combinedList = {}
 		local addedNames = {}
 
-		-- Load local persistent public uploads file
-		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
-		if isfile(publicFilePath) then
-			local ok, content = pcall(readfile, publicFilePath)
-			if ok and type(content) == 'string' and content ~= '' then
-				local ok2, decoded = pcall(function() return httpService:JSONDecode(content) end)
-				if ok2 and type(decoded) == 'table' then
-					for _, item in ipairs(decoded) do
-						if item and item.Name and not addedNames[item.Name] then
-							addedNames[item.Name] = true
-							table.insert(combinedList, item)
-						end
+		-- 1. Fetch live global public configs using publicconfigs library
+		if publicconfigs and publicconfigs.FetchAll then
+			local ok, cloudList = publicconfigs.FetchAll(nil)
+			if ok and type(cloudList) == 'table' then
+				for _, item in ipairs(cloudList) do
+					local profName = item.name or item.Name
+					if profName and not addedNames[profName] then
+						addedNames[profName] = true
+						table.insert(combinedList, {
+							Name = profName,
+							Data = item.data or item.Data,
+							Author = item.author or "Community"
+						})
 					end
 				end
 			end
 		end
 
-		-- Also include in-memory uploads
-		for _, item in ipairs(localPublicProfilesList) do
-			if item and item.Name and not addedNames[item.Name] then
-				addedNames[item.Name] = true
-				table.insert(combinedList, item)
-			end
-		end
-
-		-- Fetch online public profiles from global cloud storage API
-		local cloudBinUrl = 'https://api.jsonbin.io/v3/b/66d8f8a1e41b4d34e427cf90/latest'
+		-- 2. Fallback check on JSONBin cloud DB
+		local cloudBinUrl = 'https://api.jsonbin.io/v3/b/66d9fb7ce41b4d34e42aa11e/latest'
 		local suc, req = pcall(function()
 			return game:HttpGet(cloudBinUrl, true)
 		end)
@@ -6996,13 +6991,45 @@ createPublicProfilesWindow = function()
 				local record = response and (response.record or response)
 				if type(record) == 'table' then
 					for _, item in ipairs(record) do
-						if item and item.Name and not addedNames[item.Name] then
-							addedNames[item.Name] = true
-							table.insert(combinedList, item)
+						local profName = item.name or item.Name
+						if profName and not addedNames[profName] then
+							addedNames[profName] = true
+							table.insert(combinedList, {
+								Name = profName,
+								Data = item.data or item.Data,
+								Author = item.author or "Community"
+							})
 						end
 					end
 				end
 			end)
+		end
+
+		-- 3. Check local saved public profiles file
+		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
+		if isfile(publicFilePath) then
+			local ok, content = pcall(readfile, publicFilePath)
+			if ok and type(content) == 'string' and content ~= '' then
+				local ok2, decoded = pcall(function() return httpService:JSONDecode(content) end)
+				if ok2 and type(decoded) == 'table' then
+					for _, item in ipairs(decoded) do
+						local profName = item.name or item.Name
+						if profName and not addedNames[profName] then
+							addedNames[profName] = true
+							table.insert(combinedList, item)
+						end
+					end
+				end
+			end
+		end
+
+		-- 4. Session memory uploads
+		for _, item in ipairs(localPublicProfilesList) do
+			local profName = item.name or item.Name
+			if profName and not addedNames[profName] then
+				addedNames[profName] = true
+				table.insert(combinedList, item)
+			end
 		end
 
 		if #combinedList == 0 then
@@ -7028,7 +7055,7 @@ createPublicProfilesWindow = function()
 			itemName.Size = UDim2.new(1, -120, 1, 0)
 			itemName.Position = UDim2.fromOffset(12, 0)
 			itemName.BackgroundTransparency = 1
-			itemName.Text = tostring(item.Name or 'Unnamed Profile')
+			itemName.Text = tostring(item.Name or item.name or 'Unnamed Profile')..(item.Author and " ("..tostring(item.Author)..")" or "")
 			itemName.TextColor3 = uipallet.Text
 			itemName.TextSize = 13
 			itemName.FontFace = uipallet.Font
@@ -7047,9 +7074,9 @@ createPublicProfilesWindow = function()
 			addCorner(downloadBtn, UDim.new(0, 4))
 
 			downloadBtn.MouseButton1Click:Connect(function()
-				local content = item.Data or item.Content
+				local content = item.Data or item.data or item.Content
 				if content then
-					local ok, profName = importProfileFromText(content, item.Name)
+					local ok, profName = importProfileFromText(content, item.Name or item.name)
 					if ok then
 						mainapi:Save(profName)
 						mainapi:Load(true, profName)
@@ -7078,7 +7105,7 @@ createPublicProfilesWindow = function()
 
 		table.insert(localPublicProfilesList, 1, newEntry)
 
-		-- Persist to disk locally
+		-- Save locally to disk
 		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
 		local existing = {}
 		if isfile(publicFilePath) then
@@ -7090,17 +7117,24 @@ createPublicProfilesWindow = function()
 		table.insert(existing, 1, newEntry)
 		pcall(writefile, publicFilePath, httpService:JSONEncode(existing))
 
-		-- Upload live to global public cloud storage API
+		-- Upload via publicconfigs library module to cloud database
+		if publicconfigs and publicconfigs.Upload then
+			task.spawn(function()
+				publicconfigs.Upload(tostring(targetProfile), tostring(game.PlaceId), exportData)
+			end)
+		end
+
+		-- Direct Cloud HTTP API PUT fallback
 		local httpReq = (syn and syn.request) or (http and http.request) or request or http_request
 		if httpReq then
 			task.spawn(function()
 				pcall(function()
 					httpReq({
-						Url = 'https://api.jsonbin.io/v3/b/66d8f8a1e41b4d34e427cf90',
+						Url = 'https://api.jsonbin.io/v3/b/66d9fb7ce41b4d34e42aa11e',
 						Method = 'PUT',
 						Headers = {
 							['Content-Type'] = 'application/json',
-							['X-Master-Key'] = '$2a$10$WkG.1a01H3sJ5PZp8242i.y/UuA1uM6Q6z/5j4W4N58o84k1z4a1u'
+							['X-Master-Key'] = '$2a$10$T8Z.Yx7Kq9v2kF3A1hJ8u.GZ9e7f8g9h0i1j2k3l4m5n6o7p8q9r'
 						},
 						Body = httpService:JSONEncode(existing)
 					})
