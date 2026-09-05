@@ -6836,19 +6836,19 @@ createPublicProfilesWindow = function()
 
 	mainapi.PublicProfiles = mainapi.PublicProfiles or { Accents = {} }
 
-	-- Header Logo (same as main GUI)
+	-- Header Logo (same as main GUI, 1.6x scaled)
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'Logo'
-	logo.Size = UDim2.fromOffset(62, 16)
-	logo.Position = UDim2.fromOffset(16, 14)
+	logo.Size = UDim2.fromOffset(99, 26)
+	logo.Position = UDim2.fromOffset(16, 9)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
 	logo.Parent = window
 
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(26, 14)
-	logov4.Position = UDim2.new(1, 1, 0, 1)
+	logov4.Size = UDim2.fromOffset(42, 22)
+	logov4.Position = UDim2.new(1, 2, 0, 2)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
@@ -6856,8 +6856,8 @@ createPublicProfilesWindow = function()
 
 	local titleLabel = Instance.new('TextLabel')
 	titleLabel.Name = 'Title'
-	titleLabel.Size = UDim2.new(1, -120, 0, 20)
-	titleLabel.Position = UDim2.fromOffset(112, 12)
+	titleLabel.Size = UDim2.new(1, -170, 0, 20)
+	titleLabel.Position = UDim2.fromOffset(160, 12)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = 'Public Profiles / Configs'
 	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
@@ -6879,7 +6879,7 @@ createPublicProfilesWindow = function()
 	topDivider.BorderSizePixel = 0
 	topDivider.Parent = window
 
-	-- Upload Section
+	-- Upload Section with Profile Selection
 	local uploadFrame = Instance.new('Frame')
 	uploadFrame.Size = UDim2.new(1, -24, 0, 36)
 	uploadFrame.Position = UDim2.fromOffset(12, 50)
@@ -6887,30 +6887,46 @@ createPublicProfilesWindow = function()
 	uploadFrame.Parent = window
 	addCorner(uploadFrame, UDim.new(0, 6))
 
-	local uploadInput = Instance.new('TextBox')
-	uploadInput.Size = UDim2.new(1, -130, 1, 0)
-	uploadInput.Position = UDim2.fromOffset(10, 0)
-	uploadInput.BackgroundTransparency = 1
-	uploadInput.PlaceholderText = 'Public profile name...'
-	uploadInput.Text = ''
-	uploadInput.TextColor3 = uipallet.Text
-	uploadInput.TextSize = 13
-	uploadInput.FontFace = uipallet.Font
-	uploadInput.TextXAlignment = Enum.TextXAlignment.Left
-	uploadInput.ClearTextOnFocus = false
-	uploadInput.Parent = uploadFrame
+	local selectedUploadProfile = mainapi.Profile
+
+	local selectProfBtn = Instance.new('TextButton')
+	selectProfBtn.Size = UDim2.new(1, -125, 1, 0)
+	selectProfBtn.Position = UDim2.fromOffset(10, 0)
+	selectProfBtn.BackgroundTransparency = 1
+	selectProfBtn.Text = 'Profile to Upload: '..selectedUploadProfile
+	selectProfBtn.TextColor3 = uipallet.Text
+	selectProfBtn.TextSize = 13
+	selectProfBtn.FontFace = uipallet.Font
+	selectProfBtn.TextXAlignment = Enum.TextXAlignment.Left
+	selectProfBtn.Parent = uploadFrame
 
 	local uploadBtn = Instance.new('TextButton')
-	uploadBtn.Size = UDim2.fromOffset(110, 26)
-	uploadBtn.Position = UDim2.new(1, -115, 0, 5)
+	uploadBtn.Size = UDim2.fromOffset(105, 26)
+	uploadBtn.Position = UDim2.new(1, -110, 0, 5)
 	uploadBtn.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	uploadBtn.Text = 'Upload Current'
+	uploadBtn.Text = 'Upload Profile'
 	uploadBtn.TextColor3 = mainapi:TextColor(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
 	uploadBtn.TextSize = 12
 	uploadBtn.FontFace = uipallet.FontSemiBold
 	uploadBtn.Parent = uploadFrame
 	addCorner(uploadBtn, UDim.new(0, 4))
 	table.insert(mainapi.PublicProfiles.Accents, uploadBtn)
+
+	-- Profile picker toggle on click
+	local profIndex = 1
+	selectProfBtn.MouseButton1Click:Connect(function()
+		local availableProfiles = {}
+		if mainapi.Profiles and #mainapi.Profiles > 0 then
+			for _, p in ipairs(mainapi.Profiles) do
+				if p and p.Name then table.insert(availableProfiles, p.Name) end
+			end
+		end
+		if #availableProfiles == 0 then availableProfiles = {'default'} end
+		profIndex = (profIndex % #availableProfiles) + 1
+		selectedUploadProfile = availableProfiles[profIndex] or 'default'
+		selectProfBtn.Text = 'Profile to Upload: '..selectedUploadProfile
+	end)
+
 
 	-- List Frame
 	local scrollFrame = Instance.new('ScrollingFrame')
@@ -7009,16 +7025,14 @@ createPublicProfilesWindow = function()
 	end
 
 	uploadBtn.MouseButton1Click:Connect(function()
-		local customName = uploadInput.Text and uploadInput.Text:match('^%s*(.-)%s*$') or ''
-		local exportData = exportProfileJson(mainapi.Profile)
+		local targetProfile = selectedUploadProfile or mainapi.Profile
+		local exportData = exportProfileJson(targetProfile)
 		if not exportData then
-			mainapi:CreateNotification('MXTION V4', 'No profile data found to upload.', 5, 'alert')
+			mainapi:CreateNotification('MXTION V4', 'No profile data found for "'..tostring(targetProfile)..'".', 5, 'alert')
 			return
 		end
 
-		local pubName = customName ~= '' and customName or (mainapi.Profile..' Profile')
-		mainapi:CreateNotification('MXTION V4', 'Uploaded profile "'..pubName..'" to Public Configs!', 5, 'info')
-		uploadInput.Text = ''
+		mainapi:CreateNotification('MXTION V4', 'Uploaded profile "'..tostring(targetProfile)..'" to Public Configs!', 5, 'info')
 		refreshPublicList()
 	end)
 
