@@ -24076,65 +24076,170 @@ run(function()
 end)
 
 run(function()
-    local BedAlarm
-    local Range
-    local bedPosition = Vector3.new(249, 27, 69)
-    local notified = false
-
-    BedAlarm = vape.Categories.Utility:CreateModule({
-        Name = 'BedAlarm',
-        Function = function(callback)
-            if callback then
-                notified = false
-                task.spawn(function()
-                    while BedAlarm.Enabled do
-                        task.wait(0.2)
-                        if not entitylib.isAlive then continue end
-
-                        local localTeam = lplr:GetAttribute('Team') or "2"
-                        local enemyNearby = false
-                        local enemyName = "Enemy"
-
-                        for _, entity in pairs(entitylib.entityList) do
-                            if entity and entity:IsA('Model') and entity ~= entitylib.character then
-                                local root = entity:FindFirstChild('HumanoidRootPart') or entity:FindFirstChild('Head')
-                                local hum = entity:FindFirstChildOfClass('Humanoid')
-
-                                if root and hum and hum.Health > 0 then
-                                    local team = entity:GetAttribute('Team')
-                                    if not team or team ~= localTeam then
-                                        if (root.Position - bedPosition).Magnitude <= (Range.Value or 200) then
-                                            enemyNearby = true
-                                            enemyName = entity.Name or "Enemy"
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                        end
-
-                        if enemyNearby then
-                            if not notified then
-                                notif('BedAlarm', `Enemy ({enemyName}) is near your bed!`, 5, 'warning')
-                                notified = true
-                            end
-                        else
-                            notified = false
-                        end
-                    end
-                end)
-            end
-        end,
-        Tooltip = 'Notifies you when an enemy is near your bed'
-    })
-
-    Range = BedAlarm:CreateSlider({
-        Name = 'Detection Range',
-        Min = 10,
-        Max = 200,
-        Default = 200,
-        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
-    })
+	local BedAlert
+	local DetectionRange
+	local VolumeSlider
+	local detectedPlayers = {}
+	local lastAlarmTime = 0
+	local alarmCooldown = 2
+	
+	local function getPlayerTeamId()
+		local playerTeam = lplr:GetAttribute('Team')
+		if playerTeam then
+			return tonumber(playerTeam) or playerTeam
+		end
+		-- Fallback to Roblox Team
+		if lplr.Team then
+			return lplr.Team.Name
+		end
+		return nil
+	end
+	
+	local function isTeammate(player)
+		if not player or not player.Character then return false end
+		local playerTeam = player:GetAttribute('Team')
+		local myTeam = getPlayerTeamId()
+		if playerTeam and myTeam then
+			return playerTeam == myTeam
+		end
+		-- Fallback to Roblox Team comparison
+		if player.Team and lplr.Team then
+			return player.Team == lplr.Team
+		end
+		return false
+	end
+	
+	local function getBedPosition()
+		local playerTeam = getPlayerTeamId()
+		if not playerTeam then return nil end
+		
+		local workspace = game:GetService('Workspace')
+		local teamFolders = workspace:FindFirstChild('Teams')
+		
+		if teamFolders then
+			local teamFolder = teamFolders:FindFirstChild(tostring(playerTeam))
+			if teamFolder then
+				local bed = teamFolder:FindFirstChild('Bed')
+				if bed and bed:FindFirstChild('Head') then
+					return bed.Head.Position
+				end
+			end
+		end
+		
+		if lplr.Character and lplr.Character:FindFirstChild('HumanoidRootPart') then
+			return lplr.Character.HumanoidRootPart.Position
+		end
+		
+		return nil
+	end
+	
+	local function getPlayerDistance(player)
+		if not player or not player.Character or not player.Character:FindFirstChild('HumanoidRootPart') then
+			return math.huge
+		end
+		
+		local bedPos = getBedPosition()
+		if not bedPos then return math.huge end
+		
+		return (player.Character.HumanoidRootPart.Position - bedPos).Magnitude
+	end
+	
+	local function triggerBedAlarm(bedPosition, teamId, soundMultiplier)
+		local event = replicatedStorage:FindFirstChild('rbxts_include')
+		if event then event = event:FindFirstChild('node_modules') end
+		if event then event = event:FindFirstChild('@rbxts') end
+		if event then event = event:FindFirstChild('net') end
+		if event then event = event:FindFirstChild('out') end
+		if event then event = event:FindFirstChild('_NetManaged') end
+		if event then event = event:FindFirstChild('BedAlarmTriggered') end
+		
+		if not event then
+			return
+		end
+		
+		pcall(function()
+			firesignal(event.OnClientEvent, {
+				bedPosition = bedPosition,
+				teamId = tostring(teamId),
+				soundMultiplier = soundMultiplier
+			})
+		end)
+	end
+	
+	local function checkBedProximity()
+		local playerTeam = getPlayerTeamId()
+		local range = DetectionRange.Value
+		local soundMultiplier = VolumeSlider.Value
+		local currentTime = tick()
+		local bedPos = getBedPosition()
+		
+		if not bedPos or not playerTeam then return end
+		
+		local enemyDetected = false
+		
+		for _, player in pairs(game:GetService('Players'):GetPlayers()) do
+			if player ~= lplr and not isTeammate(player) then
+				local distance = getPlayerDistance(player)
+				
+				if distance <= range then
+					enemyDetected = true
+					
+					if not detectedPlayers[player.UserId] then
+						local playerName = player.DisplayName or player.Name
+						notif('BedAlert', 'ENEMY NEAR BED: ' .. playerName, 10, 'warning')
+						detectedPlayers[player.UserId] = true
+					end
+				else
+					if detectedPlayers[player.UserId] then
+						detectedPlayers[player.UserId] = nil
+					end
+				end
+			end
+		end
+		
+		if enemyDetected and (currentTime - lastAlarmTime) >= alarmCooldown then
+			lastAlarmTime = currentTime
+			triggerBedAlarm(bedPos, playerTeam, soundMultiplier)
+		end
+	end
+	
+	BedAlert = vape.Categories.World:CreateModule({
+		Name = 'BedAlert',
+		Function = function(callback)
+			if callback then
+				detectedPlayers = {}
+				
+				repeat
+					if vape.ThreadFix then
+						setthreadidentity(8)
+					end
+					checkBedProximity()
+					task.wait(0.25)
+				until not BedAlert.Enabled
+			else
+				detectedPlayers = {}
+			end
+		end,
+		Tooltip = 'Alerts you when enemy players get close to your bed and triggers the bed alarm'
+	})
+	
+	DetectionRange = BedAlert:CreateSlider({
+		Name = 'Detection Range',
+		Min = 0,
+		Max = 300,
+		Default = 120,
+		Unit = ' studs'
+	})
+	
+	VolumeSlider = BedAlert:CreateSlider({
+		Name = 'Sound Multiplier',
+		Min = 0,
+		Max = 2,
+		Default = 1,
+		Increment = 0.1,
+		Suffix = function(val) return string.format('%.1fx', val) end,
+		Tooltip = 'Bed alarm sound volume multiplier'
+	})
 end)
 
 run(function()
