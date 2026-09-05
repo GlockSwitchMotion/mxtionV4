@@ -103,7 +103,8 @@ local getcustomassets = {
 	['mxtionv4/assets/new/notification.png'] = 'rbxassetid://16738721069',
 	['mxtionv4/assets/new/overlaysicon.png'] = 'rbxassetid://14368339581',
 	['mxtionv4/assets/new/overlaystab.png'] = 'rbxassetid://14397380433',
-	['mxtionv4/assets/new/overlay.png'] = 'rbxassetid://108578009244111',
+	['mxtionv4/assets/new/overlay.png'] = 'rbxassetid://132601338683901',
+	['mxtionv4/assets/new/GuiOverlay.png'] = 'rbxassetid://132601338683901',
 	['mxtionv4/assets/new/pin.png'] = 'rbxassetid://14368342301',
 	['mxtionv4/assets/new/profilesicon.png'] = 'rbxassetid://14397465323',
 	['mxtionv4/assets/new/radaricon.png'] = 'rbxassetid://14368343291',
@@ -206,23 +207,23 @@ local function addCategoryOverlay(parent)
 	overlay.Size = UDim2.new(1, 0, 1, 0)
 	overlay.Position = UDim2.new(0, 0, 0, 0)
 	overlay.BackgroundTransparency = 1
-	overlay.Image = 'rbxassetid://108578009244111'
+	overlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
 	overlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	overlay.ZIndex = parent.ZIndex + 1
+	overlay.ScaleType = Enum.ScaleType.Crop
+	overlay.ZIndex = 1
+	overlay.Active = false
 	overlay.Parent = parent
 	
 	return overlay
 end
 
 -- NEW: Function to apply liquid glass effect to text labels
-local function applyLiquidGlass(textLabel)
-	textLabel.BackgroundColor3 = Color3.fromRGB(150, 150, 180)
-	textLabel.BackgroundTransparency = mainapi.GlassTransparency.Value
-	textLabel.BorderSizePixel = 0
+local function applyLiquidGlass(headerBar)
+	headerBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	headerBar.BackgroundTransparency = mainapi.GlassTransparency.Value
+	headerBar.BorderSizePixel = 0
 	
-	addCorner(textLabel, UDim.new(0, 4))
-	
-	return textLabel
+	return headerBar
 end
 
 -- NEW: Function to update all overlays and glass effects
@@ -233,14 +234,10 @@ function mainapi:UpdateOverlayEffects()
 			if overlay then
 				overlay.ImageTransparency = self.OverlayTransparency.Value
 			end
-		end
-	end
-	
-	-- Update all category name labels with glass effect
-	for _, category in self.Categories do
-		if category.Object and category.Object:FindFirstChild('CategoryName') then
-			local nameLabel = category.Object:FindFirstChild('CategoryName')
-			nameLabel.BackgroundTransparency = self.GlassTransparency.Value
+			local glassHeader = category.Object:FindFirstChild('GlassHeader')
+			if glassHeader then
+				glassHeader.BackgroundTransparency = self.GlassTransparency.Value
+			end
 		end
 	end
 end
@@ -3763,18 +3760,29 @@ function mainapi:CreateCategory(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-	local camoOverlay = Instance.new('ImageLabel')
-	camoOverlay.Name = 'CamoOverlay'
-	camoOverlay.Size = UDim2.fromScale(1, 1)
-	camoOverlay.BackgroundTransparency = 1
-	camoOverlay.BorderSizePixel = 0
-	camoOverlay.Image = 'rbxassetid://81366222918936'
-	-- Keep the pattern clearly visible on the dark category backgrounds.
-	camoOverlay.ImageTransparency = 0.38
-	camoOverlay.ScaleType = Enum.ScaleType.Crop
-	camoOverlay.ZIndex = 1
-	camoOverlay.Active = false
-	camoOverlay.Parent = window
+
+	local categoryOverlay = Instance.new('ImageLabel')
+	categoryOverlay.Name = 'CategoryOverlay'
+	categoryOverlay.Size = UDim2.fromScale(1, 1)
+	categoryOverlay.BackgroundTransparency = 1
+	categoryOverlay.BorderSizePixel = 0
+	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
+	categoryOverlay.ImageTransparency = mainapi.OverlayTransparency.Value
+	categoryOverlay.ScaleType = Enum.ScaleType.Crop
+	categoryOverlay.ZIndex = 1
+	categoryOverlay.Active = false
+	categoryOverlay.Parent = window
+
+	local glassHeader = Instance.new('Frame')
+	glassHeader.Name = 'GlassHeader'
+	glassHeader.Size = UDim2.new(1, 0, 0, 37)
+	glassHeader.Position = UDim2.fromOffset(0, 0)
+	glassHeader.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
+	glassHeader.BorderSizePixel = 0
+	glassHeader.ZIndex = 2
+	glassHeader.Parent = window
+	addCorner(glassHeader, UDim.new(0, 5))
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -7251,7 +7259,7 @@ createPresetProfilesWindow = function()
 	titleLabel.Size = UDim2.new(1, -210, 0, 24)
 	titleLabel.Position = UDim2.fromOffset(200, 12)
 	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = 'Preset Profiles / Configs'
+	titleLabel.Text = 'PRESET CONFIGS'
 	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
 	titleLabel.TextSize = 15
 	titleLabel.FontFace = uipallet.FontSemiBold
@@ -7271,7 +7279,7 @@ createPresetProfilesWindow = function()
 	topDivider.BorderSizePixel = 0
 	topDivider.Parent = window
 
-	-- Scrollable Presets List Container
+	-- Scrollable Presets List Container (Matching Public Profiles list)
 	local scrollFrame = Instance.new('ScrollingFrame')
 	scrollFrame.Size = UDim2.new(1, -24, 1, -60)
 	scrollFrame.Position = UDim2.fromOffset(12, 54)
@@ -7283,7 +7291,7 @@ createPresetProfilesWindow = function()
 
 	local scrollList = Instance.new('UIListLayout')
 	scrollList.SortOrder = Enum.SortOrder.LayoutOrder
-	scrollList.Padding = UDim.new(0, 8)
+	scrollList.Padding = UDim.new(0, 6)
 	scrollList.Parent = scrollFrame
 
 	scrollList:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
@@ -7292,61 +7300,57 @@ createPresetProfilesWindow = function()
 
 	for _, preset in ipairs(presetConfigsList) do
 		local itemFrame = Instance.new('Frame')
-		itemFrame.Size = UDim2.new(1, 0, 0, 44)
+		itemFrame.Size = UDim2.new(1, 0, 0, 36)
 		itemFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 		itemFrame.Parent = scrollFrame
 		addCorner(itemFrame, UDim.new(0, 6))
 
 		local itemName = Instance.new('TextLabel')
-		itemName.Size = UDim2.new(1, -140, 0, 20)
-		itemName.Position = UDim2.fromOffset(12, 4)
+		itemName.Size = UDim2.new(1, -120, 1, 0)
+		itemName.Position = UDim2.fromOffset(12, 0)
 		itemName.BackgroundTransparency = 1
 		itemName.Text = preset.Name
 		itemName.TextColor3 = uipallet.Text
-		itemName.TextSize = 14
-		itemName.FontFace = uipallet.FontBold or uipallet.FontSemiBold
+		itemName.TextSize = 13
+		itemName.FontFace = uipallet.Font
 		itemName.TextXAlignment = Enum.TextXAlignment.Left
 		itemName.Parent = itemFrame
 
-		local itemDesc = Instance.new('TextLabel')
-		itemDesc.Size = UDim2.new(1, -140, 0, 16)
-		itemDesc.Position = UDim2.fromOffset(12, 24)
-		itemDesc.BackgroundTransparency = 1
-		itemDesc.Text = preset.Description
-		itemDesc.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		itemDesc.TextSize = 11
-		itemDesc.FontFace = uipallet.Font
-		itemDesc.TextXAlignment = Enum.TextXAlignment.Left
-		itemDesc.Parent = itemFrame
+		local downloadBtn = Instance.new('TextButton')
+		downloadBtn.Size = UDim2.fromOffset(100, 26)
+		downloadBtn.Position = UDim2.new(1, -106, 0, 5)
+		downloadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
+		downloadBtn.Text = 'DOWNLOAD'
+		downloadBtn.TextColor3 = uipallet.Text
+		downloadBtn.TextSize = 12
+		downloadBtn.FontFace = uipallet.Font
+		downloadBtn.Parent = itemFrame
+		addCorner(downloadBtn, UDim.new(0, 4))
 
-		local loadBtn = Instance.new('TextButton')
-		loadBtn.Size = UDim2.fromOffset(110, 28)
-		loadBtn.Position = UDim2.new(1, -118, 0, 8)
-		loadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.08)
-		loadBtn.Text = 'Load Preset'
-		loadBtn.TextColor3 = uipallet.Text
-		loadBtn.TextSize = 12
-		loadBtn.FontFace = uipallet.FontSemiBold
-		loadBtn.Parent = itemFrame
-		addCorner(loadBtn, UDim.new(0, 4))
-
-		loadBtn.MouseEnter:Connect(function()
-			tween:Tween(loadBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.16)
+		downloadBtn.MouseEnter:Connect(function()
+			tween:Tween(downloadBtn, uipallet.Tween, {
+				BackgroundColor3 = color.Light(uipallet.Main, 0.18)
 			})
 		end)
-		loadBtn.MouseLeave:Connect(function()
-			tween:Tween(loadBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.08)
+		downloadBtn.MouseLeave:Connect(function()
+			tween:Tween(downloadBtn, uipallet.Tween, {
+				BackgroundColor3 = color.Light(uipallet.Main, 0.1)
 			})
 		end)
 
-		loadBtn.MouseButton1Click:Connect(function()
+		downloadBtn.MouseButton1Click:Connect(function()
 			local ok, profName = importProfileFromText(preset.Data, preset.Name)
 			if ok then
 				mainapi:Save(profName)
 				mainapi:Load(true, profName)
-				mainapi:CreateNotification('MXTION V4', 'Successfully imported & loaded preset: '..profName, 5, 'info')
+				mainapi:CreateNotification('MXTION V4', 'Successfully loaded preset profile: '..profName, 5, 'info')
+				window.Visible = false
+			else
+				mainapi:CreateNotification('MXTION V4', profName or 'Failed to load preset.', 5, 'alert')
+			end
+		end)
+	end
+end				mainapi:CreateNotification('MXTION V4', 'Successfully imported & loaded preset: '..profName, 5, 'info')
 				window.Visible = false
 			else
 				mainapi:CreateNotification('MXTION V4', profName or 'Failed to load preset.', 5, 'alert')
@@ -7564,6 +7568,30 @@ mainapi.RainbowUpdateSpeed = guipane:CreateSlider({
 	Default = 60,
 	Tooltip = 'Adjusts the update rate of rainbow values',
 	Suffix = 'hz'
+})
+guipane:CreateSlider({
+	Name = 'Overlay transparency',
+	Min = 0,
+	Max = 1,
+	Decimal = 100,
+	Default = 0.3,
+	Function = function(val)
+		mainapi.OverlayTransparency.Value = val
+		mainapi:UpdateOverlayEffects()
+	end,
+	Tooltip = 'Adjusts the transparency of the GUI background overlay'
+})
+guipane:CreateSlider({
+	Name = 'Glass transparency',
+	Min = 0,
+	Max = 1,
+	Decimal = 100,
+	Default = 0.4,
+	Function = function(val)
+		mainapi.GlassTransparency.Value = val
+		mainapi:UpdateOverlayEffects()
+	end,
+	Tooltip = 'Adjusts the liquid glass header transparency'
 })
 guipane:CreateButton({
 	Name = 'Reset GUI positions',
