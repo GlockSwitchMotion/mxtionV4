@@ -2598,6 +2598,29 @@ function mainapi:CreateGUI()
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
+
+	local categoryOverlay = Instance.new('ImageLabel')
+	categoryOverlay.Name = 'CategoryOverlay'
+	categoryOverlay.Size = UDim2.fromScale(1, 1)
+	categoryOverlay.BackgroundTransparency = 1
+	categoryOverlay.BorderSizePixel = 0
+	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
+	categoryOverlay.ImageTransparency = mainapi.OverlayTransparency.Value
+	categoryOverlay.ScaleType = Enum.ScaleType.Crop
+	categoryOverlay.ZIndex = 1
+	categoryOverlay.Active = false
+	categoryOverlay.Parent = window
+
+	local glassHeader = Instance.new('Frame')
+	glassHeader.Name = 'GlassHeader'
+	glassHeader.Size = UDim2.new(1, 0, 0, 37)
+	glassHeader.Position = UDim2.fromOffset(0, 0)
+	glassHeader.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
+	glassHeader.BorderSizePixel = 0
+	glassHeader.ZIndex = 2
+	glassHeader.Parent = window
+	addCorner(glassHeader, UDim.new(0, 5))
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
 	logo.Size = UDim2.fromOffset(155, 40)
@@ -4578,6 +4601,29 @@ function mainapi:CreateCategoryList(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
+
+	local categoryOverlay = Instance.new('ImageLabel')
+	categoryOverlay.Name = 'CategoryOverlay'
+	categoryOverlay.Size = UDim2.fromScale(1, 1)
+	categoryOverlay.BackgroundTransparency = 1
+	categoryOverlay.BorderSizePixel = 0
+	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
+	categoryOverlay.ImageTransparency = mainapi.OverlayTransparency.Value
+	categoryOverlay.ScaleType = Enum.ScaleType.Crop
+	categoryOverlay.ZIndex = 1
+	categoryOverlay.Active = false
+	categoryOverlay.Parent = window
+
+	local glassHeader = Instance.new('Frame')
+	glassHeader.Name = 'GlassHeader'
+	glassHeader.Size = UDim2.new(1, 0, 0, 45)
+	glassHeader.Position = UDim2.fromOffset(0, 0)
+	glassHeader.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
+	glassHeader.BorderSizePixel = 0
+	glassHeader.ZIndex = 2
+	glassHeader.Parent = window
+	addCorner(glassHeader, UDim.new(0, 5))
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
