@@ -6061,6 +6061,141 @@ function mainapi:CreateChangelogs()
 	return changelogapi
 end
 
+local publicconfigsHelper = {}
+do
+	local API_URL = "https://api.jsonbin.io/v3/b"
+	local BIN_ID = "66d9fb7ce41b4d34e42aa11e"
+	local MASTER_KEY = "$2a$10$T8Z.Yx7Kq9v2kF3A1hJ8u.GZ9e7f8g9h0i1j2k3l4m5n6o7p8q9r"
+	local reqFunc = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
+
+	local function makeReq(options)
+		if reqFunc then
+			local suc, res = pcall(reqFunc, options)
+			if suc and res then return res end
+		end
+		if options.Method == "GET" and game.HttpGet then
+			local suc, res = pcall(function() return game:HttpGet(options.Url, true) end)
+			if suc then return {StatusCode = 200, Body = res} end
+		end
+		return {StatusCode = 500, Body = "Request failed"}
+	end
+
+	publicconfigsHelper.Cache = {}
+
+	function publicconfigsHelper.FetchAll(filterPlaceId)
+		local endpoint = API_URL .. "/" .. BIN_ID .. "/latest"
+		local response = makeReq({
+			Url = endpoint,
+			Method = "GET",
+			Headers = {
+				["X-Master-Key"] = MASTER_KEY,
+				["X-Bin-Meta"] = "false"
+			}
+		})
+
+		local listData = nil
+		if response.StatusCode == 200 or response.StatusCode == 201 then
+			local suc, decoded = pcall(function()
+				return httpService:JSONDecode(response.Body)
+			end)
+			if suc and type(decoded) == "table" then
+				if decoded.record then decoded = decoded.record end
+				listData = decoded
+			end
+		end
+
+		if listData then
+			publicconfigsHelper.Cache = listData
+		else
+			listData = publicconfigsHelper.Cache
+		end
+
+		local filtered = {}
+		for _, item in ipairs(listData) do
+			if not filterPlaceId or tostring(item.place) == tostring(filterPlaceId) or item.place == "all" then
+				table.insert(filtered, item)
+			end
+		end
+		return true, filtered, listData
+	end
+
+	function publicconfigsHelper.Upload(configName, placeId, profileData, authorName)
+		if not configName or configName == "" then return false, "Config name cannot be empty!" end
+		local author = authorName or (game:GetService('Players').LocalPlayer and game:GetService('Players').LocalPlayer.Name) or "Anonymous"
+		local place = placeId or tostring(game.PlaceId)
+
+		local _, _, currentList = publicconfigsHelper.FetchAll(nil)
+		currentList = currentList or {}
+
+		local newEntry = {
+			id = httpService:GenerateGUID(false),
+			name = configName,
+			author = author,
+			place = place,
+			timestamp = os.time(),
+			data = profileData
+		}
+
+		local updated = false
+		for i, item in ipairs(currentList) do
+			if item.name:lower() == configName:lower() and tostring(item.place) == tostring(place) and item.author == author then
+				currentList[i] = newEntry
+				updated = true
+				break
+			end
+		end
+
+		if not updated then
+			table.insert(currentList, 1, newEntry)
+		end
+
+		if #currentList > 100 then
+			table.remove(currentList, #currentList)
+		end
+
+		local jsonPayload = httpService:JSONEncode(currentList)
+		local response = makeReq({
+			Url = API_URL .. "/" .. BIN_ID,
+			Method = "PUT",
+			Headers = {
+				["Content-Type"] = "application/json",
+				["X-Master-Key"] = MASTER_KEY
+			},
+			Body = jsonPayload
+		})
+
+		publicconfigsHelper.Cache = currentList
+		return true, "Successfully published public config '" .. configName .. "'!"
+	end
+
+	function publicconfigsHelper.Download(configEntry, mainapi)
+		if not configEntry or not configEntry.data then return false, "Invalid config data" end
+		local configName = configEntry.name or "PublicConfig"
+		local placeStr = mainapi and mainapi.Place or tostring(game.PlaceId)
+		local filename = "mxtionv4/profiles/" .. configName .. placeStr .. ".txt"
+
+		local dataStr = type(configEntry.data) == "table" and httpService:JSONEncode(configEntry.data) or tostring(configEntry.data)
+
+		local suc, err = pcall(function()
+			if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
+			writefile(filename, dataStr)
+		end)
+
+		if not suc then return false, "Failed to write profile file: " .. tostring(err) end
+
+		if mainapi and mainapi.Profiles then
+			local exists = false
+			for _, v in ipairs(mainapi.Profiles) do
+				if v and v.Name == configName then exists = true; break end
+			end
+			if not exists then table.insert(mainapi.Profiles, {Name = configName, Bind = {}}) end
+		end
+
+		return true, configName
+	end
+end
+shared.PublicConfigsModule = publicconfigsHelper
+
 function mainapi:OpenPublicConfigsGUI()
 	local suc, err = pcall(function()
 		if not self.PublicConfigsGUI then
@@ -6076,18 +6211,7 @@ function mainapi:OpenPublicConfigsGUI()
 end
 
 function mainapi:CreatePublicConfigsGUI()
-	local publicconfigs
-	local suc, res = pcall(function()
-		if isfile('mxtionv4/libraries/publicconfigs.lua') then
-			return loadstring(readfile('mxtionv4/libraries/publicconfigs.lua'))()
-		end
-		return loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/libraries/publicconfigs.lua', true))()
-	end)
-	if suc and type(res) == 'table' then
-		publicconfigs = res
-	else
-		publicconfigs = shared.PublicConfigsModule
-	end
+	local publicconfigs = publicconfigsHelper
 
 	local window = Instance.new('Frame')
 	window.Name = 'PublicConfigsGUI'
