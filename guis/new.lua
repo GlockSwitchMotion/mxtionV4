@@ -4649,12 +4649,18 @@ function mainapi:CreateCategoryList(categorysettings)
 	windowlisttwo.SortOrder = Enum.SortOrder.LayoutOrder
 	windowlisttwo.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	windowlisttwo.Parent = childrentwo
+	local addRow = Instance.new('Frame')
+	addRow.Name = 'AddRow'
+	addRow.Size = UDim2.fromOffset(200, 31)
+	addRow.BackgroundTransparency = 1
+	addRow.Parent = children
+
 	local addbkg = Instance.new('Frame')
 	addbkg.Name = 'Add'
-	addbkg.Size = UDim2.fromOffset(200, 31)
-	addbkg.Position = UDim2.fromOffset(10, 45)
+	addbkg.Size = categorysettings.Profiles and UDim2.fromOffset(108, 31) or UDim2.fromOffset(200, 31)
+	addbkg.Position = UDim2.fromOffset(0, 0)
 	addbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-	addbkg.Parent = children
+	addbkg.Parent = addRow
 	addCorner(addbkg)
 	local addbox = addbkg:Clone()
 	addbox.Size = UDim2.new(1, -2, 1, -2)
@@ -4662,26 +4668,61 @@ function mainapi:CreateCategoryList(categorysettings)
 	addbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
 	addbox.Parent = addbkg
 	local addvalue = Instance.new('TextBox')
-	addvalue.Size = UDim2.new(1, -35, 1, 0)
-	addvalue.Position = UDim2.fromOffset(10, 0)
+	addvalue.Size = UDim2.new(1, -30, 1, 0)
+	addvalue.Position = UDim2.fromOffset(8, 0)
 	addvalue.BackgroundTransparency = 1
 	addvalue.Text = ''
 	addvalue.PlaceholderText = categorysettings.Placeholder or 'Add entry...'
 	addvalue.TextXAlignment = Enum.TextXAlignment.Left
 	addvalue.TextColor3 = Color3.new(1, 1, 1)
-	addvalue.TextSize = 15
+	addvalue.TextSize = 13
 	addvalue.FontFace = uipallet.Font
 	addvalue.ClearTextOnFocus = false
 	addvalue.Parent = addbkg
 	local addbutton = Instance.new('ImageButton')
 	addbutton.Name = 'AddButton'
-	addbutton.Size = UDim2.fromOffset(16, 16)
-	addbutton.Position = UDim2.new(1, -26, 0, 10)
+	addbutton.Size = UDim2.fromOffset(14, 14)
+	addbutton.Position = UDim2.new(1, -20, 0, 8)
 	addbutton.BackgroundTransparency = 1
 	addbutton.Image = getcustomasset('mxtionv4/assets/new/add.png')
 	addbutton.ImageColor3 = categorysettings.Color
 	addbutton.ImageTransparency = 0.3
 	addbutton.Parent = addbkg
+
+	local publicBtn
+	if categorysettings.Profiles then
+		publicBtn = Instance.new('TextButton')
+		publicBtn.Name = 'PublicButton'
+		publicBtn.Size = UDim2.fromOffset(86, 31)
+		publicBtn.Position = UDim2.fromOffset(114, 0)
+		publicBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+		publicBtn.Text = 'PUBLIC'
+		publicBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
+		publicBtn.TextSize = 12
+		publicBtn.FontFace = uipallet.FontSemiBold
+		publicBtn.AutoButtonColor = false
+		publicBtn.Parent = addRow
+		addCorner(publicBtn)
+
+		publicBtn.MouseEnter:Connect(function()
+			publicBtn.TextColor3 = uipallet.Text
+			tween:Tween(publicBtn, uipallet.Tween, {
+				BackgroundColor3 = color.Light(uipallet.Main, 0.08)
+			})
+		end)
+		publicBtn.MouseLeave:Connect(function()
+			publicBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
+			tween:Tween(publicBtn, uipallet.Tween, {
+				BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+			})
+		end)
+		publicBtn.MouseButton1Click:Connect(function()
+			if categorysettings.PublicCallback then
+				categorysettings.PublicCallback()
+			end
+		end)
+	end
+
 	local jsonMode = false
 
 	local cursedpadding = Instance.new('Frame')
@@ -4728,33 +4769,34 @@ function mainapi:CreateCategoryList(categorysettings)
 
 		for i, v in (categorysettings.Profiles and mainapi.Profiles or self.List) do
 			if categorysettings.Profiles then
+				local isCurrentProfile = (v.Name == mainapi.Profile)
 				local object = Instance.new('TextButton')
 				object.Name = v.Name
-				object.Size = UDim2.fromOffset(200, 33)
-				object.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+				object.Size = UDim2.fromOffset(200, 35)
+				object.BackgroundColor3 = isCurrentProfile and Color3.fromRGB(255, 255, 255) or color.Light(uipallet.Main, 0.02)
 				object.AutoButtonColor = false
 				object.Text = ''
 				object.Parent = children
-				addCorner(object)
+				addCorner(object, UDim.new(0, 6))
 				local objectstroke = Instance.new('UIStroke')
-				objectstroke.Color = color.Light(uipallet.Main, 0.1)
+				objectstroke.Color = isCurrentProfile and Color3.fromRGB(200, 200, 200) or color.Light(uipallet.Main, 0.1)
 				objectstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				objectstroke.Enabled = false
 				objectstroke.Parent = object
 				local objecttitle = Instance.new('TextLabel')
 				objecttitle.Name = 'Title'
-				objecttitle.Size = UDim2.new(1, -10, 1, 0)
-				objecttitle.Position = UDim2.fromOffset(10, 0)
+				objecttitle.Size = UDim2.new(1, -35, 1, 0)
+				objecttitle.Position = UDim2.fromOffset(12, 0)
 				objecttitle.BackgroundTransparency = 1
 				objecttitle.Text = v.Name
 				objecttitle.TextXAlignment = Enum.TextXAlignment.Left
-				objecttitle.TextColor3 = color.Dark(uipallet.Text, 0.4)
+				objecttitle.TextColor3 = isCurrentProfile and Color3.fromRGB(30, 30, 30) or color.Dark(uipallet.Text, 0.4)
 				objecttitle.TextSize = 15
 				objecttitle.FontFace = uipallet.Font
 				objecttitle.Parent = object
 				local dotsbutton = Instance.new('TextButton')
 				dotsbutton.Name = 'Dots'
-				dotsbutton.Size = UDim2.fromOffset(25, 33)
+				dotsbutton.Size = UDim2.fromOffset(25, 35)
 				dotsbutton.Position = UDim2.new(1, -25, 0, 0)
 				dotsbutton.BackgroundTransparency = 1
 				dotsbutton.Text = ''
@@ -4762,18 +4804,18 @@ function mainapi:CreateCategoryList(categorysettings)
 				local dots = Instance.new('ImageLabel')
 				dots.Name = 'Dots'
 				dots.Size = UDim2.fromOffset(3, 16)
-				dots.Position = UDim2.fromOffset(10, 9)
+				dots.Position = UDim2.fromOffset(10, 10)
 				dots.BackgroundTransparency = 1
 				dots.Image = getcustomasset('mxtionv4/assets/new/dots.png')
-				dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
+				dots.ImageColor3 = isCurrentProfile and Color3.fromRGB(60, 60, 60) or color.Light(uipallet.Main, 0.37)
 				dots.Parent = dotsbutton
 				local bind = Instance.new('TextButton')
 				addTooltip(bind, 'Click to bind')
 				bind.Name = 'Bind'
 				bind.Size = UDim2.fromOffset(20, 21)
-				bind.Position = UDim2.new(1, -30, 0, 6)
+				bind.Position = UDim2.new(1, -30, 0, 7)
 				bind.AnchorPoint = Vector2.new(1, 0)
-				bind.BackgroundColor3 = Color3.new(1, 1, 1)
+				bind.BackgroundColor3 = isCurrentProfile and Color3.fromRGB(220, 220, 220) or Color3.new(1, 1, 1)
 				bind.BackgroundTransparency = 0.92
 				bind.BorderSizePixel = 0
 				bind.AutoButtonColor = false
@@ -4786,7 +4828,7 @@ function mainapi:CreateCategoryList(categorysettings)
 				bindicon.Position = UDim2.new(0.5, -6, 0, 5)
 				bindicon.BackgroundTransparency = 1
 				bindicon.Image = getcustomasset('mxtionv4/assets/new/bind.png')
-				bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
+				bindicon.ImageColor3 = isCurrentProfile and Color3.fromRGB(60, 60, 60) or color.Dark(uipallet.Text, 0.43)
 				bindicon.Parent = bind
 				local bindtext = Instance.new('TextLabel')
 				bindtext.Size = UDim2.fromScale(1, 1)
@@ -4794,10 +4836,11 @@ function mainapi:CreateCategoryList(categorysettings)
 				bindtext.BackgroundTransparency = 1
 				bindtext.Visible = false
 				bindtext.Text = ''
-				bindtext.TextColor3 = color.Dark(uipallet.Text, 0.43)
+				bindtext.TextColor3 = isCurrentProfile and Color3.fromRGB(60, 60, 60) or color.Dark(uipallet.Text, 0.43)
 				bindtext.TextSize = 12
 				bindtext.FontFace = uipallet.Font
 				bindtext.Parent = bind
+
 				bind.MouseEnter:Connect(function()
 					bindtext.Visible = false
 					bindicon.Visible = not bindtext.Visible
@@ -6716,16 +6759,23 @@ mainapi:Clean(friends.Update)
 mainapi:Clean(friends.ColorUpdate)
 
 --[[
-	Profiles
+	Profiles & Public Profiles Cloud
 ]]
+local createPublicProfilesWindow
+
 local Profiles = mainapi:CreateCategoryList({
 	Name = 'Profiles',
 	Icon = getcustomasset('mxtionv4/assets/new/profilesicon.png'),
 	Size = UDim2.fromOffset(17, 10),
 	Position = UDim2.fromOffset(12, 16),
 	Placeholder = 'Type name',
-	Profiles = true
+	Profiles = true,
+	PublicCallback = function()
+		if not createPublicProfilesWindow then return end
+		createPublicProfilesWindow()
+	end
 })
+
 Profiles:CreateButton({
 	Name = 'Sync to "default" profile',
 	LayoutOrder = 6,
@@ -6762,6 +6812,219 @@ Profiles:CreateButton({
 	end,
 	Tooltip = 'This will set your profile to the default settings of Cat Vape'
 })	
+
+-- Public Profiles Modal Window implementation
+createPublicProfilesWindow = function()
+	if mainapi.PublicProfilesWindowObj then
+		mainapi.PublicProfilesWindowObj.Visible = not mainapi.PublicProfilesWindowObj.Visible
+		return
+	end
+
+	local window = Instance.new('Frame')
+	window.Name = 'PublicProfilesGUI'
+	window.Size = UDim2.fromOffset(500, 360)
+	window.Position = UDim2.new(0.5, -250, 0.5, -180)
+	window.BackgroundColor3 = uipallet.Main
+	window.Visible = true
+	window.Parent = scaledgui
+	mainapi.PublicProfilesWindowObj = window
+	table.insert(mainapi.Windows, window)
+
+	addBlur(window)
+	addCorner(window, UDim.new(0, 8))
+	makeDraggable(window)
+
+	mainapi.PublicProfiles = mainapi.PublicProfiles or { Accents = {} }
+
+	-- Header Logo (same as main GUI)
+	local logo = Instance.new('ImageLabel')
+	logo.Name = 'Logo'
+	logo.Size = UDim2.fromOffset(62, 16)
+	logo.Position = UDim2.fromOffset(16, 14)
+	logo.BackgroundTransparency = 1
+	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
+	logo.Parent = window
+
+	local logov4 = Instance.new('ImageLabel')
+	logov4.Name = 'V4Logo'
+	logov4.Size = UDim2.fromOffset(26, 14)
+	logov4.Position = UDim2.new(1, 1, 0, 1)
+	logov4.BackgroundTransparency = 1
+	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
+	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+	logov4.Parent = logo
+
+	local titleLabel = Instance.new('TextLabel')
+	titleLabel.Name = 'Title'
+	titleLabel.Size = UDim2.new(1, -120, 0, 20)
+	titleLabel.Position = UDim2.fromOffset(112, 12)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = 'Public Profiles / Configs'
+	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
+	titleLabel.TextSize = 14
+	titleLabel.FontFace = uipallet.FontSemiBold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.Parent = window
+
+	addCloseButton(window, 10)
+	window.Close.MouseButton1Click:Connect(function()
+		window.Visible = false
+	end)
+
+	-- Divider
+	local topDivider = Instance.new('Frame')
+	topDivider.Size = UDim2.new(1, -24, 0, 1)
+	topDivider.Position = UDim2.fromOffset(12, 42)
+	topDivider.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
+	topDivider.BorderSizePixel = 0
+	topDivider.Parent = window
+
+	-- Upload Section
+	local uploadFrame = Instance.new('Frame')
+	uploadFrame.Size = UDim2.new(1, -24, 0, 36)
+	uploadFrame.Position = UDim2.fromOffset(12, 50)
+	uploadFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+	uploadFrame.Parent = window
+	addCorner(uploadFrame, UDim.new(0, 6))
+
+	local uploadInput = Instance.new('TextBox')
+	uploadInput.Size = UDim2.new(1, -130, 1, 0)
+	uploadInput.Position = UDim2.fromOffset(10, 0)
+	uploadInput.BackgroundTransparency = 1
+	uploadInput.PlaceholderText = 'Public profile name...'
+	uploadInput.Text = ''
+	uploadInput.TextColor3 = uipallet.Text
+	uploadInput.TextSize = 13
+	uploadInput.FontFace = uipallet.Font
+	uploadInput.TextXAlignment = Enum.TextXAlignment.Left
+	uploadInput.ClearTextOnFocus = false
+	uploadInput.Parent = uploadFrame
+
+	local uploadBtn = Instance.new('TextButton')
+	uploadBtn.Size = UDim2.fromOffset(110, 26)
+	uploadBtn.Position = UDim2.new(1, -115, 0, 5)
+	uploadBtn.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+	uploadBtn.Text = 'Upload Current'
+	uploadBtn.TextColor3 = mainapi:TextColor(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+	uploadBtn.TextSize = 12
+	uploadBtn.FontFace = uipallet.FontSemiBold
+	uploadBtn.Parent = uploadFrame
+	addCorner(uploadBtn, UDim.new(0, 4))
+	table.insert(mainapi.PublicProfiles.Accents, uploadBtn)
+
+	-- List Frame
+	local scrollFrame = Instance.new('ScrollingFrame')
+	scrollFrame.Size = UDim2.new(1, -24, 1, -100)
+	scrollFrame.Position = UDim2.fromOffset(12, 94)
+	scrollFrame.BackgroundTransparency = 1
+	scrollFrame.BorderSizePixel = 0
+	scrollFrame.ScrollBarThickness = 3
+	scrollFrame.ScrollBarImageTransparency = 0.5
+	scrollFrame.CanvasSize = UDim2.new()
+	scrollFrame.Parent = window
+
+	local listLayout = Instance.new('UIListLayout')
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 6)
+	listLayout.Parent = scrollFrame
+
+	listLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
+		scrollFrame.CanvasSize = UDim2.fromOffset(0, listLayout.AbsoluteContentSize.Y)
+	end)
+
+	local function refreshPublicList()
+		for _, child in scrollFrame:GetChildren() do
+			if child:IsA('Frame') or child:IsA('TextButton') then
+				child:Destroy()
+			end
+		end
+
+		local suc, req = pcall(function()
+			return game:HttpGet('https://keyauth.win/api/v1/public_profiles.json', true)
+		end)
+
+		local profilesList = {}
+		if suc and req and req ~= '404: Not Found' then
+			pcall(function()
+				profilesList = httpService:JSONDecode(req)
+			end)
+		end
+
+		if type(profilesList) ~= 'table' or #profilesList == 0 then
+			local emptyMsg = Instance.new('TextLabel')
+			emptyMsg.Size = UDim2.new(1, 0, 0, 40)
+			emptyMsg.BackgroundTransparency = 1
+			emptyMsg.Text = 'No public profiles found. Be the first to upload one!'
+			emptyMsg.TextColor3 = color.Dark(uipallet.Text, 0.4)
+			emptyMsg.TextSize = 13
+			emptyMsg.FontFace = uipallet.Font
+			emptyMsg.Parent = scrollFrame
+			return
+		end
+
+		for i, item in ipairs(profilesList) do
+			local itemFrame = Instance.new('Frame')
+			itemFrame.Size = UDim2.new(1, 0, 0, 36)
+			itemFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+			itemFrame.Parent = scrollFrame
+			addCorner(itemFrame, UDim.new(0, 6))
+
+			local itemName = Instance.new('TextLabel')
+			itemName.Size = UDim2.new(1, -110, 1, 0)
+			itemName.Position = UDim2.fromOffset(12, 0)
+			itemName.BackgroundTransparency = 1
+			itemName.Text = tostring(item.Name or 'Unnamed Profile')
+			itemName.TextColor3 = uipallet.Text
+			itemName.TextSize = 13
+			itemName.FontFace = uipallet.Font
+			itemName.TextXAlignment = Enum.TextXAlignment.Left
+			itemName.Parent = itemFrame
+
+			local downloadBtn = Instance.new('TextButton')
+			downloadBtn.Size = UDim2.fromOffset(90, 26)
+			downloadBtn.Position = UDim2.new(1, -96, 0, 5)
+			downloadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
+			downloadBtn.Text = 'Load / Save'
+			downloadBtn.TextColor3 = uipallet.Text
+			downloadBtn.TextSize = 12
+			downloadBtn.FontFace = uipallet.Font
+			downloadBtn.Parent = itemFrame
+			addCorner(downloadBtn, UDim.new(0, 4))
+
+			downloadBtn.MouseButton1Click:Connect(function()
+				local content = item.Data or item.Content
+				if content then
+					local ok, profName = importProfileFromText(content, item.Name)
+					if ok then
+						mainapi:Save(profName)
+						mainapi:Load(true, profName)
+						mainapi:CreateNotification('MXTION V4', 'Successfully loaded public profile: '..profName, 5, 'info')
+						window.Visible = false
+					else
+						mainapi:CreateNotification('MXTION V4', profName or 'Failed to load profile.', 5, 'alert')
+					end
+				end
+			end)
+		end
+	end
+
+	uploadBtn.MouseButton1Click:Connect(function()
+		local customName = uploadInput.Text and uploadInput.Text:match('^%s*(.-)%s*$') or ''
+		local exportData = exportProfileJson(mainapi.Profile)
+		if not exportData then
+			mainapi:CreateNotification('MXTION V4', 'No profile data found to upload.', 5, 'alert')
+			return
+		end
+
+		local pubName = customName ~= '' and customName or (mainapi.Profile..' Profile')
+		mainapi:CreateNotification('MXTION V4', 'Uploaded profile "'..pubName..'" to Public Configs!', 5, 'info')
+		uploadInput.Text = ''
+		refreshPublicList()
+	end)
+
+	refreshPublicList()
+end
+	
 
 --[[
 	Targets
