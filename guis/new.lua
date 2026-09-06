@@ -26,6 +26,7 @@ local mainapi = {
 	Windows = {},
 	-- NEW: Transparency controls for overlay and glass effects
 	OverlayTransparency = {Value = 0.3},
+	GlassTransparency = {Value = 0.4}
 }
 
 local cloneref = cloneref or function(obj)
@@ -102,8 +103,7 @@ local getcustomassets = {
 	['mxtionv4/assets/new/notification.png'] = 'rbxassetid://16738721069',
 	['mxtionv4/assets/new/overlaysicon.png'] = 'rbxassetid://14368339581',
 	['mxtionv4/assets/new/overlaystab.png'] = 'rbxassetid://14397380433',
-	['mxtionv4/assets/new/overlay.png'] = 'rbxassetid://132601338683901',
-	['mxtionv4/assets/new/GuiOverlay.png'] = 'rbxassetid://132601338683901',
+	['mxtionv4/assets/new/overlay.png'] = 'rbxassetid://108578009244111',
 	['mxtionv4/assets/new/pin.png'] = 'rbxassetid://14368342301',
 	['mxtionv4/assets/new/profilesicon.png'] = 'rbxassetid://14397465323',
 	['mxtionv4/assets/new/radaricon.png'] = 'rbxassetid://14368343291',
@@ -206,16 +206,24 @@ local function addCategoryOverlay(parent)
 	overlay.Size = UDim2.new(1, 0, 1, 0)
 	overlay.Position = UDim2.new(0, 0, 0, 0)
 	overlay.BackgroundTransparency = 1
-	overlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
+	overlay.Image = 'rbxassetid://108578009244111'
 	overlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	overlay.ScaleType = Enum.ScaleType.Crop
-	overlay.ZIndex = 1
-	overlay.Active = false
+	overlay.ZIndex = parent.ZIndex + 1
 	overlay.Parent = parent
 	
 	return overlay
 end
 
+-- NEW: Function to apply liquid glass effect to text labels
+local function applyLiquidGlass(textLabel)
+	textLabel.BackgroundColor3 = Color3.fromRGB(150, 150, 180)
+	textLabel.BackgroundTransparency = mainapi.GlassTransparency.Value
+	textLabel.BorderSizePixel = 0
+	
+	addCorner(textLabel, UDim.new(0, 4))
+	
+	return textLabel
+end
 
 -- NEW: Function to update all overlays and glass effects
 function mainapi:UpdateOverlayEffects()
@@ -225,6 +233,14 @@ function mainapi:UpdateOverlayEffects()
 			if overlay then
 				overlay.ImageTransparency = self.OverlayTransparency.Value
 			end
+		end
+	end
+	
+	-- Update all category name labels with glass effect
+	for _, category in self.Categories do
+		if category.Object and category.Object:FindFirstChild('CategoryName') then
+			local nameLabel = category.Object:FindFirstChild('CategoryName')
+			nameLabel.BackgroundTransparency = self.GlassTransparency.Value
 		end
 	end
 end
@@ -2585,20 +2601,6 @@ function mainapi:CreateGUI()
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-
-	local categoryOverlay = Instance.new('ImageLabel')
-	categoryOverlay.Name = 'CategoryOverlay'
-	categoryOverlay.Size = UDim2.new(1, 0, 1, -37)
-	categoryOverlay.Position = UDim2.fromOffset(0, 37)
-	categoryOverlay.BackgroundTransparency = 1
-	categoryOverlay.BorderSizePixel = 0
-	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
-	categoryOverlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	categoryOverlay.ScaleType = Enum.ScaleType.Crop
-	categoryOverlay.ZIndex = 1
-	categoryOverlay.Active = false
-	categoryOverlay.Parent = window
-
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
 	logo.Size = UDim2.fromOffset(155, 40)
@@ -3761,20 +3763,18 @@ function mainapi:CreateCategory(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-
-	local categoryOverlay = Instance.new('ImageLabel')
-	categoryOverlay.Name = 'CategoryOverlay'
-	categoryOverlay.Size = UDim2.new(1, 0, 1, -37)
-	categoryOverlay.Position = UDim2.fromOffset(0, 37)
-	categoryOverlay.BackgroundTransparency = 1
-	categoryOverlay.BorderSizePixel = 0
-	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
-	categoryOverlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	categoryOverlay.ScaleType = Enum.ScaleType.Crop
-	categoryOverlay.ZIndex = 1
-	categoryOverlay.Active = false
-	categoryOverlay.Parent = window
-
+	local camoOverlay = Instance.new('ImageLabel')
+	camoOverlay.Name = 'CamoOverlay'
+	camoOverlay.Size = UDim2.fromScale(1, 1)
+	camoOverlay.BackgroundTransparency = 1
+	camoOverlay.BorderSizePixel = 0
+	camoOverlay.Image = 'rbxassetid://81366222918936'
+	-- Keep the pattern clearly visible on the dark category backgrounds.
+	camoOverlay.ImageTransparency = 0.38
+	camoOverlay.ScaleType = Enum.ScaleType.Crop
+	camoOverlay.ZIndex = 1
+	camoOverlay.Active = false
+	camoOverlay.Parent = window
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -4570,20 +4570,6 @@ function mainapi:CreateCategoryList(categorysettings)
 	addBlur(window)
 	addCorner(window)
 	makeDraggable(window)
-
-	local categoryOverlay = Instance.new('ImageLabel')
-	categoryOverlay.Name = 'CategoryOverlay'
-	categoryOverlay.Size = UDim2.new(1, 0, 1, -45)
-	categoryOverlay.Position = UDim2.fromOffset(0, 45)
-	categoryOverlay.BackgroundTransparency = 1
-	categoryOverlay.BorderSizePixel = 0
-	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
-	categoryOverlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	categoryOverlay.ScaleType = Enum.ScaleType.Crop
-	categoryOverlay.ZIndex = 1
-	categoryOverlay.Active = false
-	categoryOverlay.Parent = window
-
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -4733,37 +4719,6 @@ function mainapi:CreateCategoryList(categorysettings)
 		publicBtn.MouseButton1Click:Connect(function()
 			if categorysettings.PublicCallback then
 				categorysettings.PublicCallback()
-			end
-		end)
-
-		local presetBtn = Instance.new('TextButton')
-		presetBtn.Name = 'PresetButton'
-		presetBtn.Size = UDim2.fromOffset(200, 31)
-		presetBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		presetBtn.Text = 'PRESET CONFIGS'
-		presetBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
-		presetBtn.TextSize = 12
-		presetBtn.FontFace = uipallet.FontSemiBold
-		presetBtn.AutoButtonColor = false
-		presetBtn.Parent = children
-		presetBtn.LayoutOrder = 0
-		addCorner(presetBtn)
-
-		presetBtn.MouseEnter:Connect(function()
-			presetBtn.TextColor3 = uipallet.Text
-			tween:Tween(presetBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.08)
-			})
-		end)
-		presetBtn.MouseLeave:Connect(function()
-			presetBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
-			tween:Tween(presetBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-			})
-		end)
-		presetBtn.MouseButton1Click:Connect(function()
-			if categorysettings.PresetCallback then
-				categorysettings.PresetCallback()
 			end
 		end)
 	end
@@ -5188,7 +5143,20 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 	end)
 	settings.MouseButton1Click:Connect(function()
-		childrentwo.Visible = not childrentwo.Visible
+		if categorysettings.Profiles then
+			jsonMode = not jsonMode
+			if jsonMode then
+				addvalue.PlaceholderText = 'Enter JSON'
+				addvalue.Text = ''
+				settings.ImageColor3 = Color3.fromRGB(255, 255, 255)
+			else
+				addvalue.PlaceholderText = categorysettings.Placeholder or 'Type name'
+				addvalue.Text = ''
+				settings.ImageColor3 = color.Light(uipallet.Main, 0.37)
+			end
+		else
+			childrentwo.Visible = not childrentwo.Visible
+		end
 	end)
 	window.InputBegan:Connect(function(inputObj)
 		if inputObj.Position.Y < window.AbsolutePosition.Y + 41 and inputObj.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -6794,7 +6762,6 @@ mainapi:Clean(friends.ColorUpdate)
 	Profiles & Public Profiles Cloud
 ]]
 local createPublicProfilesWindow
-local createPresetProfilesWindow
 
 local Profiles = mainapi:CreateCategoryList({
 	Name = 'Profiles',
@@ -6806,10 +6773,6 @@ local Profiles = mainapi:CreateCategoryList({
 	PublicCallback = function()
 		if not createPublicProfilesWindow then return end
 		createPublicProfilesWindow()
-	end,
-	PresetCallback = function()
-		if not createPresetProfilesWindow then return end
-		createPresetProfilesWindow()
 	end
 })
 
@@ -6847,7 +6810,7 @@ Profiles:CreateButton({
 			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
 		end
 	end,
-	Tooltip = 'This will set your profile to the default settings of motion v4'
+	Tooltip = 'This will set your profile to the default settings of Motion v4'
 })	
 
 -- Public Profiles Modal Window implementation
@@ -7009,8 +6972,7 @@ createPublicProfilesWindow = function()
 						table.insert(combinedList, {
 							Name = profName,
 							Data = item.data or item.Data,
-							Author = item.author or "Community",
-							Timestamp = item.timestamp or os.time()
+							Author = item.author or "Community"
 						})
 					end
 				end
@@ -7035,8 +6997,7 @@ createPublicProfilesWindow = function()
 							table.insert(combinedList, {
 								Name = profName,
 								Data = item.data or item.Data,
-								Author = item.author or "Community",
-								Timestamp = item.timestamp or os.time()
+								Author = item.author or "Community"
 							})
 						end
 					end
@@ -7055,12 +7016,7 @@ createPublicProfilesWindow = function()
 						local profName = item.name or item.Name
 						if profName and not addedNames[profName] then
 							addedNames[profName] = true
-							table.insert(combinedList, {
-								Name = profName,
-								Data = item.data or item.Data,
-								Author = item.author or "Community",
-								Timestamp = item.timestamp or os.time()
-							})
+							table.insert(combinedList, item)
 						end
 					end
 				end
@@ -7075,13 +7031,6 @@ createPublicProfilesWindow = function()
 				table.insert(combinedList, item)
 			end
 		end
-
-		-- Sort by newest timestamp first
-		table.sort(combinedList, function(a, b)
-			local timeA = a.Timestamp or a.timestamp or 0
-			local timeB = b.Timestamp or b.timestamp or 0
-			return timeA > timeB
-		end)
 
 		if #combinedList == 0 then
 			local emptyMsg = Instance.new('TextLabel')
@@ -7151,8 +7100,7 @@ createPublicProfilesWindow = function()
 
 		local newEntry = {
 			Name = tostring(targetProfile),
-			Data = exportData,
-			Timestamp = os.time()
+			Data = exportData
 		}
 
 		table.insert(localPublicProfilesList, 1, newEntry)
@@ -7199,163 +7147,6 @@ createPublicProfilesWindow = function()
 	end)
 
 	refreshPublicList()
-end
-
--- Preset Profiles Modal Window implementation
-local createPresetProfilesWindow
-
-local presetConfigsList = {
-	{
-		Name = 'YHMOTION LEGIT',
-		Description = 'Legit profile for smooth gameplay and BedPlates counter',
-		Data = '{"Modules":{"BedPlates":{"Enabled":true,"Bind":[],"Options":{"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false},"Background":{"Enabled":true},"Layer Counter":{"Enabled":true},"Counter Text Color":{"Hue":0.44,"Sat":0,"Value":1,"Opacity":1,"Rainbow":false}}},"ItemPlates":{"Enabled":false,"Bind":[],"Options":{"Background":{"Enabled":true},"Whitelist":{"ListEnabled":["beehive"],"List":["beehive"]},"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false}}},"AutoKaliyah":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":18,"Max":20},"Stack Mode":{"Value":"S1"},"Delay":{"Value":0.1,"Max":1},"No Slow":{"Enabled":true}}},"AutoLeave":{"Enabled":false,"Bind":[],"Options":{"Leave Type":{"Value":"Rejoin"},"Health":{"Value":10,"Max":100},"Player Detect Radius":{"Value":15,"Max":50}}},"AutoReport":{"Enabled":false,"Bind":[],"Options":{"Report Reason":{"Value":"Cheating"},"Delay":{"Value":5,"Max":60}}},"ChestStealer":{"Enabled":false,"Bind":[],"Options":{"Steal Delay":{"Value":0.1,"Max":1},"Auto Close":{"Enabled":true}}},"InventoryCleaner":{"Enabled":false,"Bind":[],"Options":{"Clean Delay":{"Value":0.1,"Max":1},"Keep Swords":{"Enabled":true},"Keep Armor":{"Enabled":true}}},"KillSay":{"Enabled":false,"Bind":[],"Options":{"Message Mode":{"Value":"Toxic"},"Custom Messages":{"ListEnabled":[],"List":[]}}},"MiddleClick":{"Enabled":false,"Bind":[],"Options":{"Action":{"Value":"Pearl"}}},"NoRotate":{"Enabled":false,"Bind":[],"Options":{}},"PartyPooper":{"Enabled":false,"Bind":[],"Options":{}},"StaffDetector":{"Enabled":false,"Bind":[],"Options":{"Action":{"Value":"Notify"}}},"ChatSocials":{"Enabled":false,"Bind":[],"Options":{"Platform":{"Value":"Discord"}}},"Fucker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30},"Target Bed":{"Enabled":true}}},"Nuker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":5,"Max":10},"Break Delay":{"Value":0,"Max":1}}},"Stealer":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30}}},"Blink":{"Enabled":false,"Bind":[],"Options":{"Pulse":{"Enabled":false},"Pulse Delay":{"Value":1,"Max":5}}},"CustomSpeed":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"FastFall":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":1.5,"Max":5}}},"Fly":{"Enabled":false,"Bind":[],"Options":{"Fly Mode":{"Value":"Vanilla"},"Speed":{"Value":20,"Max":50}}},"HitBoxes":{"Enabled":false,"Bind":[],"Options":{"Expand Radius":{"Value":2,"Max":10}}},"LongJump":{"Enabled":false,"Bind":[],"Options":{"Jump Mode":{"Value":"Normal"}}},"NoFall":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Spoof"}}},"Phase":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"SafeWalk":{"Enabled":false,"Bind":[],"Options":{}},"Spider":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"Sprint":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"Step":{"Enabled":false,"Bind":[],"Options":{"Height":{"Value":2,"Max":10}}},"Velocity":{"Enabled":true,"Bind":[],"Options":{"Horizontal":{"Value":0,"Max":100},"Vertical":{"Value":0,"Max":100},"Mode":{"Value":"Standard"}}},"Aimbot":{"Enabled":false,"Bind":[],"Options":{"Smoothing":{"Value":5,"Max":20},"Range":{"Value":20,"Max":50}}},"AutoClicker":{"Enabled":true,"Bind":[],"Options":{"CPS":{"Value":14,"Max":20},"Block Break":{"Enabled":true}}},"AutoWeapon":{"Enabled":true,"Bind":[],"Options":{}},"Killaura":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6},"APS":{"Value":12,"Max":20},"Targets":{"Value":3,"Max":10},"Face Target":{"Enabled":false},"Auto Block":{"Value":"None"}}},"Reach":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"TargetStrafe":{"Enabled":false,"Bind":[],"Options":{"Radius":{"Value":3,"Max":10}}},"TriggerBot":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"WTap":{"Enabled":false,"Bind":[],"Options":{}},"Ambience":{"Enabled":false,"Bind":[],"Options":{"Time":{"Value":12,"Max":24}}},"Cape":{"Enabled":false,"Bind":[],"Options":{"Style":{"Value":"Vape"}}},"Chams":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":0.5,"Rainbow":false}}},"ChinaHat":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Fullbright":{"Enabled":true,"Bind":[],"Options":{}},"GUIColor":{"Enabled":true,"Bind":[],"Options":{"Hue":0.44,"Sat":0.8,"Value":1,"Rainbow":false}},"ESP":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"2D"},"Bounding Box":{"Enabled":true},"Health Bar":{"Enabled":true},"Name Tags":{"Enabled":true}}},"NameTags":{"Enabled":true,"Bind":[],"Options":{"Show Health":{"Enabled":true},"Show Distance":{"Enabled":true}}},"Tracers":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Viewmodel":{"Enabled":false,"Bind":[],"Options":{"X":{"Value":0,"Max":5},"Y":{"Value":0,"Max":5},"Z":{"Value":0,"Max":5}}}}}'
-	},
-	{
-		Name = 'BLATANT CONFIG',
-		Description = 'High performance aggressive blatant settings for rage play',
-		Data = '{"Modules":{"BedPlates":{"Enabled":true,"Bind":[],"Options":{"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false},"Background":{"Enabled":true},"Layer Counter":{"Enabled":true},"Counter Text Color":{"Hue":0.44,"Sat":0,"Value":1,"Opacity":1,"Rainbow":false}}},"ItemPlates":{"Enabled":true,"Bind":[],"Options":{"Background":{"Enabled":true},"Whitelist":{"ListEnabled":["beehive"],"List":["beehive"]},"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false}}},"AutoKaliyah":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":20,"Max":20},"Stack Mode":{"Value":"S1"},"Delay":{"Value":0.05,"Max":1},"No Slow":{"Enabled":true}}},"AutoLeave":{"Enabled":false,"Bind":[],"Options":{"Leave Type":{"Value":"Rejoin"},"Health":{"Value":10,"Max":100},"Player Detect Radius":{"Value":15,"Max":50}}},"AutoReport":{"Enabled":false,"Bind":[],"Options":{"Report Reason":{"Value":"Cheating"},"Delay":{"Value":5,"Max":60}}},"ChestStealer":{"Enabled":true,"Bind":[],"Options":{"Steal Delay":{"Value":0.05,"Max":1},"Auto Close":{"Enabled":true}}},"InventoryCleaner":{"Enabled":true,"Bind":[],"Options":{"Clean Delay":{"Value":0.05,"Max":1},"Keep Swords":{"Enabled":true},"Keep Armor":{"Enabled":true}}},"KillSay":{"Enabled":true,"Bind":[],"Options":{"Message Mode":{"Value":"Toxic"},"Custom Messages":{"ListEnabled":[],"List":[]}}},"MiddleClick":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Pearl"}}},"NoRotate":{"Enabled":true,"Bind":[],"Options":{}},"PartyPooper":{"Enabled":false,"Bind":[],"Options":{}},"StaffDetector":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Notify"}}},"ChatSocials":{"Enabled":false,"Bind":[],"Options":{"Platform":{"Value":"Discord"}}},"Fucker":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":25,"Max":30},"Target Bed":{"Enabled":true}}},"Nuker":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":8,"Max":10},"Break Delay":{"Value":0,"Max":1}}},"Stealer":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":25,"Max":30}}},"Blink":{"Enabled":false,"Bind":[],"Options":{"Pulse":{"Enabled":false},"Pulse Delay":{"Value":1,"Max":5}}},"CustomSpeed":{"Enabled":true,"Bind":[],"Options":{"Speed":{"Value":28,"Max":50}}},"FastFall":{"Enabled":true,"Bind":[],"Options":{"Speed":{"Value":2.5,"Max":5}}},"Fly":{"Enabled":false,"Bind":[],"Options":{"Fly Mode":{"Value":"Vanilla"},"Speed":{"Value":25,"Max":50}}},"HitBoxes":{"Enabled":true,"Bind":[],"Options":{"Expand Radius":{"Value":4,"Max":10}}},"LongJump":{"Enabled":false,"Bind":[],"Options":{"Jump Mode":{"Value":"Normal"}}},"NoFall":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Spoof"}}},"Phase":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"SafeWalk":{"Enabled":false,"Bind":[],"Options":{}},"Spider":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"Sprint":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"Step":{"Enabled":true,"Bind":[],"Options":{"Height":{"Value":3,"Max":10}}},"Velocity":{"Enabled":true,"Bind":[],"Options":{"Horizontal":{"Value":0,"Max":100},"Vertical":{"Value":0,"Max":100},"Mode":{"Value":"Standard"}}},"Aimbot":{"Enabled":false,"Bind":[],"Options":{"Smoothing":{"Value":5,"Max":20},"Range":{"Value":20,"Max":50}}},"AutoClicker":{"Enabled":true,"Bind":[],"Options":{"CPS":{"Value":20,"Max":20},"Block Break":{"Enabled":true}}},"AutoWeapon":{"Enabled":true,"Bind":[],"Options":{}},"Killaura":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":5.5,"Max":6},"APS":{"Value":18,"Max":20},"Targets":{"Value":5,"Max":10},"Face Target":{"Enabled":true},"Auto Block":{"Value":"Sword"}}},"Reach":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":5.2,"Max":6}}},"TargetStrafe":{"Enabled":true,"Bind":[],"Options":{"Radius":{"Value":4,"Max":10}}},"TriggerBot":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"WTap":{"Enabled":true,"Bind":[],"Options":{}},"Ambience":{"Enabled":false,"Bind":[],"Options":{"Time":{"Value":12,"Max":24}}},"Cape":{"Enabled":true,"Bind":[],"Options":{"Style":{"Value":"Vape"}}},"Chams":{"Enabled":true,"Bind":[],"Options":{"Color":{"Hue":0,"Sat":1,"Value":1,"Opacity":0.5,"Rainbow":false}}},"ChinaHat":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Fullbright":{"Enabled":true,"Bind":[],"Options":{}},"GUIColor":{"Enabled":true,"Bind":[],"Options":{"Hue":0.95,"Sat":0.8,"Value":1,"Rainbow":false}},"ESP":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"2D"},"Bounding Box":{"Enabled":true},"Health Bar":{"Enabled":true},"Name Tags":{"Enabled":true}}},"NameTags":{"Enabled":true,"Bind":[],"Options":{"Show Health":{"Enabled":true},"Show Distance":{"Enabled":true}}},"Tracers":{"Enabled":true,"Bind":[],"Options":{"Color":{"Hue":0.95,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Viewmodel":{"Enabled":false,"Bind":[],"Options":{"X":{"Value":0,"Max":5},"Y":{"Value":0,"Max":5},"Z":{"Value":0,"Max":5}}}}}'
-	},
-	{
-		Name = 'Semi Blatant',
-		Description = 'Balanced hybrid profile for closet/semi-blatant play style',
-		Data = '{"Modules":{"BedPlates":{"Enabled":true,"Bind":[],"Options":{"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false},"Background":{"Enabled":true},"Layer Counter":{"Enabled":true},"Counter Text Color":{"Hue":0.44,"Sat":0,"Value":1,"Opacity":1,"Rainbow":false}}},"ItemPlates":{"Enabled":true,"Bind":[],"Options":{"Background":{"Enabled":true},"Whitelist":{"ListEnabled":["beehive"],"List":["beehive"]},"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false}}},"AutoKaliyah":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":18,"Max":20},"Stack Mode":{"Value":"S1"},"Delay":{"Value":0.1,"Max":1},"No Slow":{"Enabled":true}}},"AutoLeave":{"Enabled":false,"Bind":[],"Options":{"Leave Type":{"Value":"Rejoin"},"Health":{"Value":10,"Max":100},"Player Detect Radius":{"Value":15,"Max":50}}},"AutoReport":{"Enabled":false,"Bind":[],"Options":{"Report Reason":{"Value":"Cheating"},"Delay":{"Value":5,"Max":60}}},"ChestStealer":{"Enabled":true,"Bind":[],"Options":{"Steal Delay":{"Value":0.1,"Max":1},"Auto Close":{"Enabled":true}}},"InventoryCleaner":{"Enabled":true,"Bind":[],"Options":{"Clean Delay":{"Value":0.1,"Max":1},"Keep Swords":{"Enabled":true},"Keep Armor":{"Enabled":true}}},"KillSay":{"Enabled":false,"Bind":[],"Options":{"Message Mode":{"Value":"Toxic"},"Custom Messages":{"ListEnabled":[],"List":[]}}},"MiddleClick":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Pearl"}}},"NoRotate":{"Enabled":false,"Bind":[],"Options":{}},"PartyPooper":{"Enabled":false,"Bind":[],"Options":{}},"StaffDetector":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Notify"}}},"ChatSocials":{"Enabled":false,"Bind":[],"Options":{"Platform":{"Value":"Discord"}}},"Fucker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30},"Target Bed":{"Enabled":true}}},"Nuker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":5,"Max":10},"Break Delay":{"Value":0,"Max":1}}},"Stealer":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30}}},"Blink":{"Enabled":false,"Bind":[],"Options":{"Pulse":{"Enabled":false},"Pulse Delay":{"Value":1,"Max":5}}},"CustomSpeed":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":22,"Max":50}}},"FastFall":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":1.5,"Max":5}}},"Fly":{"Enabled":false,"Bind":[],"Options":{"Fly Mode":{"Value":"Vanilla"},"Speed":{"Value":20,"Max":50}}},"HitBoxes":{"Enabled":false,"Bind":[],"Options":{"Expand Radius":{"Value":2,"Max":10}}},"LongJump":{"Enabled":false,"Bind":[],"Options":{"Jump Mode":{"Value":"Normal"}}},"NoFall":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Spoof"}}},"Phase":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"SafeWalk":{"Enabled":false,"Bind":[],"Options":{}},"Spider":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"Sprint":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"Step":{"Enabled":false,"Bind":[],"Options":{"Height":{"Value":2,"Max":10}}},"Velocity":{"Enabled":true,"Bind":[],"Options":{"Horizontal":{"Value":20,"Max":100},"Vertical":{"Value":100,"Max":100},"Mode":{"Value":"Standard"}}},"Aimbot":{"Enabled":false,"Bind":[],"Options":{"Smoothing":{"Value":5,"Max":20},"Range":{"Value":20,"Max":50}}},"AutoClicker":{"Enabled":true,"Bind":[],"Options":{"CPS":{"Value":16,"Max":20},"Block Break":{"Enabled":true}}},"AutoWeapon":{"Enabled":true,"Bind":[],"Options":{}},"Killaura":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":4.2,"Max":6},"APS":{"Value":14,"Max":20},"Targets":{"Value":3,"Max":10},"Face Target":{"Enabled":false},"Auto Block":{"Value":"None"}}},"Reach":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":3.8,"Max":6}}},"TargetStrafe":{"Enabled":false,"Bind":[],"Options":{"Radius":{"Value":3,"Max":10}}},"TriggerBot":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"WTap":{"Enabled":true,"Bind":[],"Options":{}},"Ambience":{"Enabled":false,"Bind":[],"Options":{"Time":{"Value":12,"Max":24}}},"Cape":{"Enabled":true,"Bind":[],"Options":{"Style":{"Value":"Vape"}}},"Chams":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":0.5,"Rainbow":false}}},"ChinaHat":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Fullbright":{"Enabled":true,"Bind":[],"Options":{}},"GUIColor":{"Enabled":true,"Bind":[],"Options":{"Hue":0.6,"Sat":0.8,"Value":1,"Rainbow":false}},"ESP":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"2D"},"Bounding Box":{"Enabled":true},"Health Bar":{"Enabled":true},"Name Tags":{"Enabled":true}}},"NameTags":{"Enabled":true,"Bind":[],"Options":{"Show Health":{"Enabled":true},"Show Distance":{"Enabled":true}}},"Tracers":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.6,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Viewmodel":{"Enabled":false,"Bind":[],"Options":{"X":{"Value":0,"Max":5},"Y":{"Value":0,"Max":5},"Z":{"Value":0,"Max":5}}}}}'
-	}
-}
-
-createPresetProfilesWindow = function()
-	if mainapi.PresetProfilesWindowObj then
-		mainapi.PresetProfilesWindowObj.Visible = not mainapi.PresetProfilesWindowObj.Visible
-		return
-	end
-
-	local window = Instance.new('Frame')
-	window.Name = 'PresetConfigsGUI'
-	window.Size = UDim2.fromOffset(580, 350)
-	window.Position = UDim2.new(0.5, -290, 0.5, -175)
-	window.BackgroundColor3 = uipallet.Main
-	window.Visible = true
-	window.Parent = scaledgui
-	mainapi.PresetProfilesWindowObj = window
-	table.insert(mainapi.Windows, window)
-
-	addBlur(window)
-	addCorner(window, UDim.new(0, 8))
-	makeDraggable(window)
-
-	-- Header Logo (2x scaled)
-	local logo = Instance.new('ImageLabel')
-	logo.Name = 'Logo'
-	logo.Size = UDim2.fromOffset(124, 32)
-	logo.Position = UDim2.fromOffset(16, 8)
-	logo.BackgroundTransparency = 1
-	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
-	logo.Parent = window
-
-	local logov4 = Instance.new('ImageLabel')
-	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(52, 28)
-	logov4.Position = UDim2.new(1, 2, 0, 2)
-	logov4.BackgroundTransparency = 1
-	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
-	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	logov4.Parent = logo
-
-	local titleLabel = Instance.new('TextLabel')
-	titleLabel.Name = 'Title'
-	titleLabel.Size = UDim2.new(1, -210, 0, 24)
-	titleLabel.Position = UDim2.fromOffset(200, 12)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = 'PRESET CONFIGS'
-	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
-	titleLabel.TextSize = 15
-	titleLabel.FontFace = uipallet.FontSemiBold
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	titleLabel.Parent = window
-
-	addCloseButton(window, 12)
-	window.Close.MouseButton1Click:Connect(function()
-		window.Visible = false
-	end)
-
-	-- Divider
-	local topDivider = Instance.new('Frame')
-	topDivider.Size = UDim2.new(1, -24, 0, 1)
-	topDivider.Position = UDim2.fromOffset(12, 48)
-	topDivider.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
-	topDivider.BorderSizePixel = 0
-	topDivider.Parent = window
-
-	-- Scrollable Presets List Container (Matching Public Profiles list)
-	local scrollFrame = Instance.new('ScrollingFrame')
-	scrollFrame.Size = UDim2.new(1, -24, 1, -60)
-	scrollFrame.Position = UDim2.fromOffset(12, 54)
-	scrollFrame.BackgroundTransparency = 1
-	scrollFrame.BorderSizePixel = 0
-	scrollFrame.ScrollBarThickness = 4
-	scrollFrame.ScrollBarImageColor3 = color.Light(uipallet.Main, 0.2)
-	scrollFrame.Parent = window
-
-	local scrollList = Instance.new('UIListLayout')
-	scrollList.SortOrder = Enum.SortOrder.LayoutOrder
-	scrollList.Padding = UDim.new(0, 6)
-	scrollList.Parent = scrollFrame
-
-	scrollList:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		scrollFrame.CanvasSize = UDim2.fromOffset(0, scrollList.AbsoluteContentSize.Y + 10)
-	end)
-
-	for _, preset in ipairs(presetConfigsList) do
-		local itemFrame = Instance.new('Frame')
-		itemFrame.Size = UDim2.new(1, 0, 0, 36)
-		itemFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		itemFrame.Parent = scrollFrame
-		addCorner(itemFrame, UDim.new(0, 6))
-
-		local itemName = Instance.new('TextLabel')
-		itemName.Size = UDim2.new(1, -120, 1, 0)
-		itemName.Position = UDim2.fromOffset(12, 0)
-		itemName.BackgroundTransparency = 1
-		itemName.Text = preset.Name
-		itemName.TextColor3 = uipallet.Text
-		itemName.TextSize = 13
-		itemName.FontFace = uipallet.Font
-		itemName.TextXAlignment = Enum.TextXAlignment.Left
-		itemName.Parent = itemFrame
-
-		local downloadBtn = Instance.new('TextButton')
-		downloadBtn.Size = UDim2.fromOffset(100, 26)
-		downloadBtn.Position = UDim2.new(1, -106, 0, 5)
-		downloadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
-		downloadBtn.Text = 'DOWNLOAD'
-		downloadBtn.TextColor3 = uipallet.Text
-		downloadBtn.TextSize = 12
-		downloadBtn.FontFace = uipallet.Font
-		downloadBtn.Parent = itemFrame
-		addCorner(downloadBtn, UDim.new(0, 4))
-
-		downloadBtn.MouseEnter:Connect(function()
-			tween:Tween(downloadBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.18)
-			})
-		end)
-		downloadBtn.MouseLeave:Connect(function()
-			tween:Tween(downloadBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.1)
-			})
-		end)
-
-		downloadBtn.MouseButton1Click:Connect(function()
-			local ok, profName = importProfileFromText(preset.Data, preset.Name)
-			if ok then
-				mainapi:Save(profName)
-				mainapi:Load(true, profName)
-				mainapi:CreateNotification('MXTION V4', 'Successfully loaded preset profile: '..profName, 5, 'info')
-				window.Visible = false
-			else
-				mainapi:CreateNotification('MXTION V4', profName or 'Failed to load preset.', 5, 'alert')
-			end
-		end)
-	end
 end
 	
 
@@ -7567,18 +7358,6 @@ mainapi.RainbowUpdateSpeed = guipane:CreateSlider({
 	Default = 60,
 	Tooltip = 'Adjusts the update rate of rainbow values',
 	Suffix = 'hz'
-})
-guipane:CreateSlider({
-	Name = 'Overlay transparency',
-	Min = 0,
-	Max = 1,
-	Decimal = 100,
-	Default = 0.3,
-	Function = function(val)
-		mainapi.OverlayTransparency.Value = val
-		mainapi:UpdateOverlayEffects()
-	end,
-	Tooltip = 'Adjusts the transparency of the GUI background overlay'
 })
 guipane:CreateButton({
 	Name = 'Reset GUI positions',
@@ -8763,5 +8542,37 @@ function mainapi:CreateOverlayTransparencySlider(parent, position)
 	return slider
 end
 
+function mainapi:CreateGlassTransparencySlider(parent, position)
+	local slider = Instance.new('Frame')
+	slider.Name = 'GlassTransparencySlider'
+	slider.Size = UDim2.fromOffset(200, 20)
+	slider.Position = position
+	slider.BackgroundColor3 = uipallet.Main
+	slider.BorderSizePixel = 0
+	slider.Parent = parent
+	addCorner(slider, UDim.new(0, 5))
+	
+	local label = Instance.new('TextLabel')
+	label.Name = 'Label'
+	label.Size = UDim2.fromOffset(100, 20)
+	label.Position = UDim2.new(0, 5, 0, 0)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = uipallet.Text
+	label.TextSize = 12
+	label.Font = uipallet.Font
+	label.Text = 'Glass Trans: ' .. math.floor(self.GlassTransparency.Value * 100) .. '%'
+	label.Parent = slider
+	
+	local sliderHandle = Instance.new('Frame')
+	sliderHandle.Name = 'Handle'
+	sliderHandle.Size = UDim2.fromOffset(10, 16)
+	sliderHandle.Position = UDim2.new(self.GlassTransparency.Value, 100, 0.5, -8)
+	sliderHandle.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+	sliderHandle.BorderSizePixel = 0
+	sliderHandle.Parent = slider
+	addCorner(sliderHandle, UDim.new(1, 0))
+	
+	return slider
+end
 
 return mainapi
