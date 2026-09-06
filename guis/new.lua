@@ -6242,6 +6242,7 @@ function mainapi:Load(skipgui, profile)
 	self.Profiles = guidata.Profiles or {{
 		Name = 'default', Bind = {}
 	}}
+	self.Loaded = savecheck
 	self.Categories.Profiles:ChangeValue()
 	if self.ProfileLabel then
 		self.ProfileLabel.Text = #self.Profile > 10 and self.Profile:sub(1, 10)..'...' or self.Profile
@@ -6290,20 +6291,20 @@ function mainapi:Load(skipgui, profile)
 			legitlookup[i:gsub(' ', '')] = v
 		end
 
-		for i, object in self.Modules do
-			local key = i:gsub(' ', '')
-			local v = savedata.Modules[key]
-			local shouldEnable = v and v.Enabled or false
-			if object.Options and v and v.Options then
+		for i, v in savedata.Modules do
+			i = i:gsub(' ', '')
+			local object = modulelookup[i]
+			if not object then continue end
+			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			if shouldEnable ~= object.Enabled then
+			if (v.Enabled or false) ~= object.Enabled then
 				if skipgui then
 					if self.ToggleNotifications.Enabled then 
-						mainapi:CreateNotification(i, (shouldEnable and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+						mainapi:CreateNotification(i, (v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
 					end
 				end
 				pcall(function()
@@ -6313,27 +6314,25 @@ function mainapi:Load(skipgui, profile)
 					task.wait()
 				end
 			end
-			if v then
-				pcall(function()
-					object:SetBind(v.Bind)
-				end)
-				if object.Object and object.Object.Bind then
-					object.Object.Bind.Visible = v.Bind and #v.Bind > 0 or false
-				end
+			pcall(function()
+				object:SetBind(v.Bind)
+			end)
+			if object.Object and object.Object.Bind then
+				object.Object.Bind.Visible = v.Bind and #v.Bind > 0 or false
 			end
 		end
 
-		for i, object in self.Legit.Modules do
-			local key = i:gsub(' ', '')
-			local v = savedata.Legit[key]
-			local shouldEnable = v and v.Enabled or false
-			if object.Options and v and v.Options then
+		for i, v in savedata.Legit do
+			i = i:gsub(' ', '')
+			local object = legitlookup[i]
+			if not object then continue end
+			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			if object.Enabled ~= shouldEnable then
+			if (v.Enabled or false) ~= object.Enabled then
 				pcall(function()
 					object:Toggle()
 				end)
@@ -6341,7 +6340,7 @@ function mainapi:Load(skipgui, profile)
 					task.wait()
 				end
 			end
-			if v and v.Position and object.Children then
+			if v.Position and object.Children then
 				object.Children.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
 			end
 		end
@@ -6359,6 +6358,8 @@ function mainapi:Load(skipgui, profile)
 	self.Categories.Main.Options.Bind:SetBind(self.Keybind)
 
 	if savenew then
+		self:Save()
+	else
 		self:Save()
 	end
 
@@ -6446,9 +6447,12 @@ end
 
 function mainapi:Save(newprofile)
 	if not self.Loaded then return end
+	if newprofile then
+		self.Profile = newprofile
+	end
 	local guidata = {
 		Categories = {},
-		Profile = newprofile or self.Profile,
+		Profile = self.Profile,
 		Profiles = self.Profiles,
 		Keybind = self.Keybind
 	}
@@ -6521,6 +6525,10 @@ end
 function mainapi:Uninject()
 	mainapi:Save()
 	mainapi.Loaded = nil
+	clickgui.Visible = false
+	pcall(function()
+		runService:SetRobloxGuiFocused(false)
+	end)
 	for _, v in self.Modules do
 		if v.Enabled then
 			pcall(function() v:Toggle() end)
@@ -6543,8 +6551,6 @@ function mainapi:Uninject()
 	end
 	if mainapi.ThreadFix then
 		setthreadidentity(8)
-		clickgui.Visible = false
-		mainapi:BlurCheck()
 	end
 	if mainapi.gui then
 		pcall(function()
