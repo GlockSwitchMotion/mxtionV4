@@ -138,13 +138,21 @@ local isfile = isfile or function(file)
 	return suc and res ~= nil and res ~= ''
 end
 
+local fontcache = {}
 local getfontsize = function(text, size, font)
+	local fontKey = typeof(font) == 'Font' and font.Family or tostring(font or '')
+	local key = tostring(text) .. '_' .. tostring(size) .. '_' .. fontKey
+	local cached = fontcache[key]
+	if cached then return cached end
+
 	fontsize.Text = text
 	fontsize.Size = size
 	if typeof(font) == 'Font' then
 		fontsize.Font = font
 	end
-	return textService:GetTextBoundsAsync(fontsize)
+	local bounds = textService:GetTextBoundsAsync(fontsize)
+	fontcache[key] = bounds
+	return bounds
 end
 
 local function addBlur(parent, notif)
@@ -6824,8 +6832,8 @@ createPublicProfilesWindow = function()
 
 	local window = Instance.new('Frame')
 	window.Name = 'PublicProfilesGUI'
-	window.Size = UDim2.fromOffset(580, 350)
-	window.Position = UDim2.new(0.5, -290, 0.5, -175)
+	window.Size = UDim2.fromOffset(600, 420)
+	window.Position = UDim2.new(0.5, -300, 0.5, -210)
 	window.BackgroundColor3 = uipallet.Main
 	window.Visible = true
 	window.Parent = scaledgui
@@ -6838,7 +6846,7 @@ createPublicProfilesWindow = function()
 
 	mainapi.PublicProfiles = mainapi.PublicProfiles or { Accents = {} }
 
-	-- Header Logo (2x scaled)
+	-- Header Logo
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'Logo'
 	logo.Size = UDim2.fromOffset(124, 32)
@@ -6873,7 +6881,7 @@ createPublicProfilesWindow = function()
 		window.Visible = false
 	end)
 
-	-- Divider
+	-- Top Divider
 	local topDivider = Instance.new('Frame')
 	topDivider.Size = UDim2.new(1, -24, 0, 1)
 	topDivider.Position = UDim2.fromOffset(12, 48)
@@ -6881,21 +6889,55 @@ createPublicProfilesWindow = function()
 	topDivider.BorderSizePixel = 0
 	topDivider.Parent = window
 
-	-- Upload Section with Profile Selection
+	-- 🔍 SEARCH BAR SECTION
+	local searchFrame = Instance.new('Frame')
+	searchFrame.Name = 'SearchFrame'
+	searchFrame.Size = UDim2.new(1, -24, 0, 32)
+	searchFrame.Position = UDim2.fromOffset(12, 54)
+	searchFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+	searchFrame.Parent = window
+	addCorner(searchFrame, UDim.new(0, 6))
+
+	local searchIcon = Instance.new('ImageLabel')
+	searchIcon.Size = UDim2.fromOffset(14, 14)
+	searchIcon.Position = UDim2.fromOffset(10, 9)
+	searchIcon.BackgroundTransparency = 1
+	searchIcon.Image = getcustomasset('mxtionv4/assets/new/search.png')
+	searchIcon.ImageColor3 = color.Light(uipallet.Main, 0.37)
+	searchIcon.Parent = searchFrame
+
+	local searchBox = Instance.new('TextBox')
+	searchBox.Name = 'SearchBox'
+	searchBox.Size = UDim2.new(1, -38, 1, 0)
+	searchBox.Position = UDim2.fromOffset(32, 0)
+	searchBox.BackgroundTransparency = 1
+	searchBox.Text = ''
+	searchBox.PlaceholderText = 'Search public configs by name or author...'
+	searchBox.TextColor3 = uipallet.Text
+	searchBox.PlaceholderColor3 = color.Dark(uipallet.Text, 0.4)
+	searchBox.TextSize = 13
+	searchBox.FontFace = uipallet.Font
+	searchBox.TextXAlignment = Enum.TextXAlignment.Left
+	searchBox.ClearTextOnFocus = false
+	searchBox.Parent = searchFrame
+
+	-- 📤 UPLOAD SECTION WITH PROFILE SELECTOR
 	local uploadFrame = Instance.new('Frame')
+	uploadFrame.Name = 'UploadFrame'
 	uploadFrame.Size = UDim2.new(1, -24, 0, 38)
-	uploadFrame.Position = UDim2.fromOffset(12, 56)
+	uploadFrame.Position = UDim2.fromOffset(12, 92)
 	uploadFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 	uploadFrame.Parent = window
 	addCorner(uploadFrame, UDim.new(0, 6))
 
-	local selectedUploadProfile = mainapi.Profile
+	local selectedUploadProfile = mainapi.Profile or 'default'
 
 	local selectProfBtn = Instance.new('TextButton')
+	selectProfBtn.Name = 'SelectProfile'
 	selectProfBtn.Size = UDim2.new(1, -145, 1, 0)
 	selectProfBtn.Position = UDim2.fromOffset(12, 0)
 	selectProfBtn.BackgroundTransparency = 1
-	selectProfBtn.Text = 'Profile to Upload: '..selectedUploadProfile
+	selectProfBtn.Text = 'Select profile: ' .. selectedUploadProfile .. '  (click to change)'
 	selectProfBtn.TextColor3 = uipallet.Text
 	selectProfBtn.TextSize = 13
 	selectProfBtn.FontFace = uipallet.Font
@@ -6903,6 +6945,7 @@ createPublicProfilesWindow = function()
 	selectProfBtn.Parent = uploadFrame
 
 	local uploadBtn = Instance.new('TextButton')
+	uploadBtn.Name = 'UploadBtn'
 	uploadBtn.Size = UDim2.fromOffset(120, 28)
 	uploadBtn.Position = UDim2.new(1, -126, 0, 5)
 	uploadBtn.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
@@ -6914,7 +6957,7 @@ createPublicProfilesWindow = function()
 	addCorner(uploadBtn, UDim.new(0, 4))
 	table.insert(mainapi.PublicProfiles.Accents, uploadBtn)
 
-	-- Profile picker toggle on click
+	-- Profile picker: cycles through all available user profiles
 	local profIndex = 1
 	selectProfBtn.MouseButton1Click:Connect(function()
 		local availableProfiles = {}
@@ -6926,13 +6969,14 @@ createPublicProfilesWindow = function()
 		if #availableProfiles == 0 then availableProfiles = {'default'} end
 		profIndex = (profIndex % #availableProfiles) + 1
 		selectedUploadProfile = availableProfiles[profIndex] or 'default'
-		selectProfBtn.Text = 'Profile to Upload: '..selectedUploadProfile
+		selectProfBtn.Text = 'Select profile: ' .. selectedUploadProfile .. '  (click to change)'
 	end)
 
-	-- List Frame
+	-- 📋 SCROLLING LIST OF PUBLIC PROFILES
 	local scrollFrame = Instance.new('ScrollingFrame')
-	scrollFrame.Size = UDim2.new(1, -24, 1, -112)
-	scrollFrame.Position = UDim2.fromOffset(12, 102)
+	scrollFrame.Name = 'ConfigList'
+	scrollFrame.Size = UDim2.new(1, -24, 1, -142)
+	scrollFrame.Position = UDim2.fromOffset(12, 136)
 	scrollFrame.BackgroundTransparency = 1
 	scrollFrame.BorderSizePixel = 0
 	scrollFrame.ScrollBarThickness = 3
@@ -6950,93 +6994,31 @@ createPublicProfilesWindow = function()
 	end)
 
 	local publicconfigs = mainapi.Libraries and mainapi.Libraries.publicconfigs
+	local allCachedConfigs = {}
 
-	local function refreshPublicList()
+	local function renderList(filterText)
 		for _, child in scrollFrame:GetChildren() do
-			if child:IsA('Frame') or child:IsA('TextButton') then
+			if child:IsA('Frame') or child:IsA('TextButton') or child:IsA('TextLabel') then
 				child:Destroy()
 			end
 		end
 
-		local combinedList = {}
-		local addedNames = {}
+		local query = filterText and filterText:lower():match('^%s*(.-)%s*$') or ''
+		local displayList = {}
 
-		-- 1. Fetch live global public configs using publicconfigs library
-		if publicconfigs and publicconfigs.FetchAll then
-			local ok, cloudList = publicconfigs.FetchAll(nil)
-			if ok and type(cloudList) == 'table' then
-				for _, item in ipairs(cloudList) do
-					local profName = item.name or item.Name
-					if profName and not addedNames[profName] then
-						addedNames[profName] = true
-						table.insert(combinedList, {
-							Name = profName,
-							Data = item.data or item.Data,
-							Author = item.author or "Community"
-						})
-					end
-				end
+		for _, item in ipairs(allCachedConfigs) do
+			local name = tostring(item.Name or item.name or ''):lower()
+			local author = tostring(item.Author or item.author or ''):lower()
+			if query == '' or name:find(query, 1, true) or author:find(query, 1, true) then
+				table.insert(displayList, item)
 			end
 		end
 
-		-- 2. Fallback check on JSONBin cloud DB
-		local cloudBinUrl = 'https://api.jsonbin.io/v3/b/66d9fb7ce41b4d34e42aa11e/latest'
-		local suc, req = pcall(function()
-			return game:HttpGet(cloudBinUrl, true)
-		end)
-
-		if suc and req and type(req) == 'string' and req ~= '' and req ~= '404: Not Found' then
-			pcall(function()
-				local response = httpService:JSONDecode(req)
-				local record = response and (response.record or response)
-				if type(record) == 'table' then
-					for _, item in ipairs(record) do
-						local profName = item.name or item.Name
-						if profName and not addedNames[profName] then
-							addedNames[profName] = true
-							table.insert(combinedList, {
-								Name = profName,
-								Data = item.data or item.Data,
-								Author = item.author or "Community"
-							})
-						end
-					end
-				end
-			end)
-		end
-
-		-- 3. Check local saved public profiles file
-		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
-		if isfile(publicFilePath) then
-			local ok, content = pcall(readfile, publicFilePath)
-			if ok and type(content) == 'string' and content ~= '' then
-				local ok2, decoded = pcall(function() return httpService:JSONDecode(content) end)
-				if ok2 and type(decoded) == 'table' then
-					for _, item in ipairs(decoded) do
-						local profName = item.name or item.Name
-						if profName and not addedNames[profName] then
-							addedNames[profName] = true
-							table.insert(combinedList, item)
-						end
-					end
-				end
-			end
-		end
-
-		-- 4. Session memory uploads
-		for _, item in ipairs(localPublicProfilesList) do
-			local profName = item.name or item.Name
-			if profName and not addedNames[profName] then
-				addedNames[profName] = true
-				table.insert(combinedList, item)
-			end
-		end
-
-		if #combinedList == 0 then
+		if #displayList == 0 then
 			local emptyMsg = Instance.new('TextLabel')
 			emptyMsg.Size = UDim2.new(1, 0, 0, 40)
 			emptyMsg.BackgroundTransparency = 1
-			emptyMsg.Text = 'No public profiles found. Select a profile above and click Upload Profile!'
+			emptyMsg.Text = query ~= '' and ('No configs found matching "' .. query .. '".') or 'No public profiles found. Pick your profile above and click Upload!'
 			emptyMsg.TextColor3 = color.Dark(uipallet.Text, 0.4)
 			emptyMsg.TextSize = 13
 			emptyMsg.FontFace = uipallet.Font
@@ -7044,34 +7026,46 @@ createPublicProfilesWindow = function()
 			return
 		end
 
-		for i, item in ipairs(combinedList) do
+		for i, item in ipairs(displayList) do
 			local itemFrame = Instance.new('Frame')
-			itemFrame.Size = UDim2.new(1, 0, 0, 36)
+			itemFrame.Size = UDim2.new(1, 0, 0, 38)
 			itemFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
 			itemFrame.Parent = scrollFrame
 			addCorner(itemFrame, UDim.new(0, 6))
 
+			local configDisplayName = tostring(item.Name or item.name or 'Unnamed')
+			local configAuthor = tostring(item.Author or item.author or 'Community')
+			local downloads = tonumber(item.Downloads or item.downloads or 0)
+
 			local itemName = Instance.new('TextLabel')
-			itemName.Size = UDim2.new(1, -120, 1, 0)
+			itemName.Size = UDim2.new(1, -130, 1, 0)
 			itemName.Position = UDim2.fromOffset(12, 0)
 			itemName.BackgroundTransparency = 1
-			itemName.Text = tostring(item.Name or item.name or 'Unnamed Profile')..(item.Author and " ("..tostring(item.Author)..")" or "")
+			itemName.Text = configDisplayName .. '  <font color="#888888">by ' .. configAuthor .. '</font>'
 			itemName.TextColor3 = uipallet.Text
 			itemName.TextSize = 13
+			itemName.RichText = true
 			itemName.FontFace = uipallet.Font
 			itemName.TextXAlignment = Enum.TextXAlignment.Left
 			itemName.Parent = itemFrame
 
 			local downloadBtn = Instance.new('TextButton')
 			downloadBtn.Size = UDim2.fromOffset(100, 26)
-			downloadBtn.Position = UDim2.new(1, -106, 0, 5)
+			downloadBtn.Position = UDim2.new(1, -108, 0, 6)
 			downloadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
-			downloadBtn.Text = 'Load / Save'
+			downloadBtn.Text = 'Load Profile'
 			downloadBtn.TextColor3 = uipallet.Text
 			downloadBtn.TextSize = 12
-			downloadBtn.FontFace = uipallet.Font
+			downloadBtn.FontFace = uipallet.FontSemiBold
 			downloadBtn.Parent = itemFrame
 			addCorner(downloadBtn, UDim.new(0, 4))
+
+			downloadBtn.MouseEnter:Connect(function()
+				tween:Tween(downloadBtn, uipallet.Tween, { BackgroundColor3 = color.Light(uipallet.Main, 0.2) })
+			end)
+			downloadBtn.MouseLeave:Connect(function()
+				tween:Tween(downloadBtn, uipallet.Tween, { BackgroundColor3 = color.Light(uipallet.Main, 0.1) })
+			end)
 
 			downloadBtn.MouseButton1Click:Connect(function()
 				local content = item.Data or item.data or item.Content
@@ -7080,7 +7074,7 @@ createPublicProfilesWindow = function()
 					if ok then
 						mainapi:Save(profName)
 						mainapi:Load(true, profName)
-						mainapi:CreateNotification('MXTION V4', 'Successfully loaded public profile: '..profName, 5, 'info')
+						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
 						window.Visible = false
 					else
 						mainapi:CreateNotification('MXTION V4', profName or 'Failed to load profile.', 5, 'alert')
@@ -7090,59 +7084,86 @@ createPublicProfilesWindow = function()
 		end
 	end
 
+	local function refreshPublicList()
+		allCachedConfigs = {}
+		local addedNames = {}
+
+		-- Fetch live global public configs from Cloudflare API
+		if publicconfigs and publicconfigs.FetchAll then
+			local ok, cloudList = publicconfigs.FetchAll(nil)
+			if ok and type(cloudList) == 'table' then
+				for _, item in ipairs(cloudList) do
+					local profName = item.name or item.Name
+					if profName and not addedNames[profName] then
+						addedNames[profName] = true
+						table.insert(allCachedConfigs, {
+							Name = profName,
+							Data = item.data or item.Data,
+							Author = item.author or item.Author or "Community",
+							Downloads = item.downloads or 0
+						})
+					end
+				end
+			end
+		end
+
+		-- Session memory fallback
+		for _, item in ipairs(localPublicProfilesList) do
+			local profName = item.name or item.Name
+			if profName and not addedNames[profName] then
+				addedNames[profName] = true
+				table.insert(allCachedConfigs, item)
+			end
+		end
+
+		renderList(searchBox.Text)
+	end
+
+	-- Real-time search box filter
+	searchBox:GetPropertyChangedSignal('Text'):Connect(function()
+		renderList(searchBox.Text)
+	end)
+
+	-- 📤 UPLOAD PROFILE ACTION WITH DUPLICATE NAME PROTECTION
 	uploadBtn.MouseButton1Click:Connect(function()
-		local targetProfile = selectedUploadProfile or mainapi.Profile
+		local targetProfile = selectedUploadProfile or mainapi.Profile or 'default'
 		local exportData = exportProfileJson(targetProfile)
 		if not exportData then
-			mainapi:CreateNotification('MXTION V4', 'No profile data found for "'..tostring(targetProfile)..'".', 5, 'alert')
+			mainapi:CreateNotification('MXTION V4', 'No profile data found for "' .. tostring(targetProfile) .. '".', 5, 'alert')
 			return
+		end
+
+		-- Check if name is already taken by someone else
+		if publicconfigs and publicconfigs.IsNameTaken then
+			local taken, owner = publicconfigs.IsNameTaken(tostring(targetProfile))
+			local localPlayerName = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "Anonymous"}).Name
+			if taken and owner and owner:lower() ~= localPlayerName:lower() then
+				mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
+				return
+			end
+		end
+
+		-- Upload to Cloudflare KV database
+		if publicconfigs and publicconfigs.Upload then
+			local ok, msg = publicconfigs.Upload(tostring(targetProfile), tostring(game.PlaceId), exportData)
+			if not ok then
+				if msg and (msg:lower():find('already taken') or msg:lower():find('already used') or msg:lower():find('taken')) then
+					mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
+				else
+					mainapi:CreateNotification('MXTION V4', msg or 'failed config name already used', 6, 'alert')
+				end
+				return
+			end
 		end
 
 		local newEntry = {
 			Name = tostring(targetProfile),
-			Data = exportData
+			Data = exportData,
+			Author = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "You"}).Name
 		}
-
 		table.insert(localPublicProfilesList, 1, newEntry)
 
-		-- Save locally to disk
-		local publicFilePath = 'mxtionv4/profiles/public_shared.json'
-		local existing = {}
-		if isfile(publicFilePath) then
-			pcall(function()
-				existing = httpService:JSONDecode(readfile(publicFilePath))
-			end)
-		end
-		if type(existing) ~= 'table' then existing = {} end
-		table.insert(existing, 1, newEntry)
-		pcall(writefile, publicFilePath, httpService:JSONEncode(existing))
-
-		-- Upload via publicconfigs library module to cloud database
-		if publicconfigs and publicconfigs.Upload then
-			task.spawn(function()
-				publicconfigs.Upload(tostring(targetProfile), tostring(game.PlaceId), exportData)
-			end)
-		end
-
-		-- Direct Cloud HTTP API PUT fallback
-		local httpReq = (syn and syn.request) or (http and http.request) or request or http_request
-		if httpReq then
-			task.spawn(function()
-				pcall(function()
-					httpReq({
-						Url = 'https://api.jsonbin.io/v3/b/66d9fb7ce41b4d34e42aa11e',
-						Method = 'PUT',
-						Headers = {
-							['Content-Type'] = 'application/json',
-							['X-Master-Key'] = '$2a$10$T8Z.Yx7Kq9v2kF3A1hJ8u.GZ9e7f8g9h0i1j2k3l4m5n6o7p8q9r'
-						},
-						Body = httpService:JSONEncode(existing)
-					})
-				end)
-			end)
-		end
-
-		mainapi:CreateNotification('MXTION V4', 'Successfully published profile "'..tostring(targetProfile)..'" globally!', 5, 'info')
+		mainapi:CreateNotification('MXTION V4', 'Successfully published profile "' .. tostring(targetProfile) .. '"!', 5, 'info')
 		refreshPublicList()
 	end)
 
