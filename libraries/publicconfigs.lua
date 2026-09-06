@@ -60,9 +60,43 @@ function publicconfigs.FetchAll(filterPlaceId)
 	return true, filtered, listData
 end
 
+-- Search configs by name (case-insensitive)
+function publicconfigs.Search(query, configs)
+	if not query or query == "" then return configs end
+	local results = {}
+	local q = string.lower(query)
+	for _, item in ipairs(configs) do
+		local name = string.lower(item.name or "")
+		local author = string.lower(item.author or "")
+		if string.find(name, q, 1, true) or string.find(author, q, 1, true) then
+			table.insert(results, item)
+		end
+	end
+	return results
+end
+
+-- Check if a config name is already taken by anyone
+function publicconfigs.IsNameTaken(configName)
+	local suc, allConfigs = publicconfigs.FetchAll()
+	if not suc then return false end -- if fetch fails, allow upload
+	local nameLower = string.lower(configName)
+	for _, item in ipairs(allConfigs) do
+		if string.lower(item.name or "") == nameLower then
+			return true, item.author -- taken! returns who owns it
+		end
+	end
+	return false
+end
+
 function publicconfigs.Upload(configName, placeId, profileData, authorName)
 	if not configName or configName == "" then
 		return false, "Config name cannot be empty!"
+	end
+
+	-- Check if name is already taken
+	local taken, takenBy = publicconfigs.IsNameTaken(configName)
+	if taken then
+		return false, "The name '" .. configName .. "' is already taken by " .. tostring(takenBy) .. "! Choose a different name."
 	end
 
 	local author = authorName or (localPlayer and localPlayer.Name) or "Anonymous"
