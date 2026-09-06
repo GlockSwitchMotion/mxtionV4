@@ -24,9 +24,7 @@ local mainapi = {
 	ToggleNotifications = {},
 	Version = '4.18',
 	Windows = {},
-	-- NEW: Transparency controls for overlay and glass effects
-	OverlayTransparency = {Value = 0.3},
-	GlassTransparency = {Value = 0.4}
+	GuiOverlayTransparency = {Value = 0.3}
 }
 
 local cloneref = cloneref or function(obj)
@@ -103,6 +101,7 @@ local getcustomassets = {
 	['mxtionv4/assets/new/notification.png'] = 'rbxassetid://16738721069',
 	['mxtionv4/assets/new/overlaysicon.png'] = 'rbxassetid://14368339581',
 	['mxtionv4/assets/new/overlaystab.png'] = 'rbxassetid://14397380433',
+	['mxtionv4/assets/new/GuiOverlay.png'] = 'rbxassetid://132601338683901',
 	['mxtionv4/assets/new/overlay.png'] = 'rbxassetid://108578009244111',
 	['mxtionv4/assets/new/pin.png'] = 'rbxassetid://14368342301',
 	['mxtionv4/assets/new/profilesicon.png'] = 'rbxassetid://14397465323',
@@ -199,48 +198,17 @@ local function addCloseButton(parent, offset)
 	return close
 end
 
--- NEW: Function to add overlay to category downloads
-local function addCategoryOverlay(parent)
-	local overlay = Instance.new('ImageLabel')
-	overlay.Name = 'CategoryOverlay'
-	overlay.Size = UDim2.new(1, 0, 1, 0)
-	overlay.Position = UDim2.new(0, 0, 0, 0)
-	overlay.BackgroundTransparency = 1
-	overlay.Image = 'rbxassetid://108578009244111'
-	overlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	overlay.ZIndex = parent.ZIndex + 1
-	overlay.Parent = parent
-	
-	return overlay
-end
-
--- NEW: Function to apply liquid glass effect to text labels
-local function applyLiquidGlass(textLabel)
-	textLabel.BackgroundColor3 = Color3.fromRGB(150, 150, 180)
-	textLabel.BackgroundTransparency = mainapi.GlassTransparency.Value
-	textLabel.BorderSizePixel = 0
-	
-	addCorner(textLabel, UDim.new(0, 4))
-	
-	return textLabel
-end
-
--- NEW: Function to update all overlays and glass effects
-function mainapi:UpdateOverlayEffects()
+-- Function to update GUI overlay transparency across all categories
+function mainapi:UpdateGuiOverlayTransparency()
 	for _, category in self.Categories do
 		if category.Object then
-			local overlay = category.Object:FindFirstChild('CategoryOverlay')
-			if overlay then
-				overlay.ImageTransparency = self.OverlayTransparency.Value
+			local children = category.Object:FindFirstChild('Children')
+			if children then
+				local overlay = children:FindFirstChild('GuiOverlayImage')
+				if overlay then
+					overlay.ImageTransparency = self.GuiOverlayTransparency.Value
+				end
 			end
-		end
-	end
-	
-	-- Update all category name labels with glass effect
-	for _, category in self.Categories do
-		if category.Object and category.Object:FindFirstChild('CategoryName') then
-			local nameLabel = category.Object:FindFirstChild('CategoryName')
-			nameLabel.BackgroundTransparency = self.GlassTransparency.Value
 		end
 	end
 end
@@ -2706,6 +2674,19 @@ function mainapi:CreateGUI()
 	settingswindowlist.Parent = settingschildren
 	categoryapi.Object = window
 
+	components.Slider({
+		Name = 'Overlay Transparency',
+		Min = 0,
+		Max = 1,
+		Default = 0.3,
+		Decimal = 100,
+		Tooltip = 'Adjust the transparency of the GUI Overlay',
+		Function = function(val)
+			mainapi.GuiOverlayTransparency.Value = val
+			mainapi:UpdateGuiOverlayTransparency()
+		end
+	}, settingschildren, categoryapi)
+
 	function categoryapi:CreateBind()
 		local optionapi = {Bind = {'RightShift'}}
 
@@ -3830,6 +3811,18 @@ function mainapi:CreateCategory(categorysettings)
 	divider.BorderSizePixel = 0
 	divider.Visible = false
 	divider.Parent = window
+	local guiOverlay = Instance.new('ImageLabel')
+	guiOverlay.Name = 'GuiOverlayImage'
+	guiOverlay.Size = UDim2.new(1, 0, 1, 0)
+	guiOverlay.Position = UDim2.new(0, 0, 0, 0)
+	guiOverlay.BackgroundTransparency = 1
+	guiOverlay.BorderSizePixel = 0
+	guiOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
+	guiOverlay.ImageTransparency = mainapi.GuiOverlayTransparency.Value
+	guiOverlay.ScaleType = Enum.ScaleType.Crop
+	guiOverlay.ZIndex = 10
+	guiOverlay.Active = false
+	guiOverlay.Parent = children
 	local windowlist = Instance.new('UIListLayout')
 	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
 	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -4235,6 +4228,7 @@ function mainapi:CreateCategory(categorysettings)
 			setthreadidentity(8)
 		end
 		children.CanvasSize = UDim2.fromOffset(0, windowlist.AbsoluteContentSize.Y / scale.Scale)
+		guiOverlay.Size = UDim2.new(1, 0, 0, math.max(children.CanvasSize.Y.Offset, window.Size.Y.Offset - 41))
 		if categoryapi.Expanded then
 			window.Size = UDim2.fromOffset(220, math.min(41 + windowlist.AbsoluteContentSize.Y / scale.Scale, 601))
 		end
