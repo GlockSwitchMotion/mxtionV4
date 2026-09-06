@@ -4900,8 +4900,10 @@ function mainapi:CreateCategoryList(categorysettings)
 					end
 				end)
 				object.MouseButton1Click:Connect(function()
-					mainapi:Save(v.Name)
-					mainapi:Load(true)
+					if v.Name ~= mainapi.Profile then
+						mainapi:Save()
+						mainapi:Load(true, v.Name)
+					end
 				end)
 				object.MouseEnter:Connect(function()
 					bind.Visible = true
@@ -6288,20 +6290,20 @@ function mainapi:Load(skipgui, profile)
 			legitlookup[i:gsub(' ', '')] = v
 		end
 
-		for i, v in savedata.Modules do
-			i = i:gsub(' ', '')
-			local object = modulelookup[i]
-			if not object then continue end
-			if object.Options and v.Options then
+		for i, object in self.Modules do
+			local key = i:gsub(' ', '')
+			local v = savedata.Modules[key]
+			local shouldEnable = v and v.Enabled or false
+			if object.Options and v and v.Options then
 				self:LoadOptions(object, v.Options)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			if v.Enabled ~= object.Enabled then
+			if shouldEnable ~= object.Enabled then
 				if skipgui then
 					if self.ToggleNotifications.Enabled then 
-						mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+						mainapi:CreateNotification(i, (shouldEnable and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
 					end
 				end
 				object:Toggle(true)
@@ -6309,27 +6311,29 @@ function mainapi:Load(skipgui, profile)
 					task.wait()
 				end
 			end
-			object:SetBind(v.Bind)
-			object.Object.Bind.Visible = #v.Bind > 0
+			if v then
+				object:SetBind(v.Bind)
+				object.Object.Bind.Visible = #v.Bind > 0
+			end
 		end
 
-		for i, v in savedata.Legit do
-			i = i:gsub(' ', '')
-			local object = legitlookup[i]
-			if not object then continue end
-			if object.Options and v.Options then
+		for i, object in self.Legit.Modules do
+			local key = i:gsub(' ', '')
+			local v = savedata.Legit[key]
+			local shouldEnable = v and v.Enabled or false
+			if object.Options and v and v.Options then
 				self:LoadOptions(object, v.Options)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			if object.Enabled ~= v.Enabled then
+			if object.Enabled ~= shouldEnable then
 				object:Toggle()
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			if v.Position and object.Children then
+			if v and v.Position and object.Children then
 				object.Children.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
 			end
 		end
