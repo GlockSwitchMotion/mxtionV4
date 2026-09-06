@@ -4636,6 +4636,138 @@ run(function()
 end)
 
 run(function()
+	local ArmorChanger
+	local Trim
+	local Color
+	local Effect
+	local Rank
+	
+	local added = {}
+	local trims, colors, effects = {}, {}, {}
+	local trimvalues, colorvalues, effectvalues = {}, {}, {}
+	
+	local function prettify(text)
+		return (tostring(text):gsub('_', ' '):gsub('%a+', function(word)
+			return word:sub(1, 1):upper()..word:sub(2):lower()
+		end))
+	end
+	
+	local function addOption(list, values, label, value)
+		if values[label] ~= nil then return end
+		values[label] = value
+		table.insert(list, label)
+	end
+	
+	for _, trim in bedwars.ArmorTrimType do
+		local meta = bedwars.ArmorTrimMeta[trim]
+		addOption(trims, trimvalues, meta and meta.name or prettify(trim), trim)
+	end
+	table.sort(trims)
+	
+	for name, color in bedwars.ArmorTrimColor do
+		addOption(colors, colorvalues, prettify(name), color)
+	end
+	table.sort(colors)
+	
+	for _, effect in bedwars.ArmorTrimEffectType do
+		local meta = bedwars.ArmorTrimEffectMeta[effect]
+		addOption(effects, effectvalues, meta and meta.name or prettify(effect), effect)
+	end
+	table.sort(effects)
+	
+	local function clearTrim()
+		for _, v in added do
+			if v.Parent then
+				v:Destroy()
+			end
+		end
+		table.clear(added)
+	end
+	
+	local function applyTrim()
+		clearTrim()
+		if not ArmorChanger.Enabled or not lplr.Character then return end
+	
+		local before = {}
+		for _, v in lplr.Character:GetDescendants() do
+			before[v] = true
+		end
+	
+		local trim = trimvalues[Trim.Value]
+		local color = colorvalues[Color.Value]
+		local effect = effectvalues[Effect.Value]
+		if not trim or not color or not effect then return end
+	
+		bedwars.ArmorTrimController:attachArmorTrimEffects(lplr.Character, trim, color, Rank.Value - 1, effect)
+	
+		for _, v in lplr.Character:GetDescendants() do
+			if not before[v] then
+				table.insert(added, v)
+			end
+		end
+	end
+	
+	ArmorChanger = vape.Categories.Render:CreateModule({
+		Name = 'ArmorTrimChanger',
+		Function = function(callback)
+			if callback then
+				ArmorChanger:Clean(lplr.CharacterAdded:Connect(function()
+					task.wait(1)
+					applyTrim()
+				end))
+				ArmorChanger:Clean(clearTrim)
+			end
+			applyTrim()
+		end,
+		Tooltip = 'Puts an armor trim on yourself, only you can see it'
+	})
+	Trim = ArmorChanger:CreateDropdown({
+		Name = 'Trim',
+		List = trims,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end
+	})
+	Color = ArmorChanger:CreateDropdown({
+		Name = 'Color',
+		List = colors,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end
+	})
+	Effect = ArmorChanger:CreateDropdown({
+		Name = 'Effect',
+		List = effects,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end
+	})
+	Rank = ArmorChanger:CreateSlider({
+		Name = 'Tier',
+		Min = 1,
+		Max = 7,
+		Default = 7,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end,
+		Suffix = function(val)
+			local meta = bedwars.ArmorTrimEffectRankMeta[val - 1]
+			return meta and meta.tier and prettify(meta.tier) or ''
+		end,
+		Tooltip = 'Higher tiers use the fancier version of the effect'
+	})
+	
+end)
+
+run(function()
 	local BedESP
 	local Reference = {}
 	local Folder = Instance.new('Folder')
@@ -15654,138 +15786,6 @@ run(function()
 			return val > 1 and 'secs' or 'sec'
 		end
 	})
-end)
-
-run(function()
-	local ArmorChanger
-	local Trim
-	local Color
-	local Effect
-	local Rank
-	
-	local added = {}
-	local trims, colors, effects = {}, {}, {}
-	local trimvalues, colorvalues, effectvalues = {}, {}, {}
-	
-	local function prettify(text)
-		return (tostring(text):gsub('_', ' '):gsub('%a+', function(word)
-			return word:sub(1, 1):upper()..word:sub(2):lower()
-		end))
-	end
-	
-	local function addOption(list, values, label, value)
-		if values[label] ~= nil then return end
-		values[label] = value
-		table.insert(list, label)
-	end
-	
-	for _, trim in bedwars.ArmorTrimType do
-		local meta = bedwars.ArmorTrimMeta[trim]
-		addOption(trims, trimvalues, meta and meta.name or prettify(trim), trim)
-	end
-	table.sort(trims)
-	
-	for name, color in bedwars.ArmorTrimColor do
-		addOption(colors, colorvalues, prettify(name), color)
-	end
-	table.sort(colors)
-	
-	for _, effect in bedwars.ArmorTrimEffectType do
-		local meta = bedwars.ArmorTrimEffectMeta[effect]
-		addOption(effects, effectvalues, meta and meta.name or prettify(effect), effect)
-	end
-	table.sort(effects)
-	
-	local function clearTrim()
-		for _, v in added do
-			if v.Parent then
-				v:Destroy()
-			end
-		end
-		table.clear(added)
-	end
-	
-	local function applyTrim()
-		clearTrim()
-		if not ArmorChanger.Enabled or not lplr.Character then return end
-	
-		local before = {}
-		for _, v in lplr.Character:GetDescendants() do
-			before[v] = true
-		end
-	
-		local trim = trimvalues[Trim.Value]
-		local color = colorvalues[Color.Value]
-		local effect = effectvalues[Effect.Value]
-		if not trim or not color or not effect then return end
-	
-		bedwars.ArmorTrimController:attachArmorTrimEffects(lplr.Character, trim, color, Rank.Value - 1, effect)
-	
-		for _, v in lplr.Character:GetDescendants() do
-			if not before[v] then
-				table.insert(added, v)
-			end
-		end
-	end
-	
-	ArmorChanger = vape.Categories.Render:CreateModule({
-		Name = 'ArmorTrims',
-		Function = function(callback)
-			if callback then
-				ArmorChanger:Clean(lplr.CharacterAdded:Connect(function()
-					task.wait(1)
-					applyTrim()
-				end))
-				ArmorChanger:Clean(clearTrim)
-			end
-			applyTrim()
-		end,
-		Tooltip = 'Puts an armor trim on yourself, only you can see it'
-	})
-	Trim = ArmorChanger:CreateDropdown({
-		Name = 'Trim',
-		List = trims,
-		Function = function()
-			if ArmorChanger.Enabled then
-				applyTrim()
-			end
-		end
-	})
-	Color = ArmorChanger:CreateDropdown({
-		Name = 'Color',
-		List = colors,
-		Function = function()
-			if ArmorChanger.Enabled then
-				applyTrim()
-			end
-		end
-	})
-	Effect = ArmorChanger:CreateDropdown({
-		Name = 'Effect',
-		List = effects,
-		Function = function()
-			if ArmorChanger.Enabled then
-				applyTrim()
-			end
-		end
-	})
-	Rank = ArmorChanger:CreateSlider({
-		Name = 'Tier',
-		Min = 1,
-		Max = 7,
-		Default = 7,
-		Function = function()
-			if ArmorChanger.Enabled then
-				applyTrim()
-			end
-		end,
-		Suffix = function(val)
-			local meta = bedwars.ArmorTrimEffectRankMeta[val - 1]
-			return meta and meta.tier and prettify(meta.tier) or ''
-		end,
-		Tooltip = 'Higher tiers use the fancier version of the effect'
-	})
-	
 end)
 
 run(function()
