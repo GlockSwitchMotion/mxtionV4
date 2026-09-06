@@ -14925,454 +14925,173 @@ run(function()
 end)
 
 run(function()
-    local AutoDavey
-    local Switch
-    local Break
-    local Jump
-    local NoFallToggle
-    local LimitItem
-    local BreakDelay
-    local DrawTrajectory
-    local TrajectoryMode
-    local AimMode
-    local PositionMode
-    local SearchRange
-    local ShowTarget
+	local MemoryFixer
+	local Sync
+	local Interval
+	local Notify
+	local signals = {'Heartbeat', 'PostSimulation', 'PreAnimation', 'PreRender', 'PreSimulation', 'RenderStepped', 'Stepped'}
+	
+	local function clean()
+		if not getconnections or not getfunctionhash or not isexecutorclosure then
+			return 0
+		end
+	
+		local removed, seen = 0, {}
+		for _, v in signals do
+			for _, connection in getconnections(runService[v]) do
+				if connection.Function and not connection.ForeignState and isexecutorclosure(connection.Function) then
+					local hash = v..getfunctionhash(connection.Function)
+					if seen[hash] then
+						connection:Disconnect()
+						removed += 1
+					else
+						seen[hash] = true
+					end
+				end
+			end
+		end
+	
+		if Sync.Enabled then
+			for _, event in bedwars.SyncEvents do
+				if typeof(event) == 'table' and typeof(event.entries) == 'table' then
+					table.clear(seen)
+					for i, entry in event.entries do
+						local callback = entry.callbackInfo and entry.callbackInfo.callback
+						if callback and isexecutorclosure(callback) then
+							local hash = getfunctionhash(callback)
+							if seen[hash] then
+								event.entries[i] = nil
+								event.isSorted = false
+								removed += 1
+							else
+								seen[hash] = true
+							end
+						end
+					end
+				end
+			end
+		end
+	
+		return removed
+	end
+	
+	MemoryFixer = vape.Categories.Utility:CreateModule({
+		Name = 'MemoryFixer',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					repeat
+						local removed = clean()
+						if Notify.Enabled and removed > 0 then
+							notif('MemoryFixer', `Dropped {removed} leftover connection{removed == 1 and '' or 's'}`, 5)
+						end
+						task.wait(Interval.Value)
+					until not MemoryFixer.Enabled
+				end)
+			end
+		end,
+		Tooltip = 'Drops the duplicate loops and listeners an older injection left connected'
+	})
+	Sync = MemoryFixer:CreateToggle({
+		Name = 'Sync events',
+		Default = true,
+		Tooltip = 'Also prunes duplicate bedwars sync event listeners, the ones that survive a reinject'
+	})
+	Interval = MemoryFixer:CreateSlider({
+		Name = 'Interval',
+		Min = 5,
+		Max = 300,
+		Default = 30,
+		Suffix = 'seconds'
+	})
+	Notify = MemoryFixer:CreateToggle({
+		Name = 'Notify',
+		Default = true,
+		Tooltip = 'Tells you how many it dropped'
+	})
+	MemoryFixer:CreateButton({
+		Name = 'Clean now',
+		Function = function()
+			local removed = clean()
+			notif('MemoryFixer', `Dropped {removed} leftover connection{removed == 1 and '' or 's'}`, 5)
+		end
+	})
+end)
 
-    local RunService = game:GetService("RunService")
-    local Workspace = game:GetService("Workspace")
-    local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local lplr = Players.LocalPlayer
-
-    local old, oldAim
-    local trajectoryBeam, landingMarker, attach0, attach1
-    local aimConnection
-    local rayCheck = RaycastParams.new()
-    rayCheck.RespectCanCollide = true
-
-    local function getCannon()
-        if not entitylib.isAlive or not entitylib.character.RootPart then return nil end
-        local cannons = {}
-        local localPosition = entitylib.character.RootPart.Position
-        for _, v in pairs(store.blocks or {}) do
-            if v.Name == 'cannon' and (localPosition - v.Position).Magnitude <= SearchRange.Value then
-                table.insert(cannons, v)
-            end
-        end
-        if #cannons > 1 then
-            table.sort(cannons, function(a, b)
-                return (localPosition - a.Position).Magnitude < (localPosition - b.Position).Magnitude
-            end)
-        end
-        return cannons[1] or nil
-    end
-
-    local function makeVisual(target, blockPosition)
-        local part = Instance.new('Part')
-        part.Size = Vector3.new(3, 3, 3)
-        part.CFrame = CFrame.new(blockPosition)
-        part.Anchored = true
-        part.CanCollide = false
-        part.CanQuery = false
-        part.CanTouch = false
-        part.CastShadow = false
-        part.Transparency = 1
-        
-        local selection = Instance.new('SelectionBox')
-        selection.Adornee = part
-        selection.LineThickness = 0.04
-        selection.Color3 = Color3.new(1, 1, 1)
-        selection.SurfaceColor3 = Color3.new(1, 1, 1)
-        selection.SurfaceTransparency = 0.75
-        selection.Parent = part
-        
-        local tagSize = getfontsize and getfontsize('Landing (000 studs)', 14, uipallet.Font, Vector2.new(100000, 100000)) or Vector2.new(100, 20)
-        local billboard = Instance.new('BillboardGui')
-        billboard.Name = 'Tag'
-        billboard.Size = UDim2.fromOffset(tagSize.X + 8, tagSize.Y + 7)
-        billboard.StudsOffsetWorldSpace = (target - blockPosition) + Vector3.new(0, 2, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Parent = part
-        
-        local tag = Instance.new('TextLabel')
-        tag.Size = billboard.Size
-        tag.BackgroundColor3 = Color3.new()
-        tag.BackgroundTransparency = 0.5
-        tag.BorderSizePixel = 0
-        tag.RichText = true
-        tag.FontFace = uipallet and uipallet.Font or Font.fromEnum(Enum.Font.SourceSans)
-        tag.TextSize = 14
-        tag.TextColor3 = Color3.new(1, 1, 1)
-        tag.Parent = billboard
-        
-        if bedwars.QueryUtil then
-            bedwars.QueryUtil:setQueryIgnored(part, true)
-        end
-        part.Parent = gameCamera or Workspace
-        return part
-    end
-
-    local function aimCannon(cannon, direction)
-        local blockPosition = bedwars.BlockController:getBlockPosition(cannon.Position)
-        local aimed = false
-        local timeout = tick() + 0.8
-        repeat
-            bedwars.Handler:Get('AimCannon'):Fire('SendToServer', {
-                cannonBlockPos = blockPosition,
-                lookVector = direction.Unit
-            })
-            task.wait(0.1)
-            local look = cannon:GetAttribute('LookVector')
-            aimed = look and (look - direction.Unit).Magnitude < 0.01
-        until aimed or tick() > timeout or not cannon.Parent
-        return aimed
-    end
-
-    local function createTrajectoryVisuals()
-        if landingMarker then return end
-
-        landingMarker = Instance.new("Part")
-        landingMarker.Shape = Enum.PartType.Cylinder
-        landingMarker.Size = Vector3.new(0.4, 4, 4)
-        landingMarker.Color = Color3.fromRGB(0, 255, 150)
-        landingMarker.Material = Enum.Material.Neon
-        landingMarker.Transparency = 0.3
-        landingMarker.Anchored = true
-        landingMarker.CanCollide = false
-        landingMarker.Orientation = Vector3.new(0, 0, 90)
-        landingMarker.Parent = Workspace.Terrain
-        landingMarker.Visible = false
-    end
-
-    local function clearTrajectoryVisuals()
-        if aimConnection then
-            aimConnection:Disconnect()
-            aimConnection = nil
-        end
-        if trajectoryBeam then 
-            trajectoryBeam:Destroy() 
-            trajectoryBeam = nil 
-        end
-        if landingMarker then 
-            landingMarker:Destroy() 
-            landingMarker = nil 
-        end
-        if attach0 then
-            attach0:Destroy()
-            attach0 = nil
-        end
-        if attach1 then
-            attach1:Destroy()
-            attach1 = nil
-        end
-    end
-
-    local function updateTrajectory(origin, velocity, block)
-        if not DrawTrajectory.Enabled then return end
-        createTrajectoryVisuals()
-
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        if entitylib.isAlive and entitylib.character.Character then
-            raycastParams.FilterDescendantsInstances = {entitylib.character.Character, block}
-        end
-
-        local camera = Workspace.CurrentCamera
-        if not camera then return end
-
-        local lookVector = camera.CFrame.LookVector
-        local flatDirection = Vector3.new(lookVector.X, math.clamp(lookVector.Y, -0.2, 0.4), lookVector.Z).Unit
-        local startPos = block.Position + Vector3.new(0, 2.5, 0) + (flatDirection * 3)
-        local maxDist = 160
-        local hitPos = startPos + (flatDirection * maxDist)
-
-        local ray = Workspace:Raycast(startPos, flatDirection * maxDist, raycastParams)
-        if ray then
-            hitPos = ray.Position
-        end
-
-        if trajectoryBeam and not trajectoryBeam:IsA("Beam") then
-            trajectoryBeam:Destroy()
-            trajectoryBeam = nil
-        end
-
-        if not trajectoryBeam then
-            attach0 = Instance.new("Attachment", Workspace.Terrain)
-            attach1 = Instance.new("Attachment", Workspace.Terrain)
-
-            trajectoryBeam = Instance.new("Beam")
-            trajectoryBeam.Attachment0 = attach0
-            trajectoryBeam.Attachment1 = attach1
-            trajectoryBeam.Color = ColorSequence.new(Color3.fromRGB(0, 255, 150))
-            trajectoryBeam.Width0 = 0.35
-            trajectoryBeam.Width1 = 0.35
-            trajectoryBeam.Transparency = NumberSequence.new(0.1)
-            trajectoryBeam.FaceCamera = true
-            trajectoryBeam.AlwaysOnTop = true
-            trajectoryBeam.Parent = Workspace.Terrain
-        end
-
-        attach0.WorldPosition = startPos
-        attach1.WorldPosition = hitPos
-
-        landingMarker.Position = hitPos + Vector3.new(0, 0.1, 0)
-        landingMarker.Visible = true
-    end
-
-    local function canBreak()
-        if not LimitItem.Enabled then return true end
-        return store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock ~= nil
-    end
-
-    local function isMyCannon(block)
-        if not block then return false end
-        if not lplr then return false end
-
-        local placedBy = block:GetAttribute("PlacedBy") or block:GetAttribute("Placer") or block:GetAttribute("Owner")
-        if placedBy then
-            return placedBy == lplr.Name or placedBy == lplr.UserId
-        end
-
-        if bedwars.BlockController and bedwars.BlockController:getStore() then
-            local blockData = bedwars.BlockController:getStore():getBlockData(block.Position)
-            if blockData and blockData.placedBy then
-                return blockData.placedBy == lplr.UserId or blockData.placedBy == lplr.Name
-            end
-        end
-
-        return true
-    end
-
-    -- Listen to CannonFired and spam GroundHit remote payload
-    local function setupInterceptions()
-        pcall(function()
-            local cannonFiredEvent = ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.CannonFired
-            local groundHitEvent = ReplicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.GroundHit
-
-            if cannonFiredEvent and groundHitEvent and not cannonFiredEvent._hooked then
-                cannonFiredEvent._hooked = true
-                cannonFiredEvent.OnClientEvent:Connect(function(data)
-                    if type(data) == "table" and data.player == lplr and NoFallToggle.Enabled then
-                        task.spawn(function()
-                            local startTime = tick()
-                            -- Spam GroundHit payload during the cannon flight until landing or timeout
-                            repeat
-                                pcall(function()
-                                    groundHitEvent:FireServer(
-                                        nil,
-                                        Vector3.new(0, -46.452854156494, 0),
-                                        1787806783.1247
-                                    )
-                                end)
-                                task.wait(0.05)
-                                
-                                local root = entitylib.character and entitylib.character.RootPart
-                                if root and root.Velocity.Y > -5 then
-                                    task.wait(0.1)
-                                    break
-                                end
-                            until tick() - startTime > 10 or not entitylib.isAlive
-                        end)
-                    end
-                end)
-            end
-        end)
-    end
-
-    AutoDavey = vape.Categories.Kits:CreateModule({
-        Name = 'AutoDavey',
-        Function = function(callback)
-            if callback then
-                setupInterceptions()
-
-                oldAim = bedwars.CannonController.startAiming
-                bedwars.CannonController.startAiming = function(self, block, ...)
-                    local call = oldAim(self, block, ...)
-
-                    if AimMode.Value ~= 'Disabled' then
-                        task.spawn(function()
-                            if not entitylib.isAlive then return end
-                            local cannon = getCannon()
-                            if not cannon then return end
-
-                            local camera = Workspace.CurrentCamera
-                            if not camera then return end
-                            
-                            local lookVector = camera.CFrame.LookVector
-                            local clampedDirection = Vector3.new(lookVector.X, math.clamp(lookVector.Y, -0.2, 0.4), lookVector.Z).Unit
-
-                            local origin = block.Position + Vector3.new(0, 2.5, 0)
-                            rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, cannon}
-                            local ray = Workspace:Raycast(origin, clampedDirection * 100, rayCheck)
-                            local target = ray and ray.Position or (origin + clampedDirection * 50)
-
-                            local visual = ShowTarget.Enabled and makeVisual(target, target - Vector3.new(0, 1, 0)) or nil
-                            if visual and visual:FindFirstChild("Tag") then
-                                visual.Tag.TextLabel.Text = string.format("Landing (%d studs)", math.floor((target - origin).Magnitude))
-                            end
-
-                            if AimMode.Value == 'Aim And Launch' then
-                                if cannon.AimPrompt and cannon.AimPrompt.HoldDuration then
-                                    pcall(function() cannon.AimPrompt:InputHoldBegin() end)
-                                    task.wait(cannon.AimPrompt.HoldDuration + 0.05)
-                                end
-                            end
-
-                            if not aimCannon(cannon, clampedDirection) then
-                                if visual then visual:Destroy() end
-                                return
-                            end
-
-                            if AimMode.Value == 'Aim Only' then
-                                if visual then
-                                    task.delay(3, function()
-                                        if visual then visual:Destroy() end
-                                    end)
-                                end
-                                return
-                            end
-
-                            if AimMode.Value == 'Aim And Launch' then
-                                if cannon.StopAimingPrompt then
-                                    pcall(function() cannon.StopAimingPrompt:InputHoldBegin() end)
-                                    task.wait((cannon.StopAimingPrompt.HoldDuration or 0.2) + 0.05)
-                                end
-                                if cannon.LaunchSelfPrompt then
-                                    pcall(function() cannon.LaunchSelfPrompt:InputHoldBegin() end)
-                                    task.wait((cannon.LaunchSelfPrompt.HoldDuration or 0.2) + 0.05)
-                                end
-                            else
-                                bedwars.CannonHandController:launchSelf(cannon)
-                            end
-
-                            if visual then
-                                task.delay(2, function()
-                                    if visual then visual:Destroy() end
-                                end)
-                            end
-                        end)
-                    end
-
-                    if DrawTrajectory.Enabled and block and entitylib.isAlive then
-                        if aimConnection then aimConnection:Disconnect() end
-                        aimConnection = RunService.RenderStepped:Connect(function()
-                            if self.aiming and entitylib.isAlive then
-                                updateTrajectory(block.Position, nil, block)
-                            else
-                                clearTrajectoryVisuals()
-                            end
-                        end)
-                    end
-
-                    if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and isMyCannon(block) then
-                        task.spawn(function()
-                            if getBlockHits(block, block.Position) > 1 then
-                                task.wait(BreakDelay.Value)
-                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-                            end
-                        end)
-                    end
-
-                    return call
-                end
-
-                old = bedwars.CannonHandController.launchSelf
-                bedwars.CannonHandController.launchSelf = function(self, block, ...)
-                    clearTrajectoryVisuals()
-                    local call = old(self, block, ...)
-
-                    if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() and isMyCannon(block) then
-                        task.spawn(function()
-                            for i = 1, 2 do
-                                task.wait(BreakDelay.Value)
-                                bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
-                            end
-                        end)
-                    end
-
-                    if Jump.Enabled and entitylib.isAlive then
-                        task.defer(function()
-                            if entitylib.isAlive and entitylib.character and entitylib.character.Humanoid then
-                                entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                            end
-                        end)
-                    end
-                    return call
-                end
-            else
-                clearTrajectoryVisuals()
-                if bedwars and bedwars.CannonHandController then
-                    bedwars.CannonHandController.launchSelf = old
-                end
-                if bedwars and bedwars.CannonController then
-                    bedwars.CannonController.startAiming = oldAim
-                end
-            end
-        end,
-        Tooltip = 'Smoothly breaks only your own cannon/jump on launch, displays landing trajectory, auto-aims, and prevents cannon fall damage.'
-    })
-
-    -- Settings
-    AimMode = AutoDavey:CreateDropdown({
-        Name = 'Aim Mode',
-        List = {'Disabled', 'Aim And Launch', 'Aim Only'},
-        Default = 'Disabled',
-        Tooltip = 'Automatically aims cannon using DaveyAim configuration'
-    })
-
-    PositionMode = AutoDavey:CreateDropdown({
-        Name = 'Position Mode',
-        List = {'Mouse', 'Camera'},
-        Default = 'Mouse'
-    })
-
-    SearchRange = AutoDavey:CreateSlider({
-        Name = 'Search Range',
-        Min = 1,
-        Max = 18,
-        Default = 10,
-        Suffix = function(val)
-            return val <= 1 and 'stud' or 'studs'
-        end
-    })
-
-    ShowTarget = AutoDavey:CreateToggle({
-        Name = 'Show Target',
-        Default = true,
-        Tooltip = 'Highlights the block you are landing on until you land'
-    })
-
-    DrawTrajectory = AutoDavey:CreateToggle({
-        Name = 'Show Trajectory',
-        Default = true,
-        Tooltip = 'Displays trajectory line and landing target indicator'
-    })
-
-    TrajectoryMode = AutoDavey:CreateDropdown({
-        Name = 'Trajectory Mode',
-        List = {'Curve', 'Straight'},
-        Default = 'Straight',
-        Tooltip = 'Choose between parabolic curve or straight laser line aiming'
-    })
-
-    BreakDelay = AutoDavey:CreateSlider({
-        Name = 'Break Delay',
-        Min = 0,
-        Max = 0.3,
-        Default = 0.05,
-        Decimal = 100,
-        Tooltip = 'Smooths out block breaking execution timing'
-    })
-
-    Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
-    Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
-    NoFallToggle = AutoDavey:CreateToggle({Name = 'No fall damage', Default = true, Tooltip = 'Prevents fall damage specifically when launched from a cannon'})
-    Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
-    LimitItem = AutoDavey:CreateToggle({
-        Name = 'Limit to items',
-        Tooltip = 'Only breaks when tools are held'
-    })
+run(function()
+	local AutoDavey
+	local Switch
+	local Break
+	local Jump
+	local LimitItem
+	
+	local old, oldAim
+	
+	local function canBreak()
+		if not LimitItem.Enabled then return true end
+		local itemmeta = store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name]
+		return itemmeta ~= nil and itemmeta.breakBlock ~= nil
+	end
+	
+	local function breakCannon(block, keepLast)
+		local deadline = tick() + 0.6 + (store.ping.total or 0)
+		local hits = keepLast and math.max(math.ceil(getBlockHits(block, block.Position)) - 1, 0) or math.huge
+	
+		repeat
+			if not AutoDavey.Enabled or not entitylib.isAlive or not canBreak() or hits <= 0 then return end
+			if (block.Position - entitylib.character.RootPart.Position).Magnitude > 30 then return end
+			bedwars.breakBlock(block, true, true, nil, Switch.Enabled)
+			hits -= 1
+			task.wait(0.1)
+		until not block.Parent or tick() > deadline
+	end
+	
+	AutoDavey = vape.Categories.Kits:CreateModule({
+		Name = 'AutoDavey',
+		Function = function(callback)
+			if callback then
+				oldAim = bedwars.CannonController.startAiming
+				bedwars.CannonController.startAiming = function(self, block, ...)
+					local call = oldAim(self, block, ...)
+	
+					if Break.Enabled and block and block.Parent and entitylib.isAlive and canBreak() and getBlockHits(block, block.Position) > 1 then
+						task.spawn(breakCannon, block, true)
+					end
+	
+					return call
+				end
+	
+				old = bedwars.CannonHandController.launchSelf
+				bedwars.CannonHandController.launchSelf = function(self, block, ...)
+					if Break.Enabled and block and block.Parent and entitylib.isAlive and (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 and canBreak() then
+						pcall(breakCannon, block, true)
+						task.spawn(breakCannon, block)
+					end
+	
+					local call = old(self, block, ...)
+	
+					if Jump.Enabled and entitylib.isAlive then
+						entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+					end
+					return call
+				end
+			else
+				bedwars.CannonHandController.launchSelf = old
+				bedwars.CannonController.startAiming = oldAim
+			end
+		end,
+		Tooltip = 'Automatically breaks cannon/jump on launch'
+	})
+	Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
+	
+	Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
+	
+	Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
+	
+	LimitItem = AutoDavey:CreateToggle({
+		Name = 'Limit to items',
+		Tooltip = 'Only breaks when tools are held'
+	})
 end)
 
 run(function()
@@ -15864,12 +15583,14 @@ run(function()
 					if not Streamer.Enabled and entitylib.isAlive then
 						local localPosition = entitylib.character.RootPart.Position
 						for _, v in collectionService:GetTagged('treeOrb') do
-							if tick() > (cooldowns[v] or 0) and (localPosition - v.Spirit.Position).Magnitude <= Range.Value then
+							local orbPosition = v.Parent and v:GetPivot().Position
+	
+							if orbPosition and tick() > (cooldowns[v] or 0) and (localPosition - orbPosition).Magnitude <= Range.Value then
 								if Delay.Value > 0 then
 									task.wait(Delay.Value)
 								end
 	
-								if (localPosition - v.Spirit.Position).Magnitude <= Range.Value then
+								if v.Parent and (entitylib.character.RootPart.Position - v:GetPivot().Position).Magnitude <= Range.Value then
 									if Animation.Enabled then
 										bedwars.GameAnimationUtil:playAnimation(lplr.Character, bedwars.AnimationType.PUNCH)
 										bedwars.ViewmodelController:playAnimation(bedwars.AnimationType.FP_USE_ITEM)
@@ -15934,6 +15655,139 @@ run(function()
 		end
 	})
 end)
+
+run(function()
+	local ArmorChanger
+	local Trim
+	local Color
+	local Effect
+	local Rank
+	
+	local added = {}
+	local trims, colors, effects = {}, {}, {}
+	local trimvalues, colorvalues, effectvalues = {}, {}, {}
+	
+	local function prettify(text)
+		return (tostring(text):gsub('_', ' '):gsub('%a+', function(word)
+			return word:sub(1, 1):upper()..word:sub(2):lower()
+		end))
+	end
+	
+	local function addOption(list, values, label, value)
+		if values[label] ~= nil then return end
+		values[label] = value
+		table.insert(list, label)
+	end
+	
+	for _, trim in bedwars.ArmorTrimType do
+		local meta = bedwars.ArmorTrimMeta[trim]
+		addOption(trims, trimvalues, meta and meta.name or prettify(trim), trim)
+	end
+	table.sort(trims)
+	
+	for name, color in bedwars.ArmorTrimColor do
+		addOption(colors, colorvalues, prettify(name), color)
+	end
+	table.sort(colors)
+	
+	for _, effect in bedwars.ArmorTrimEffectType do
+		local meta = bedwars.ArmorTrimEffectMeta[effect]
+		addOption(effects, effectvalues, meta and meta.name or prettify(effect), effect)
+	end
+	table.sort(effects)
+	
+	local function clearTrim()
+		for _, v in added do
+			if v.Parent then
+				v:Destroy()
+			end
+		end
+		table.clear(added)
+	end
+	
+	local function applyTrim()
+		clearTrim()
+		if not ArmorChanger.Enabled or not lplr.Character then return end
+	
+		local before = {}
+		for _, v in lplr.Character:GetDescendants() do
+			before[v] = true
+		end
+	
+		local trim = trimvalues[Trim.Value]
+		local color = colorvalues[Color.Value]
+		local effect = effectvalues[Effect.Value]
+		if not trim or not color or not effect then return end
+	
+		bedwars.ArmorTrimController:attachArmorTrimEffects(lplr.Character, trim, color, Rank.Value - 1, effect)
+	
+		for _, v in lplr.Character:GetDescendants() do
+			if not before[v] then
+				table.insert(added, v)
+			end
+		end
+	end
+	
+	ArmorChanger = vape.Categories.Render:CreateModule({
+		Name = 'ArmorTrims',
+		Function = function(callback)
+			if callback then
+				ArmorChanger:Clean(lplr.CharacterAdded:Connect(function()
+					task.wait(1)
+					applyTrim()
+				end))
+				ArmorChanger:Clean(clearTrim)
+			end
+			applyTrim()
+		end,
+		Tooltip = 'Puts an armor trim on yourself, only you can see it'
+	})
+	Trim = ArmorChanger:CreateDropdown({
+		Name = 'Trim',
+		List = trims,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end
+	})
+	Color = ArmorChanger:CreateDropdown({
+		Name = 'Color',
+		List = colors,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end
+	})
+	Effect = ArmorChanger:CreateDropdown({
+		Name = 'Effect',
+		List = effects,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end
+	})
+	Rank = ArmorChanger:CreateSlider({
+		Name = 'Tier',
+		Min = 1,
+		Max = 7,
+		Default = 7,
+		Function = function()
+			if ArmorChanger.Enabled then
+				applyTrim()
+			end
+		end,
+		Suffix = function(val)
+			local meta = bedwars.ArmorTrimEffectRankMeta[val - 1]
+			return meta and meta.tier and prettify(meta.tier) or ''
+		end,
+		Tooltip = 'Higher tiers use the fancier version of the effect'
+	})
+	
+end)
+
 
 run(function()
 	local AutoEldric
@@ -16240,6 +16094,240 @@ run(function()
         Tooltip = 'Ice stacks an enemy needs before detonating'
     })
 end)
+
+run(function()
+	local AntiSuffocate
+	local Mode
+	local Height
+	
+	local offsets = {
+		Vector3.new(0, 3, 0),
+		Vector3.new(3, 0, 0),
+		Vector3.new(-3, 0, 0),
+		Vector3.new(0, 0, 3),
+		Vector3.new(0, 0, -3),
+		Vector3.new(0, -3, 0)
+	}
+	
+	local function isTrapped(position)
+		return getPlacedBlock(position) ~= nil
+	end
+	
+	local function getEscape(position)
+		for _, offset in offsets do
+			local target = position + offset
+			if not isTrapped(target) and not isTrapped(target + Vector3.new(0, 3, 0)) then
+				return target
+			end
+		end
+		return nil
+	end
+	
+	AntiSuffocate = vape.Categories.Utility:CreateModule({
+		Name = 'AntiSuffocate',
+		Function = function(callback)
+			if callback then
+				repeat
+					if entitylib.isAlive and store.matchState == 1 then
+						local root = entitylib.character.RootPart
+						local head = root.Position + Vector3.new(0, Height.Value, 0)
+	
+						if isTrapped(head) then
+							if Mode.Value == 'Break' then
+								local block = getPlacedBlock(head)
+								if block then
+									bedwars.breakBlock(block, true, true)
+								end
+							else
+								local escape = getEscape(roundPos(head))
+								if escape then
+									root.CFrame = CFrame.new(escape - Vector3.new(0, Height.Value, 0)) * (root.CFrame - root.Position)
+									root.AssemblyLinearVelocity = Vector3.zero
+								end
+							end
+						end
+					end
+					task.wait(0.1)
+				until not AntiSuffocate.Enabled
+			end
+		end,
+		Tooltip = 'Gets you out of a block that someone placed on top of you before it suffocates you'
+	})
+	Mode = AntiSuffocate:CreateDropdown({
+		Name = 'Mode',
+		List = {'Move', 'Break'},
+		Tooltip = 'Move - shifts you into the nearest open cell\nBreak - breaks the block you are stuck in'
+	})
+	Height = AntiSuffocate:CreateSlider({
+		Name = 'Check height',
+		Min = 0,
+		Max = 4,
+		Default = 1.5,
+		Decimal = 10,
+		Suffix = function(val)
+			return val <= 1 and 'stud' or 'studs'
+		end,
+		Tooltip = 'How far above your root the check looks, 1.5 is head level'
+	})
+	
+end)
+
+run(function()
+	local AutoUse
+	local Items
+	local Combat
+	local Delay
+	
+	AutoUse = vape.Categories.Inventory:CreateModule({
+		Name = 'AutoUse',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					repeat
+						if entitylib.isAlive and store.matchState == 1 and not isCasting() and (not Combat.Enabled or (workspace:GetServerTimeNow() - (lplr.Character:GetAttribute('LastDamageTakenTime') or 0)) < 6) then
+							for _, v in Items.ListEnabled do
+								local item = getItem(v)
+								local meta = item and bedwars.ItemMeta[v]
+								local consumable = meta and meta.consumable
+								if consumable then
+									local effect = consumable.statusEffect and consumable.statusEffect.statusEffectType or ({v:gsub('_potion', '')})[1]
+									if not lplr.Character:GetAttribute(`StatusEffect_{effect}`) then
+										bedwars.Handler:Get('ConsumeItem'):Fire('CallServerAsync', {item = item.tool})
+										task.wait(consumable.consumeTime or 1)
+										break
+									end
+								end
+							end
+						end
+						task.wait(Delay.Value)
+					until not AutoUse.Enabled
+				end)
+			end
+		end,
+		Tooltip = 'Drinks and eats the buff items you list as soon as their effect runs out'
+	})
+	Items = AutoUse:CreateTextList({
+		Name = 'Items',
+		Default = {'fury_potion', 'crit_star', 'vitality_star', 'pie'},
+		Tooltip = 'Item ids, anything the game lets you consume\nfury_potion, jump_potion, serpents_touch_potion, crit_star, vitality_star, snow_cone, pie, watermelon, can_of_beans, sparkling_apple_juice'
+	})
+	Combat = AutoUse:CreateToggle({
+		Name = 'In combat only',
+		Tooltip = 'Saves them until something has hit you in the last 6 seconds'
+	})
+	Delay = AutoUse:CreateSlider({
+		Name = 'Delay',
+		Min = 0.1,
+		Max = 5,
+		Default = 0.5,
+		Decimal = 10,
+		Suffix = 'seconds'
+	})
+end)
+
+run(function()
+	local AutoLumen
+	local Targets
+	local Range
+	local FullCharge
+	local Delay
+	
+	local Balance = bedwars.LumenBalance or {MIN_CHARGE_TIME = 0.65, MAX_CHARGE_TIME = 1.25}
+	local Sword = 'light_sword'
+	local cooldown = 0
+	
+	local function getChargeTime()
+		local itemmeta = bedwars.ItemMeta[Sword]
+		local charged = itemmeta and itemmeta.sword and itemmeta.sword.chargedAttack
+		local minimum = charged and charged.minChargeTimeSec or Balance.MIN_CHARGE_TIME
+		local maximum = charged and charged.maxChargeTimeSec or Balance.MAX_CHARGE_TIME
+		return FullCharge.Enabled and maximum or minimum
+	end
+	
+	local function chargedSwing()
+		local charge = bedwars.SwordChargeController
+		if charge:getChargeState() ~= bedwars.ChargeState.Idle then return end
+	
+		charge:startCharging(Sword)
+		local started = charge:getChargeStartTime()
+		if started == 0 then return end
+	
+		local target = getChargeTime() + 0.05
+		repeat task.wait() until not AutoLumen.Enabled or not entitylib.isAlive or (tick() - started) >= target
+	
+		local chargeTime = tick() - started
+		charge:stopCharging(Sword)
+		if not AutoLumen.Enabled or not entitylib.isAlive then return end
+	
+		local tool = store.hand.tool
+		if not tool or tool.Name ~= Sword then return end
+	
+		local charged = bedwars.ItemMeta[Sword].sword.chargedAttack
+		if not (charged.skipSwingDamage and chargeTime > (charged.minChargeTimeSec or Balance.MIN_CHARGE_TIME)) then
+			bedwars.SwordController:swingSwordAtMouse(chargeTime)
+		end
+	
+		bedwars.SyncEvents.SwordChargedSwing:fire(lplr, tool, {chargeTime = chargeTime})
+		cooldown = tick() + Delay.Value
+	end
+	
+	AutoLumen = vape.Categories.Kits:CreateModule({
+		Name = 'AutoLumen',
+		Function = function(callback)
+			if callback then
+				cooldown = 0
+	
+				repeat
+					if entitylib.isAlive and store.equippedKit == 'lumen' and store.hand.tool and store.hand.tool.Name == Sword and tick() >= cooldown then
+						local target = entitylib.EntityMouse({
+							Origin = entitylib.character.RootPart.Position,
+							Range = Range.Value,
+							Part = 'RootPart',
+							Players = Targets.Players.Enabled,
+							NPCs = Targets.NPCs.Enabled,
+							Priority = Targets.Priority.Value,
+							Wallcheck = Targets.Walls.Enabled
+						})
+	
+						if target then
+							chargedSwing()
+						end
+					end
+					task.wait(0.1)
+				until not AutoLumen.Enabled
+			end
+		end,
+		Tooltip = 'Charges the sword of light and releases a wave whenever an enemy is in front of you, Killaura skips this sword because it has a charged attack'
+	})
+	Targets = AutoLumen:CreateTargets({
+		Players = true,
+		Walls = true
+	})
+	Range = AutoLumen:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 120,
+		Default = 60,
+		Suffix = function(val)
+			return val <= 1 and 'stud' or 'studs'
+		end
+	})
+	FullCharge = AutoLumen:CreateToggle({
+		Name = 'Full charge',
+		Default = true,
+		Tooltip = 'Holds the swing to the maximum charge, an upgraded lumen only fires the multi beam at full charge'
+	})
+	Delay = AutoLumen:CreateSlider({
+		Name = 'Delay',
+		Min = 0,
+		Max = 2,
+		Default = 0.1,
+		Decimal = 100,
+		Suffix = 'seconds'
+	})
+	
+end)
+
 
 run(function()
     local AutoStyx
