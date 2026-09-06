@@ -6306,14 +6306,20 @@ function mainapi:Load(skipgui, profile)
 						mainapi:CreateNotification(i, (shouldEnable and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
 					end
 				end
-				object:Toggle(true)
+				pcall(function()
+					object:Toggle(true)
+				end)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
 			if v then
-				object:SetBind(v.Bind)
-				object.Object.Bind.Visible = #v.Bind > 0
+				pcall(function()
+					object:SetBind(v.Bind)
+				end)
+				if object.Object and object.Object.Bind then
+					object.Object.Bind.Visible = v.Bind and #v.Bind > 0 or false
+				end
 			end
 		end
 
@@ -6328,7 +6334,9 @@ function mainapi:Load(skipgui, profile)
 				end
 			end
 			if object.Enabled ~= shouldEnable then
-				object:Toggle()
+				pcall(function()
+					object:Toggle()
+				end)
 				if shared.vapesmooth then
 					task.wait()
 				end
@@ -6409,7 +6417,9 @@ function mainapi:LoadOptions(object, savedoptions)
 		if mainapi.ThreadFix then
 			setthreadidentity(8)
 		end
-		option:Load(v)
+		pcall(function()
+			option:Load(v)
+		end)
 	end
 end
 
@@ -6513,17 +6523,17 @@ function mainapi:Uninject()
 	mainapi.Loaded = nil
 	for _, v in self.Modules do
 		if v.Enabled then
-			v:Toggle()
+			pcall(function() v:Toggle() end)
 		end
 	end
 	for _, v in self.Legit.Modules do
 		if v.Enabled then
-			v:Toggle()
+			pcall(function() v:Toggle() end)
 		end
 	end
 	for _, v in self.Categories do
-		if v.Type == 'Overlay' and v.Button.Enabled then
-			v.Button:Toggle()
+		if v.Type == 'Overlay' and v.Button and v.Button.Enabled then
+			pcall(function() v.Button:Toggle() end)
 		end
 	end
 	for _, v in mainapi.Connections do
@@ -6536,14 +6546,19 @@ function mainapi:Uninject()
 		clickgui.Visible = false
 		mainapi:BlurCheck()
 	end
-	mainapi.gui:ClearAllChildren()
-	mainapi.gui:Destroy()
+	if mainapi.gui then
+		pcall(function()
+			mainapi.gui:ClearAllChildren()
+			mainapi.gui:Destroy()
+		end)
+	end
 	table.clear(mainapi.Connections)
 	table.clear(mainapi.Libraries)
 	loopClean(mainapi)
 	shared.vape = nil
 	shared.vapereload = nil
 	shared.VapeIndependent = nil
+	_G.vape = nil
 end
 
 gui = Instance.new('ScreenGui')
@@ -6648,22 +6663,24 @@ mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
 		mainapi:QueueSave()
 	end
 	if clickgui.Visible and inputService.MouseEnabled then
-		repeat
-			local visibleCheck = clickgui.Visible
-			for _, v in mainapi.Windows do
-				visibleCheck = visibleCheck or v.Visible
-			end
-			if not visibleCheck then break end
+		task.spawn(function()
+			repeat
+				local visibleCheck = clickgui.Visible
+				for _, v in mainapi.Windows do
+					visibleCheck = visibleCheck or v.Visible
+				end
+				if not visibleCheck then break end
 
-			cursor.Visible = not inputService.MouseIconEnabled
-			if cursor.Visible then
-				local mouseLocation = inputService:GetMouseLocation()
-				cursor.Position = UDim2.fromOffset(mouseLocation.X - 31, mouseLocation.Y - 32)
-			end
+				cursor.Visible = not inputService.MouseIconEnabled
+				if cursor.Visible then
+					local mouseLocation = inputService:GetMouseLocation()
+					cursor.Position = UDim2.fromOffset(mouseLocation.X - 31, mouseLocation.Y - 32)
+				end
 
-			task.wait()
-		until mainapi.Loaded == nil
-		cursor.Visible = false
+				task.wait()
+			until mainapi.Loaded == nil
+			cursor.Visible = false
+		end)
 	end
 end))
 
