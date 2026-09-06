@@ -7,7 +7,7 @@ local isfile = isfile or function(file)
 	return suc and res ~= nil and res ~= ''
 end
 
--- AUTO UPDATE LOGIC (Instant cached check)
+-- AUTO UPDATE LOGIC (Cached commit lookup)
 local function getLatestCommit()
 	if shared.mxtion_checked and isfile("mxtionv4/profiles/commit.txt") then
 		return readfile("mxtionv4/profiles/commit.txt")
@@ -166,46 +166,48 @@ end
 
 if not shared.VapeIndependent then
 	if not game:IsLoaded() then
-		repeat task.wait() until game:IsLoaded()
+		game.Loaded:Wait()
 	end
 	
-	-- ⚡ LOAD UNIVERSAL MODULES
-	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	
-	-- ⚡ LOAD GAME PLACE SCRIPT (Non-blocking if not cached)
-	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
-		pcall(function()
-			loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
-		end)
-	else
-		task.spawn(function()
-			local commit = (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt')) or 'main'
-			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/games/'..game.PlaceId..'.lua', true)
+	-- ⚡ LOAD UNIVERSAL MODULES (Deferred to eliminate FPS drop)
+	task.defer(function()
+		loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
+		
+		-- ⚡ LOAD PLACE GAME SCRIPT IF CACHED
+		if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
+			pcall(function()
+				loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
 			end)
-			if suc and res and res ~= '404: Not Found' then
-				writefile('mxtionv4/games/'..game.PlaceId..'.lua', res)
-				pcall(function()
-					loadstring(res, tostring(game.PlaceId))(license)
+		else
+			task.spawn(function()
+				local commit = (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt')) or 'main'
+				local suc, res = pcall(function()
+					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/games/'..game.PlaceId..'.lua', true)
 				end)
-			end
-		end)
-	end
-	
-	-- ⚡ FINISH LOADING & DISPLAY MENU IMMEDIATELY
-	finishLoading()
-	
-	-- ⚡ LOAD BACKGROUND LIBRARIES ASYNCHRONOUSLY
-	task.spawn(function()
-		pcall(function()
-			loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
-		end)
-		pcall(function()
-			local publib = loadstring(downloadFile('mxtionv4/libraries/publicconfigs.lua'), 'publicconfigs')(license)
-			if publib and vape then
-				vape.Libraries = vape.Libraries or {}
-				vape.Libraries.publicconfigs = publib
-			end
+				if suc and res and res ~= '404: Not Found' then
+					writefile('mxtionv4/games/'..game.PlaceId..'.lua', res)
+					pcall(function()
+						loadstring(res, tostring(game.PlaceId))(license)
+					end)
+				end
+			end)
+		end
+		
+		-- ⚡ FINISH LOADING & DISPLAY MENU
+		finishLoading()
+		
+		-- ⚡ LOAD BACKGROUND LIBRARIES WITHOUT FREEZING
+		task.spawn(function()
+			pcall(function()
+				loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
+			end)
+			pcall(function()
+				local publib = loadstring(downloadFile('mxtionv4/libraries/publicconfigs.lua'), 'publicconfigs')(license)
+				if publib and vape then
+					vape.Libraries = vape.Libraries or {}
+					vape.Libraries.publicconfigs = publib
+				end
+			end)
 		end)
 	end)
 else
