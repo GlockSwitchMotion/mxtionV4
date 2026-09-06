@@ -26,7 +26,7 @@ local mainapi = {
 	Windows = {},
 	-- NEW: Transparency controls for overlay and glass effects
 	OverlayTransparency = {Value = 0.3},
-	GlassTransparency = {Value = 0.4}
+	GlassTransparency = {Value = 0.7}
 }
 
 local cloneref = cloneref or function(obj)
@@ -219,7 +219,7 @@ end
 
 -- NEW: Function to apply liquid glass effect to text labels
 local function applyLiquidGlass(headerBar)
-	headerBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	headerBar.BackgroundColor3 = uipallet.Main
 	headerBar.BackgroundTransparency = mainapi.GlassTransparency.Value
 	headerBar.BorderSizePixel = 0
 	
@@ -2601,7 +2601,8 @@ function mainapi:CreateGUI()
 
 	local categoryOverlay = Instance.new('ImageLabel')
 	categoryOverlay.Name = 'CategoryOverlay'
-	categoryOverlay.Size = UDim2.fromScale(1, 1)
+	categoryOverlay.Size = UDim2.new(1, 0, 1, -37)
+	categoryOverlay.Position = UDim2.fromOffset(0, 37)
 	categoryOverlay.BackgroundTransparency = 1
 	categoryOverlay.BorderSizePixel = 0
 	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
@@ -2615,7 +2616,7 @@ function mainapi:CreateGUI()
 	glassHeader.Name = 'GlassHeader'
 	glassHeader.Size = UDim2.new(1, 0, 0, 37)
 	glassHeader.Position = UDim2.fromOffset(0, 0)
-	glassHeader.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	glassHeader.BackgroundColor3 = uipallet.Main
 	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
 	glassHeader.BorderSizePixel = 0
 	glassHeader.ZIndex = 2
@@ -3786,7 +3787,8 @@ function mainapi:CreateCategory(categorysettings)
 
 	local categoryOverlay = Instance.new('ImageLabel')
 	categoryOverlay.Name = 'CategoryOverlay'
-	categoryOverlay.Size = UDim2.fromScale(1, 1)
+	categoryOverlay.Size = UDim2.new(1, 0, 1, -37)
+	categoryOverlay.Position = UDim2.fromOffset(0, 37)
 	categoryOverlay.BackgroundTransparency = 1
 	categoryOverlay.BorderSizePixel = 0
 	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
@@ -3800,7 +3802,7 @@ function mainapi:CreateCategory(categorysettings)
 	glassHeader.Name = 'GlassHeader'
 	glassHeader.Size = UDim2.new(1, 0, 0, 37)
 	glassHeader.Position = UDim2.fromOffset(0, 0)
-	glassHeader.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	glassHeader.BackgroundColor3 = uipallet.Main
 	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
 	glassHeader.BorderSizePixel = 0
 	glassHeader.ZIndex = 2
@@ -4604,7 +4606,8 @@ function mainapi:CreateCategoryList(categorysettings)
 
 	local categoryOverlay = Instance.new('ImageLabel')
 	categoryOverlay.Name = 'CategoryOverlay'
-	categoryOverlay.Size = UDim2.fromScale(1, 1)
+	categoryOverlay.Size = UDim2.new(1, 0, 1, -45)
+	categoryOverlay.Position = UDim2.fromOffset(0, 45)
 	categoryOverlay.BackgroundTransparency = 1
 	categoryOverlay.BorderSizePixel = 0
 	categoryOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
@@ -4618,7 +4621,7 @@ function mainapi:CreateCategoryList(categorysettings)
 	glassHeader.Name = 'GlassHeader'
 	glassHeader.Size = UDim2.new(1, 0, 0, 45)
 	glassHeader.Position = UDim2.fromOffset(0, 0)
-	glassHeader.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	glassHeader.BackgroundColor3 = uipallet.Main
 	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
 	glassHeader.BorderSizePixel = 0
 	glassHeader.ZIndex = 2
