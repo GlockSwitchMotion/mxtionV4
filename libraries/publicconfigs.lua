@@ -3,6 +3,9 @@ local httpService = game:GetService('HttpService')
 local players = game:GetService('Players')
 local localPlayer = players.LocalPlayer or {Name = "Anonymous"}
 
+-- YOUR 24/7 CLOUDFLARE WORKER API (always online, no external dependencies)
+local API_BASE = "https://broken-glitter-fc5d.motionv4.workers.dev"
+
 local req = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
 
 local function makeRequest(options)
@@ -21,24 +24,14 @@ local function makeRequest(options)
 	return {StatusCode = 500, Body = "Request failed"}
 end
 
--- Primary JSONBin cloud database endpoint (shared public storage)
-local API_URL = "https://api.jsonbin.io/v3/b"
-local BIN_ID = "66d9fb7ce41b4d34e42aa11e" -- Global Public Configs Bin ID
-local MASTER_KEY = "$2a$10$T8Z.Yx7Kq9v2kF3A1hJ8u.GZ9e7f8g9h0i1j2k3l4m5n6o7p8q9r"
-
--- Secondary fallback open KV endpoint
-local FALLBACK_URL = "https://api.myjson.online/v1/records"
-
 publicconfigs.Cache = {}
 
 function publicconfigs.FetchAll(filterPlaceId)
-	local endpoint = API_URL .. "/" .. BIN_ID .. "/latest"
 	local response = makeRequest({
-		Url = endpoint,
+		Url = API_BASE .. "/configs",
 		Method = "GET",
 		Headers = {
-			["X-Master-Key"] = MASTER_KEY,
-			["X-Bin-Meta"] = "false"
+			["Content-Type"] = "application/json"
 		}
 	})
 
@@ -48,8 +41,7 @@ function publicconfigs.FetchAll(filterPlaceId)
 			return httpService:JSONDecode(response.Body)
 		end)
 		if suc and type(decoded) == "table" then
-			if decoded.record then decoded = decoded.record end
-			listData = decoded
+			listData = decoded.configs or decoded
 		end
 	end
 
@@ -61,7 +53,7 @@ function publicconfigs.FetchAll(filterPlaceId)
 
 	local filtered = {}
 	for _, item in ipairs(listData) do
-		if not filterPlaceId or tostring(item.place) == tostring(filterPlaceId) or item.place == "all" then
+		if not filterPlaceId or tostring(item.game) == tostring(filterPlaceId) or item.game == "Universal" then
 			table.insert(filtered, item)
 		end
 	end
@@ -74,58 +66,42 @@ function publicconfigs.Upload(configName, placeId, profileData, authorName)
 	end
 
 	local author = authorName or (localPlayer and localPlayer.Name) or "Anonymous"
-	local place = placeId or tostring(game.PlaceId)
+	local place = tostring(placeId or game.PlaceId)
 
-	-- Fetch latest public list from cloud
-	local _, _, currentList = publicconfigs.FetchAll(nil)
-	currentList = currentList or {}
+	local dataStr
+	if type(profileData) == "table" then
+		dataStr = httpService:JSONEncode(profileData)
+	else
+		dataStr = tostring(profileData or "{}")
+	end
 
-	local newEntry = {
-		id = httpService:GenerateGUID(false),
+	local payload = httpService:JSONEncode({
 		name = configName,
 		author = author,
-		place = place,
-		timestamp = os.time(),
-		data = profileData
-	}
+		description = "Uploaded from MxtionV4",
+		game = place,
+		data = dataStr
+	})
 
-	-- Overwrite existing config by same author and name, or prepend new
-	local updated = false
-	for i, item in ipairs(currentList) do
-		if item.name:lower() == configName:lower() and tostring(item.place) == tostring(place) and item.author == author then
-			currentList[i] = newEntry
-			updated = true
-			break
+	local response = makeRequest({
+		Url = API_BASE .. "/configs",
+		Method = "POST",
+		Headers = {
+			["Content-Type"] = "application/json"
+		},
+		Body = payload
+	})
+
+	if response.StatusCode == 200 or response.StatusCode == 201 then
+		local suc, decoded = pcall(function()
+			return httpService:JSONDecode(response.Body)
+		end)
+		if suc and decoded and decoded.success then
+			return true, "Successfully published '" .. configName .. "' to the public cloud!"
 		end
 	end
 
-	if not updated then
-		table.insert(currentList, 1, newEntry)
-	end
-
-	-- Keep up to 100 public configs online
-	if #currentList > 100 then
-		table.remove(currentList, #currentList)
-	end
-
-	local jsonPayload = httpService:JSONEncode(currentList)
-	local response = makeRequest({
-		Url = API_URL .. "/" .. BIN_ID,
-		Method = "PUT",
-		Headers = {
-			["Content-Type"] = "application/json",
-			["X-Master-Key"] = MASTER_KEY
-		},
-		Body = jsonPayload
-	})
-
-	publicconfigs.Cache = currentList
-
-	if response.StatusCode == 200 or response.StatusCode == 201 then
-		return true, "Successfully published public config '" .. configName .. "' for everyone to see!"
-	else
-		return true, "Config saved to session public list."
-	end
+	return false, "Upload failed (status " .. tostring(response.StatusCode) .. "). Check your internet connection."
 end
 
 function publicconfigs.Download(configEntry, mainapi)
