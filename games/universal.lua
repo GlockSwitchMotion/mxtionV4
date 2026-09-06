@@ -7595,54 +7595,258 @@ run(function()
 end)
 
 run(function()
-	local Clock
-	local TwentyFourHour
-	local label
-	
-	Clock = vape.Legit:CreateModule({
-		Name = 'Clock',
-		Function = function(callback)
-			if callback then
-				repeat
-					label.Text = DateTime.now():FormatLocalTime('LT', TwentyFourHour.Enabled and 'zh-cn' or 'en-us')
-					task.wait(1)
-				until not Clock.Enabled
-			end
-		end,
-		Size = UDim2.fromOffset(100, 41),
-		Tooltip = 'Shows the current local time'
-	})
-	Clock:CreateFont({
-		Name = 'Font',
-		Blacklist = 'Gotham',
-		Function = function(val)
-			label.FontFace = val
-		end
-	})
-	Clock:CreateColorSlider({
-		Name = 'Color',
-		DefaultValue = 0,
-		DefaultOpacity = 0.5,
-		Function = function(hue, sat, val, opacity)
-			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-			label.BackgroundTransparency = 1 - opacity
-		end
-	})
-	TwentyFourHour = Clock:CreateToggle({
-		Name = '24 Hour Clock'
-	})
-	label = Instance.new('TextLabel')
-	label.Size = UDim2.new(0, 100, 0, 41)
-	label.BackgroundTransparency = 0.5
-	label.TextSize = 15
-	label.Font = Enum.Font.Gotham
-	label.Text = '0:00 PM'
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.BackgroundColor3 = Color3.new()
-	label.Parent = Clock.Children
-	local corner = Instance.new('UICorner')
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = label
+    local Clock
+    local ClockType
+    local ShowDate
+    local TwentyFourHour
+    local Background
+    local BackgroundColor
+    local shadows = {}
+    local skippedticks = {[8] = true, [9] = true, [10] = true, [14] = true, [15] = true, [16] = true, [20] = true, [21] = true, [22] = true}
+    local localtime, utctime = os.date('*t'), os.date('!*t')
+    local timezone = ((localtime.yday - utctime.yday) * 24) + localtime.hour - utctime.hour
+    timezone = timezone > 12 and timezone - 24 or (timezone < -12 and timezone + 24 or timezone)
+    local americandate = timezone <= -2 and timezone >= -11
+    local holder, analog, digital, hand
+    local analoghour, analogminute, analogweekday, analogdate, analogmeridiem
+    local digitalhour, digitalminute, digitalmeridiem, digitaldate, digitalweekday
+    
+    local function addLabel(parent, textsize, alignment)
+        local label = Instance.new('TextLabel')
+        label.BackgroundTransparency = 1
+        label.FontFace = uipallet.FontDisplay
+        label.Size = UDim2.fromOffset(200, textsize + 6)
+        label.Text = ''
+        label.TextColor3 = Color3.new(1, 1, 1)
+        label.TextSize = textsize
+        label.TextXAlignment = alignment
+        label.Parent = parent
+        local shadow = label:Clone()
+        shadow.Name = 'Shadow'
+        shadow.TextColor3 = Color3.new()
+        shadow.TextTransparency = 0.498
+        shadow.Visible = false
+        shadow.ZIndex = 0
+        shadow.Parent = parent
+        shadows[label] = shadow
+    
+        return label
+    end
+    
+    local function addTick(x, y)
+        local tick = Instance.new('Frame')
+        tick.AnchorPoint = Vector2.new(0.5, 0.5)
+        tick.BackgroundColor3 = Color3.new(1, 1, 1)
+        tick.BorderSizePixel = 0
+        tick.Position = UDim2.fromOffset(x, y)
+        tick.Size = UDim2.fromOffset(3, 3)
+        tick.Parent = analog
+        local corner = Instance.new('UICorner')
+        corner.CornerRadius = UDim.new(1, 0)
+        corner.Parent = tick
+    end
+    
+    local function placeLabel(label, x, centery)
+        label.Position = UDim2.fromOffset(label.TextXAlignment == Enum.TextXAlignment.Right and x - 200 or x, centery - (label.Size.Y.Offset / 2))
+        shadows[label].Position = label.Position + UDim2.fromOffset(1, 1)
+    end
+    
+    local function refreshSize()
+        if ClockType.Value == 'Digital' then
+            holder.Size = UDim2.fromOffset(140 + (ShowDate.Enabled and 48 or 0) + (TwentyFourHour.Enabled and 0 or 24), 64)
+            return
+        end
+    
+        holder.Size = UDim2.fromOffset(140, 130)
+    end
+    
+    local function update()
+        if vape.ThreadFix then
+            setthreadidentity(8)
+        end
+    
+        local now = os.date('*t')
+        local hour = TwentyFourHour.Enabled and now.hour or (now.hour > 12 and now.hour - 12 or (now.hour == 0 and 12 or now.hour))
+        local hourtext = string.format('%02d', hour)
+        local minutetext = string.format('%02d', now.min)
+        local meridiem = now.hour >= 12 and 'pm' or 'am'
+        local weekday = os.date('%a'):lower()
+        local datetext = string.format(ClockType.Value == 'Digital' and '%02d / %02d' or '%02d/%02d', americandate and now.month or now.day, americandate and now.day or now.month)
+    
+        if ClockType.Value == 'Digital' then
+            digitalhour.Text = hourtext
+            digitalminute.Text = minutetext
+            digitalmeridiem.Text = meridiem
+            digitaldate.Text = datetext
+            digitalweekday.Text = weekday
+            shadows[digitalhour].Text = hourtext
+            shadows[digitalminute].Text = minutetext
+            shadows[digitalmeridiem].Text = meridiem
+            shadows[digitaldate].Text = datetext
+            shadows[digitalweekday].Text = weekday
+            placeLabel(digitalmeridiem, 78 + getfontbounds(minutetext, 48 * uipallet.DisplayScale, uipallet.FontDisplay).X, 46)
+            placeLabel(digitaldate, holder.Size.X.Offset - 12, 24)
+            placeLabel(digitalweekday, holder.Size.X.Offset - 12, 40)
+    
+            return
+        end
+    
+        analoghour.Text = hourtext
+        analogminute.Text = minutetext
+        analogweekday.Text = weekday
+        analogdate.Text = datetext
+        analogmeridiem.Text = meridiem
+        shadows[analoghour].Text = hourtext
+        shadows[analogminute].Text = minutetext
+        shadows[analogweekday].Text = weekday
+        shadows[analogdate].Text = datetext
+        shadows[analogmeridiem].Text = meridiem
+        hand.Rotation = (hour * 30) + (now.min / 2)
+    end
+    
+    Clock = vape.Legit:CreateModule({
+        Name = 'Clock',
+        Category = 'HUD',
+        Function = function(callback)
+            if callback then
+                repeat
+                    update()
+                    task.wait(1)
+                until not Clock.Enabled
+            end
+        end,
+        Size = UDim2.fromOffset(140, 130),
+        Tooltip = 'Draws a clock with the current real-world time'
+    })
+    ClockType = Clock:CreateDropdown({
+        Name = 'Clock Type',
+        List = {'Analog', 'Digital'},
+        Function = function(value)
+            if holder then
+                analog.Visible = value == 'Analog'
+                digital.Visible = value == 'Digital'
+                ShowDate.Object.Visible = value == 'Digital'
+                refreshSize()
+                update()
+            end
+        end
+    })
+    ShowDate = Clock:CreateToggle({
+        Name = 'Show date',
+        Function = function(callback)
+            if holder then
+                digitaldate.Visible = callback
+                digitalweekday.Visible = callback
+                shadows[digitaldate].Visible = callback and not Background.Enabled
+                shadows[digitalweekday].Visible = callback and not Background.Enabled
+                refreshSize()
+            end
+        end,
+        Default = true
+    })
+    TwentyFourHour = Clock:CreateToggle({
+        Name = '24 Hour Time',
+        Function = function(callback)
+            if holder then
+                analogmeridiem.Visible = not callback
+                digitalmeridiem.Visible = not callback
+                shadows[analogmeridiem].Visible = not callback and not Background.Enabled
+                shadows[digitalmeridiem].Visible = not callback and not Background.Enabled
+                refreshSize()
+                update()
+            end
+        end
+    })
+    Background = Clock:CreateToggle({
+        Name = 'Render background',
+        Function = function(callback)
+            if BackgroundColor then
+                holder.BackgroundTransparency = callback and 1 - BackgroundColor.Opacity or 1
+                BackgroundColor.Object.Visible = callback
+    
+                for i, v in shadows do
+                    v.Visible = not callback and i.Visible
+                end
+            end
+        end,
+        Default = true
+    })
+    BackgroundColor = Clock:CreateColorSlider({
+        Name = 'Background Color',
+        DefaultHue = 0.8333,
+        DefaultSat = 0.0385,
+        DefaultValue = 0.102,
+        DefaultOpacity = 0.4,
+        Function = function(hue, sat, val, opacity)
+            if holder then
+                holder.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+                holder.BackgroundTransparency = Background.Enabled and 1 - opacity or 1
+            end
+        end,
+        Darker = true
+    })
+    holder = Clock.Children
+    holder.BackgroundColor3 = Color3.fromRGB(26, 25, 26)
+    holder.BackgroundTransparency = 0.6
+    local holdercorner = Instance.new('UICorner')
+    holdercorner.CornerRadius = UDim.new(0, 4)
+    holdercorner.Parent = holder
+    analog = Instance.new('Frame')
+    analog.BackgroundTransparency = 1
+    analog.Name = 'Analog'
+    analog.Size = UDim2.fromScale(1, 1)
+    analog.Parent = holder
+    digital = Instance.new('Frame')
+    digital.BackgroundTransparency = 1
+    digital.Name = 'Digital'
+    digital.Size = UDim2.fromScale(1, 1)
+    digital.Visible = false
+    digital.Parent = holder
+    for i = 0, 23 do
+        if not skippedticks[i] then
+            local angle = math.rad(i * 15) - (math.pi / 2)
+            addTick(math.cos(angle) * 50 + 68.5, math.sin(angle) * 50 + 65.5)
+        end
+    end
+    hand = Instance.new('Frame')
+    hand.AnchorPoint = Vector2.new(0.5, 1)
+    hand.BackgroundColor3 = Color3.fromRGB(6, 161, 126)
+    hand.BorderSizePixel = 0
+    hand.Name = 'Hand'
+    hand.Position = UDim2.fromOffset(70, 65)
+    hand.Size = UDim2.fromOffset(4, 52)
+    hand.Parent = analog
+    analoghour = addLabel(analog, 44 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
+    analogminute = addLabel(analog, 44 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
+    analogweekday = addLabel(analog, 13 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
+    analogdate = addLabel(analog, 13 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
+    analogmeridiem = addLabel(analog, 13 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
+    digitalhour = addLabel(digital, 48 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
+    digitalminute = addLabel(digital, 48 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
+    digitalmeridiem = addLabel(digital, 16 * uipallet.DisplayScale, Enum.TextXAlignment.Left)
+    digitaldate = addLabel(digital, 16 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
+    digitalweekday = addLabel(digital, 16 * uipallet.DisplayScale, Enum.TextXAlignment.Right)
+    local colon = Instance.new('Frame')
+    colon.AnchorPoint = Vector2.new(0.5, 0.5)
+    colon.BackgroundColor3 = Color3.new(1, 1, 1)
+    colon.BorderSizePixel = 0
+    colon.Name = 'Colon'
+    colon.Position = UDim2.fromOffset(70, 32)
+    colon.Size = UDim2.fromOffset(4, 4)
+    colon.Parent = digital
+    local coloncorner = Instance.new('UICorner')
+    coloncorner.CornerRadius = UDim.new(1, 0)
+    coloncorner.Parent = colon
+    placeLabel(analoghour, 56, 37.5)
+    placeLabel(analogminute, 130, 88.7)
+    placeLabel(analogweekday, 20, 90.5)
+    placeLabel(analogdate, 20, 106.5)
+    placeLabel(analogmeridiem, 130, 18.1)
+    placeLabel(digitalhour, 60, 34)
+    placeLabel(digitalminute, 78, 34)
+    ShowDate.Object.Visible = ClockType.Value == 'Digital'
+    update()
+    
 end)
 
 run(function()
