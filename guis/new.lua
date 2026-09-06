@@ -26,6 +26,7 @@ local mainapi = {
 	Windows = {},
 	-- NEW: Transparency controls for overlay and glass effects
 	OverlayTransparency = {Value = 0.3},
+	GlassTransparency = {Value = 0.7}
 }
 
 local cloneref = cloneref or function(obj)
@@ -199,17 +200,16 @@ local function addCloseButton(parent, offset)
 	return close
 end
 
--- NEW: Function to add overlay to entire GUI (excluding category bars)
+-- NEW: Function to add overlay to category downloads
 local function addCategoryOverlay(parent)
 	local overlay = Instance.new('ImageLabel')
 	overlay.Name = 'CategoryOverlay'
-	-- Cover full size but position below the category label bars
-	overlay.Size = UDim2.new(1, 0, 1, -40)  -- Subtract height of category bar
-	overlay.Position = UDim2.new(0, 0, 0, 40)  -- Position below the bars
+	overlay.Size = UDim2.new(1, 0, 1, 0)
+	overlay.Position = UDim2.new(0, 0, 0, 0)
 	overlay.BackgroundTransparency = 1
 	overlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
 	overlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	overlay.ScaleType = Enum.ScaleType.Tile  -- Tile the pattern across entire area
+	overlay.ScaleType = Enum.ScaleType.Crop
 	overlay.ZIndex = 1
 	overlay.Active = false
 	overlay.Parent = parent
@@ -217,6 +217,14 @@ local function addCategoryOverlay(parent)
 	return overlay
 end
 
+-- NEW: Function to apply liquid glass effect to text labels
+local function applyLiquidGlass(headerBar)
+	headerBar.BackgroundColor3 = uipallet.Main
+	headerBar.BackgroundTransparency = mainapi.GlassTransparency.Value
+	headerBar.BorderSizePixel = 0
+	
+	return headerBar
+end
 
 -- NEW: Function to update all overlays and glass effects
 function mainapi:UpdateOverlayEffects()
@@ -225,6 +233,10 @@ function mainapi:UpdateOverlayEffects()
 			local overlay = category.Object:FindFirstChild('CategoryOverlay')
 			if overlay then
 				overlay.ImageTransparency = self.OverlayTransparency.Value
+			end
+			local glassHeader = category.Object:FindFirstChild('GlassHeader')
+			if glassHeader then
+				glassHeader.BackgroundTransparency = self.GlassTransparency.Value
 			end
 		end
 	end
@@ -2600,6 +2612,16 @@ function mainapi:CreateGUI()
 	categoryOverlay.Active = false
 	categoryOverlay.Parent = window
 
+	local glassHeader = Instance.new('Frame')
+	glassHeader.Name = 'GlassHeader'
+	glassHeader.Size = UDim2.new(1, 0, 0, 37)
+	glassHeader.Position = UDim2.fromOffset(0, 0)
+	glassHeader.BackgroundColor3 = uipallet.Main
+	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
+	glassHeader.BorderSizePixel = 0
+	glassHeader.ZIndex = 2
+	glassHeader.Parent = window
+	addCorner(glassHeader, UDim.new(0, 5))
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'VapeLogo'
 	logo.Size = UDim2.fromOffset(155, 40)
@@ -3776,6 +3798,16 @@ function mainapi:CreateCategory(categorysettings)
 	categoryOverlay.Active = false
 	categoryOverlay.Parent = window
 
+	local glassHeader = Instance.new('Frame')
+	glassHeader.Name = 'GlassHeader'
+	glassHeader.Size = UDim2.new(1, 0, 0, 37)
+	glassHeader.Position = UDim2.fromOffset(0, 0)
+	glassHeader.BackgroundColor3 = uipallet.Main
+	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
+	glassHeader.BorderSizePixel = 0
+	glassHeader.ZIndex = 2
+	glassHeader.Parent = window
+	addCorner(glassHeader, UDim.new(0, 5))
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -4585,6 +4617,16 @@ function mainapi:CreateCategoryList(categorysettings)
 	categoryOverlay.Active = false
 	categoryOverlay.Parent = window
 
+	local glassHeader = Instance.new('Frame')
+	glassHeader.Name = 'GlassHeader'
+	glassHeader.Size = UDim2.new(1, 0, 0, 45)
+	glassHeader.Position = UDim2.fromOffset(0, 0)
+	glassHeader.BackgroundColor3 = uipallet.Main
+	glassHeader.BackgroundTransparency = mainapi.GlassTransparency.Value
+	glassHeader.BorderSizePixel = 0
+	glassHeader.ZIndex = 2
+	glassHeader.Parent = window
+	addCorner(glassHeader, UDim.new(0, 5))
 	local icon = Instance.new('ImageLabel')
 	icon.Name = 'Icon'
 	icon.Size = categorysettings.Size
@@ -4633,13 +4675,9 @@ function mainapi:CreateCategoryList(categorysettings)
 	children.CanvasSize = UDim2.new()
 	children.Parent = window
 	local childrentwo = Instance.new('Frame')
-	childrentwo.Name = 'SettingsOverlay'
-	childrentwo.Size = UDim2.new(1, 0, 1, 0)
-	childrentwo.Position = UDim2.new(0, 0, 0, 0)
+	childrentwo.BackgroundTransparency = 1
 	childrentwo.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	childrentwo.BackgroundTransparency = 0
 	childrentwo.Visible = false
-	childrentwo.ZIndex = 10
 	childrentwo.Parent = children
 	local settings = Instance.new('ImageButton')
 	settings.Name = 'Settings'
@@ -5193,16 +5231,6 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 	end)
 	settings.MouseButton1Click:Connect(function()
-		if categorysettings.Profiles then
-			jsonMode = not jsonMode
-			if jsonMode then
-				addvalue.PlaceholderText = 'Enter JSON'
-				settings.ImageColor3 = Color3.fromRGB(255, 255, 255)
-			else
-				addvalue.PlaceholderText = categorysettings.Placeholder or 'Add entry...'
-				settings.ImageColor3 = color.Light(uipallet.Main, 0.37)
-			end
-		end
 		childrentwo.Visible = not childrentwo.Visible
 	end)
 	window.InputBegan:Connect(function(inputObj)
@@ -7595,6 +7623,18 @@ guipane:CreateSlider({
 	end,
 	Tooltip = 'Adjusts the transparency of the GUI background overlay'
 })
+guipane:CreateSlider({
+	Name = 'Glass transparency',
+	Min = 0,
+	Max = 1,
+	Decimal = 100,
+	Default = 0.4,
+	Function = function(val)
+		mainapi.GlassTransparency.Value = val
+		mainapi:UpdateOverlayEffects()
+	end,
+	Tooltip = 'Adjusts the liquid glass header transparency'
+})
 guipane:CreateButton({
 	Name = 'Reset GUI positions',
 	Function = function()
@@ -8778,5 +8818,37 @@ function mainapi:CreateOverlayTransparencySlider(parent, position)
 	return slider
 end
 
+function mainapi:CreateGlassTransparencySlider(parent, position)
+	local slider = Instance.new('Frame')
+	slider.Name = 'GlassTransparencySlider'
+	slider.Size = UDim2.fromOffset(200, 20)
+	slider.Position = position
+	slider.BackgroundColor3 = uipallet.Main
+	slider.BorderSizePixel = 0
+	slider.Parent = parent
+	addCorner(slider, UDim.new(0, 5))
+	
+	local label = Instance.new('TextLabel')
+	label.Name = 'Label'
+	label.Size = UDim2.fromOffset(100, 20)
+	label.Position = UDim2.new(0, 5, 0, 0)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = uipallet.Text
+	label.TextSize = 12
+	label.Font = uipallet.Font
+	label.Text = 'Glass Trans: ' .. math.floor(self.GlassTransparency.Value * 100) .. '%'
+	label.Parent = slider
+	
+	local sliderHandle = Instance.new('Frame')
+	sliderHandle.Name = 'Handle'
+	sliderHandle.Size = UDim2.fromOffset(10, 16)
+	sliderHandle.Position = UDim2.new(self.GlassTransparency.Value, 100, 0.5, -8)
+	sliderHandle.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+	sliderHandle.BorderSizePixel = 0
+	sliderHandle.Parent = slider
+	addCorner(sliderHandle, UDim.new(1, 0))
+	
+	return slider
+end
 
 return mainapi
