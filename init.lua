@@ -153,7 +153,7 @@ if not isfolder('mxtionv4/assets/'..gui) then
 end
 vape = loadstring(downloadFile('mxtionv4/guis/'..gui..'.lua'), 'gui')(license)
 shared.vape = vape
-shared.vapesmooth = true
+shared.vapesmooth = false
 _G.vape = vape
 getgenv().used_init = true
 
