@@ -24,7 +24,7 @@ local mainapi = {
 	ToggleNotifications = {},
 	Version = '4.18',
 	Windows = {},
-	GuiOverlayTransparency = {Value = 0.3}
+	GuiOverlayTransparency = {Value = 0.85}
 }
 
 local cloneref = cloneref or function(obj)
@@ -198,16 +198,13 @@ local function addCloseButton(parent, offset)
 	return close
 end
 
--- Function to update GUI overlay transparency across all categories
+-- Function to update GUI overlay transparency across all categories and main window
 function mainapi:UpdateGuiOverlayTransparency()
 	for _, category in self.Categories do
 		if category.Object then
-			local children = category.Object:FindFirstChild('Children')
-			if children then
-				local overlay = children:FindFirstChild('GuiOverlayImage')
-				if overlay then
-					overlay.ImageTransparency = self.GuiOverlayTransparency.Value
-				end
+			local overlay = category.Object:FindFirstChild('GuiOverlayImage', true)
+			if overlay then
+				overlay.ImageTransparency = self.GuiOverlayTransparency.Value
 			end
 		end
 	end
@@ -2594,6 +2591,18 @@ function mainapi:CreateGUI()
 	children.Position = UDim2.fromOffset(0, 37)
 	children.BackgroundTransparency = 1
 	children.Parent = window
+	local guiOverlayMain = Instance.new('ImageLabel')
+	guiOverlayMain.Name = 'GuiOverlayImage'
+	guiOverlayMain.Size = UDim2.new(1, 0, 1, 0)
+	guiOverlayMain.Position = UDim2.new(0, 0, 0, 0)
+	guiOverlayMain.BackgroundTransparency = 1
+	guiOverlayMain.BorderSizePixel = 0
+	guiOverlayMain.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
+	guiOverlayMain.ImageTransparency = mainapi.GuiOverlayTransparency.Value
+	guiOverlayMain.ScaleType = Enum.ScaleType.Fit
+	guiOverlayMain.ZIndex = 0
+	guiOverlayMain.Active = false
+	guiOverlayMain.Parent = children
 	local windowlist = Instance.new('UIListLayout')
 	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
 	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -2678,7 +2687,7 @@ function mainapi:CreateGUI()
 		Name = 'Overlay Transparency',
 		Min = 0,
 		Max = 1,
-		Default = 0.3,
+		Default = 0.85,
 		Decimal = 100,
 		Tooltip = 'Adjust the transparency of the GUI Overlay',
 		Function = function(val)
@@ -3819,8 +3828,8 @@ function mainapi:CreateCategory(categorysettings)
 	guiOverlay.BorderSizePixel = 0
 	guiOverlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
 	guiOverlay.ImageTransparency = mainapi.GuiOverlayTransparency.Value
-	guiOverlay.ScaleType = Enum.ScaleType.Crop
-	guiOverlay.ZIndex = 10
+	guiOverlay.ScaleType = Enum.ScaleType.Fit
+	guiOverlay.ZIndex = 1
 	guiOverlay.Active = false
 	guiOverlay.Parent = children
 	local windowlist = Instance.new('UIListLayout')
@@ -6804,7 +6813,7 @@ Profiles:CreateButton({
 			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
 		end
 	end,
-	Tooltip = 'This will set your profile to the default settings of Cat Vape'
+	Tooltip = 'This will set your profile to the default settings of Motion v4'
 })	
 
 -- Public Profiles Modal Window implementation
