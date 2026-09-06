@@ -4721,37 +4721,6 @@ function mainapi:CreateCategoryList(categorysettings)
 				categorysettings.PublicCallback()
 			end
 		end)
-
-		local presetBtn = Instance.new('TextButton')
-		presetBtn.Name = 'PresetButton'
-		presetBtn.Size = UDim2.fromOffset(200, 31)
-		presetBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		presetBtn.Text = 'PRESET CONFIGS'
-		presetBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
-		presetBtn.TextSize = 12
-		presetBtn.FontFace = uipallet.FontSemiBold
-		presetBtn.AutoButtonColor = false
-		presetBtn.Parent = children
-		presetBtn.LayoutOrder = 0
-		addCorner(presetBtn)
-
-		presetBtn.MouseEnter:Connect(function()
-			presetBtn.TextColor3 = uipallet.Text
-			tween:Tween(presetBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.08)
-			})
-		end)
-		presetBtn.MouseLeave:Connect(function()
-			presetBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
-			tween:Tween(presetBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-			})
-		end)
-		presetBtn.MouseButton1Click:Connect(function()
-			if categorysettings.PresetCallback then
-				categorysettings.PresetCallback()
-			end
-		end)
 	end
 
 	local jsonMode = false
@@ -5174,7 +5143,20 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 	end)
 	settings.MouseButton1Click:Connect(function()
-		childrentwo.Visible = not childrentwo.Visible
+		if categorysettings.Profiles then
+			jsonMode = not jsonMode
+			if jsonMode then
+				addvalue.PlaceholderText = 'Enter JSON'
+				addvalue.Text = ''
+				settings.ImageColor3 = Color3.fromRGB(255, 255, 255)
+			else
+				addvalue.PlaceholderText = categorysettings.Placeholder or 'Type name'
+				addvalue.Text = ''
+				settings.ImageColor3 = color.Light(uipallet.Main, 0.37)
+			end
+		else
+			childrentwo.Visible = not childrentwo.Visible
+		end
 	end)
 	window.InputBegan:Connect(function(inputObj)
 		if inputObj.Position.Y < window.AbsolutePosition.Y + 41 and inputObj.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -6780,7 +6762,6 @@ mainapi:Clean(friends.ColorUpdate)
 	Profiles & Public Profiles Cloud
 ]]
 local createPublicProfilesWindow
-local createPresetProfilesWindow
 
 local Profiles = mainapi:CreateCategoryList({
 	Name = 'Profiles',
@@ -6792,10 +6773,6 @@ local Profiles = mainapi:CreateCategoryList({
 	PublicCallback = function()
 		if not createPublicProfilesWindow then return end
 		createPublicProfilesWindow()
-	end,
-	PresetCallback = function()
-		if not createPresetProfilesWindow then return end
-		createPresetProfilesWindow()
 	end
 })
 
@@ -6833,7 +6810,7 @@ Profiles:CreateButton({
 			loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true))(license)
 		end
 	end,
-	Tooltip = 'This will set your profile to the default settings of motion v4'
+	Tooltip = 'This will set your profile to the default settings of Cat Vape'
 })	
 
 -- Public Profiles Modal Window implementation
@@ -6995,8 +6972,7 @@ createPublicProfilesWindow = function()
 						table.insert(combinedList, {
 							Name = profName,
 							Data = item.data or item.Data,
-							Author = item.author or "Community",
-							Timestamp = item.timestamp or os.time()
+							Author = item.author or "Community"
 						})
 					end
 				end
@@ -7021,8 +6997,7 @@ createPublicProfilesWindow = function()
 							table.insert(combinedList, {
 								Name = profName,
 								Data = item.data or item.Data,
-								Author = item.author or "Community",
-								Timestamp = item.timestamp or os.time()
+								Author = item.author or "Community"
 							})
 						end
 					end
@@ -7041,12 +7016,7 @@ createPublicProfilesWindow = function()
 						local profName = item.name or item.Name
 						if profName and not addedNames[profName] then
 							addedNames[profName] = true
-							table.insert(combinedList, {
-								Name = profName,
-								Data = item.data or item.Data,
-								Author = item.author or "Community",
-								Timestamp = item.timestamp or os.time()
-							})
+							table.insert(combinedList, item)
 						end
 					end
 				end
@@ -7061,13 +7031,6 @@ createPublicProfilesWindow = function()
 				table.insert(combinedList, item)
 			end
 		end
-
-		-- Sort by newest timestamp first
-		table.sort(combinedList, function(a, b)
-			local timeA = a.Timestamp or a.timestamp or 0
-			local timeB = b.Timestamp or b.timestamp or 0
-			return timeA > timeB
-		end)
 
 		if #combinedList == 0 then
 			local emptyMsg = Instance.new('TextLabel')
@@ -7137,8 +7100,7 @@ createPublicProfilesWindow = function()
 
 		local newEntry = {
 			Name = tostring(targetProfile),
-			Data = exportData,
-			Timestamp = os.time()
+			Data = exportData
 		}
 
 		table.insert(localPublicProfilesList, 1, newEntry)
@@ -7185,174 +7147,6 @@ createPublicProfilesWindow = function()
 	end)
 
 	refreshPublicList()
-end
-
--- Preset Profiles Modal Window implementation
-local createPresetProfilesWindow
-
-local presetConfigsList = {
-	{
-		Name = 'YHMOTION LEGIT',
-		Description = 'Legit profile for smooth gameplay and BedPlates counter',
-		Data = '{"Modules":{"BedPlates":{"Enabled":true,"Bind":[],"Options":{"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false},"Background":{"Enabled":true},"Layer Counter":{"Enabled":true},"Counter Text Color":{"Hue":0.44,"Sat":0,"Value":1,"Opacity":1,"Rainbow":false}}},"ItemPlates":{"Enabled":false,"Bind":[],"Options":{"Background":{"Enabled":true},"Whitelist":{"ListEnabled":["beehive"],"List":["beehive"]},"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false}}},"AutoKaliyah":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":18,"Max":20},"Stack Mode":{"Value":"S1"},"Delay":{"Value":0.1,"Max":1},"No Slow":{"Enabled":true}}},"AutoLeave":{"Enabled":false,"Bind":[],"Options":{"Leave Type":{"Value":"Rejoin"},"Health":{"Value":10,"Max":100},"Player Detect Radius":{"Value":15,"Max":50}}},"AutoReport":{"Enabled":false,"Bind":[],"Options":{"Report Reason":{"Value":"Cheating"},"Delay":{"Value":5,"Max":60}}},"ChestStealer":{"Enabled":false,"Bind":[],"Options":{"Steal Delay":{"Value":0.1,"Max":1},"Auto Close":{"Enabled":true}}},"InventoryCleaner":{"Enabled":false,"Bind":[],"Options":{"Clean Delay":{"Value":0.1,"Max":1},"Keep Swords":{"Enabled":true},"Keep Armor":{"Enabled":true}}},"KillSay":{"Enabled":false,"Bind":[],"Options":{"Message Mode":{"Value":"Toxic"},"Custom Messages":{"ListEnabled":[],"List":[]}}},"MiddleClick":{"Enabled":false,"Bind":[],"Options":{"Action":{"Value":"Pearl"}}},"NoRotate":{"Enabled":false,"Bind":[],"Options":{}},"PartyPooper":{"Enabled":false,"Bind":[],"Options":{}},"StaffDetector":{"Enabled":false,"Bind":[],"Options":{"Action":{"Value":"Notify"}}},"ChatSocials":{"Enabled":false,"Bind":[],"Options":{"Platform":{"Value":"Discord"}}},"Fucker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30},"Target Bed":{"Enabled":true}}},"Nuker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":5,"Max":10},"Break Delay":{"Value":0,"Max":1}}},"Stealer":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30}}},"Blink":{"Enabled":false,"Bind":[],"Options":{"Pulse":{"Enabled":false},"Pulse Delay":{"Value":1,"Max":5}}},"CustomSpeed":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"FastFall":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":1.5,"Max":5}}},"Fly":{"Enabled":false,"Bind":[],"Options":{"Fly Mode":{"Value":"Vanilla"},"Speed":{"Value":20,"Max":50}}},"HitBoxes":{"Enabled":false,"Bind":[],"Options":{"Expand Radius":{"Value":2,"Max":10}}},"LongJump":{"Enabled":false,"Bind":[],"Options":{"Jump Mode":{"Value":"Normal"}}},"NoFall":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Spoof"}}},"Phase":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"SafeWalk":{"Enabled":false,"Bind":[],"Options":{}},"Spider":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"Sprint":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"Step":{"Enabled":false,"Bind":[],"Options":{"Height":{"Value":2,"Max":10}}},"Velocity":{"Enabled":true,"Bind":[],"Options":{"Horizontal":{"Value":0,"Max":100},"Vertical":{"Value":0,"Max":100},"Mode":{"Value":"Standard"}}},"Aimbot":{"Enabled":false,"Bind":[],"Options":{"Smoothing":{"Value":5,"Max":20},"Range":{"Value":20,"Max":50}}},"AutoClicker":{"Enabled":true,"Bind":[],"Options":{"CPS":{"Value":14,"Max":20},"Block Break":{"Enabled":true}}},"AutoWeapon":{"Enabled":true,"Bind":[],"Options":{}},"Killaura":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6},"APS":{"Value":12,"Max":20},"Targets":{"Value":3,"Max":10},"Face Target":{"Enabled":false},"Auto Block":{"Value":"None"}}},"Reach":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"TargetStrafe":{"Enabled":false,"Bind":[],"Options":{"Radius":{"Value":3,"Max":10}}},"TriggerBot":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"WTap":{"Enabled":false,"Bind":[],"Options":{}},"Ambience":{"Enabled":false,"Bind":[],"Options":{"Time":{"Value":12,"Max":24}}},"Cape":{"Enabled":false,"Bind":[],"Options":{"Style":{"Value":"Vape"}}},"Chams":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":0.5,"Rainbow":false}}},"ChinaHat":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Fullbright":{"Enabled":true,"Bind":[],"Options":{}},"GUIColor":{"Enabled":true,"Bind":[],"Options":{"Hue":0.44,"Sat":0.8,"Value":1,"Rainbow":false}},"ESP":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"2D"},"Bounding Box":{"Enabled":true},"Health Bar":{"Enabled":true},"Name Tags":{"Enabled":true}}},"NameTags":{"Enabled":true,"Bind":[],"Options":{"Show Health":{"Enabled":true},"Show Distance":{"Enabled":true}}},"Tracers":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Viewmodel":{"Enabled":false,"Bind":[],"Options":{"X":{"Value":0,"Max":5},"Y":{"Value":0,"Max":5},"Z":{"Value":0,"Max":5}}}}}'
-	},
-	{
-		Name = 'BLATANT CONFIG',
-		Description = 'High performance aggressive blatant settings for rage play',
-		Data = '{"Modules":{"BedPlates":{"Enabled":true,"Bind":[],"Options":{"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false},"Background":{"Enabled":true},"Layer Counter":{"Enabled":true},"Counter Text Color":{"Hue":0.44,"Sat":0,"Value":1,"Opacity":1,"Rainbow":false}}},"ItemPlates":{"Enabled":true,"Bind":[],"Options":{"Background":{"Enabled":true},"Whitelist":{"ListEnabled":["beehive"],"List":["beehive"]},"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false}}},"AutoKaliyah":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":20,"Max":20},"Stack Mode":{"Value":"S1"},"Delay":{"Value":0.05,"Max":1},"No Slow":{"Enabled":true}}},"AutoLeave":{"Enabled":false,"Bind":[],"Options":{"Leave Type":{"Value":"Rejoin"},"Health":{"Value":10,"Max":100},"Player Detect Radius":{"Value":15,"Max":50}}},"AutoReport":{"Enabled":false,"Bind":[],"Options":{"Report Reason":{"Value":"Cheating"},"Delay":{"Value":5,"Max":60}}},"ChestStealer":{"Enabled":true,"Bind":[],"Options":{"Steal Delay":{"Value":0.05,"Max":1},"Auto Close":{"Enabled":true}}},"InventoryCleaner":{"Enabled":true,"Bind":[],"Options":{"Clean Delay":{"Value":0.05,"Max":1},"Keep Swords":{"Enabled":true},"Keep Armor":{"Enabled":true}}},"KillSay":{"Enabled":true,"Bind":[],"Options":{"Message Mode":{"Value":"Toxic"},"Custom Messages":{"ListEnabled":[],"List":[]}}},"MiddleClick":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Pearl"}}},"NoRotate":{"Enabled":true,"Bind":[],"Options":{}},"PartyPooper":{"Enabled":false,"Bind":[],"Options":{}},"StaffDetector":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Notify"}}},"ChatSocials":{"Enabled":false,"Bind":[],"Options":{"Platform":{"Value":"Discord"}}},"Fucker":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":25,"Max":30},"Target Bed":{"Enabled":true}}},"Nuker":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":8,"Max":10},"Break Delay":{"Value":0,"Max":1}}},"Stealer":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":25,"Max":30}}},"Blink":{"Enabled":false,"Bind":[],"Options":{"Pulse":{"Enabled":false},"Pulse Delay":{"Value":1,"Max":5}}},"CustomSpeed":{"Enabled":true,"Bind":[],"Options":{"Speed":{"Value":28,"Max":50}}},"FastFall":{"Enabled":true,"Bind":[],"Options":{"Speed":{"Value":2.5,"Max":5}}},"Fly":{"Enabled":false,"Bind":[],"Options":{"Fly Mode":{"Value":"Vanilla"},"Speed":{"Value":25,"Max":50}}},"HitBoxes":{"Enabled":true,"Bind":[],"Options":{"Expand Radius":{"Value":4,"Max":10}}},"LongJump":{"Enabled":false,"Bind":[],"Options":{"Jump Mode":{"Value":"Normal"}}},"NoFall":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Spoof"}}},"Phase":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"SafeWalk":{"Enabled":false,"Bind":[],"Options":{}},"Spider":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"Sprint":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"Step":{"Enabled":true,"Bind":[],"Options":{"Height":{"Value":3,"Max":10}}},"Velocity":{"Enabled":true,"Bind":[],"Options":{"Horizontal":{"Value":0,"Max":100},"Vertical":{"Value":0,"Max":100},"Mode":{"Value":"Standard"}}},"Aimbot":{"Enabled":false,"Bind":[],"Options":{"Smoothing":{"Value":5,"Max":20},"Range":{"Value":20,"Max":50}}},"AutoClicker":{"Enabled":true,"Bind":[],"Options":{"CPS":{"Value":20,"Max":20},"Block Break":{"Enabled":true}}},"AutoWeapon":{"Enabled":true,"Bind":[],"Options":{}},"Killaura":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":5.5,"Max":6},"APS":{"Value":18,"Max":20},"Targets":{"Value":5,"Max":10},"Face Target":{"Enabled":true},"Auto Block":{"Value":"Sword"}}},"Reach":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":5.2,"Max":6}}},"TargetStrafe":{"Enabled":true,"Bind":[],"Options":{"Radius":{"Value":4,"Max":10}}},"TriggerBot":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"WTap":{"Enabled":true,"Bind":[],"Options":{}},"Ambience":{"Enabled":false,"Bind":[],"Options":{"Time":{"Value":12,"Max":24}}},"Cape":{"Enabled":true,"Bind":[],"Options":{"Style":{"Value":"Vape"}}},"Chams":{"Enabled":true,"Bind":[],"Options":{"Color":{"Hue":0,"Sat":1,"Value":1,"Opacity":0.5,"Rainbow":false}}},"ChinaHat":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Fullbright":{"Enabled":true,"Bind":[],"Options":{}},"GUIColor":{"Enabled":true,"Bind":[],"Options":{"Hue":0.95,"Sat":0.8,"Value":1,"Rainbow":false}},"ESP":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"2D"},"Bounding Box":{"Enabled":true},"Health Bar":{"Enabled":true},"Name Tags":{"Enabled":true}}},"NameTags":{"Enabled":true,"Bind":[],"Options":{"Show Health":{"Enabled":true},"Show Distance":{"Enabled":true}}},"Tracers":{"Enabled":true,"Bind":[],"Options":{"Color":{"Hue":0.95,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Viewmodel":{"Enabled":false,"Bind":[],"Options":{"X":{"Value":0,"Max":5},"Y":{"Value":0,"Max":5},"Z":{"Value":0,"Max":5}}}}}'
-	},
-	{
-		Name = 'Semi Blatant',
-		Description = 'Balanced hybrid profile for closet/semi-blatant play style',
-		Data = '{"Modules":{"BedPlates":{"Enabled":true,"Bind":[],"Options":{"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false},"Background":{"Enabled":true},"Layer Counter":{"Enabled":true},"Counter Text Color":{"Hue":0.44,"Sat":0,"Value":1,"Opacity":1,"Rainbow":false}}},"ItemPlates":{"Enabled":true,"Bind":[],"Options":{"Background":{"Enabled":true},"Whitelist":{"ListEnabled":["beehive"],"List":["beehive"]},"Background Color":{"Hue":0.44,"Sat":1,"Value":0,"Opacity":0.5,"Rainbow":false}}},"AutoKaliyah":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":18,"Max":20},"Stack Mode":{"Value":"S1"},"Delay":{"Value":0.1,"Max":1},"No Slow":{"Enabled":true}}},"AutoLeave":{"Enabled":false,"Bind":[],"Options":{"Leave Type":{"Value":"Rejoin"},"Health":{"Value":10,"Max":100},"Player Detect Radius":{"Value":15,"Max":50}}},"AutoReport":{"Enabled":false,"Bind":[],"Options":{"Report Reason":{"Value":"Cheating"},"Delay":{"Value":5,"Max":60}}},"ChestStealer":{"Enabled":true,"Bind":[],"Options":{"Steal Delay":{"Value":0.1,"Max":1},"Auto Close":{"Enabled":true}}},"InventoryCleaner":{"Enabled":true,"Bind":[],"Options":{"Clean Delay":{"Value":0.1,"Max":1},"Keep Swords":{"Enabled":true},"Keep Armor":{"Enabled":true}}},"KillSay":{"Enabled":false,"Bind":[],"Options":{"Message Mode":{"Value":"Toxic"},"Custom Messages":{"ListEnabled":[],"List":[]}}},"MiddleClick":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Pearl"}}},"NoRotate":{"Enabled":false,"Bind":[],"Options":{}},"PartyPooper":{"Enabled":false,"Bind":[],"Options":{}},"StaffDetector":{"Enabled":true,"Bind":[],"Options":{"Action":{"Value":"Notify"}}},"ChatSocials":{"Enabled":false,"Bind":[],"Options":{"Platform":{"Value":"Discord"}}},"Fucker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30},"Target Bed":{"Enabled":true}}},"Nuker":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":5,"Max":10},"Break Delay":{"Value":0,"Max":1}}},"Stealer":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":15,"Max":30}}},"Blink":{"Enabled":false,"Bind":[],"Options":{"Pulse":{"Enabled":false},"Pulse Delay":{"Value":1,"Max":5}}},"CustomSpeed":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":22,"Max":50}}},"FastFall":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":1.5,"Max":5}}},"Fly":{"Enabled":false,"Bind":[],"Options":{"Fly Mode":{"Value":"Vanilla"},"Speed":{"Value":20,"Max":50}}},"HitBoxes":{"Enabled":false,"Bind":[],"Options":{"Expand Radius":{"Value":2,"Max":10}}},"LongJump":{"Enabled":false,"Bind":[],"Options":{"Jump Mode":{"Value":"Normal"}}},"NoFall":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Spoof"}}},"Phase":{"Enabled":false,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"SafeWalk":{"Enabled":false,"Bind":[],"Options":{}},"Spider":{"Enabled":false,"Bind":[],"Options":{"Speed":{"Value":20,"Max":50}}},"Sprint":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"Vanilla"}}},"Step":{"Enabled":false,"Bind":[],"Options":{"Height":{"Value":2,"Max":10}}},"Velocity":{"Enabled":true,"Bind":[],"Options":{"Horizontal":{"Value":20,"Max":100},"Vertical":{"Value":100,"Max":100},"Mode":{"Value":"Standard"}}},"Aimbot":{"Enabled":false,"Bind":[],"Options":{"Smoothing":{"Value":5,"Max":20},"Range":{"Value":20,"Max":50}}},"AutoClicker":{"Enabled":true,"Bind":[],"Options":{"CPS":{"Value":16,"Max":20},"Block Break":{"Enabled":true}}},"AutoWeapon":{"Enabled":true,"Bind":[],"Options":{}},"Killaura":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":4.2,"Max":6},"APS":{"Value":14,"Max":20},"Targets":{"Value":3,"Max":10},"Face Target":{"Enabled":false},"Auto Block":{"Value":"None"}}},"Reach":{"Enabled":true,"Bind":[],"Options":{"Range":{"Value":3.8,"Max":6}}},"TargetStrafe":{"Enabled":false,"Bind":[],"Options":{"Radius":{"Value":3,"Max":10}}},"TriggerBot":{"Enabled":false,"Bind":[],"Options":{"Range":{"Value":3.5,"Max":6}}},"WTap":{"Enabled":true,"Bind":[],"Options":{}},"Ambience":{"Enabled":false,"Bind":[],"Options":{"Time":{"Value":12,"Max":24}}},"Cape":{"Enabled":true,"Bind":[],"Options":{"Style":{"Value":"Vape"}}},"Chams":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":0.5,"Rainbow":false}}},"ChinaHat":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.44,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Fullbright":{"Enabled":true,"Bind":[],"Options":{}},"GUIColor":{"Enabled":true,"Bind":[],"Options":{"Hue":0.6,"Sat":0.8,"Value":1,"Rainbow":false}},"ESP":{"Enabled":true,"Bind":[],"Options":{"Mode":{"Value":"2D"},"Bounding Box":{"Enabled":true},"Health Bar":{"Enabled":true},"Name Tags":{"Enabled":true}}},"NameTags":{"Enabled":true,"Bind":[],"Options":{"Show Health":{"Enabled":true},"Show Distance":{"Enabled":true}}},"Tracers":{"Enabled":false,"Bind":[],"Options":{"Color":{"Hue":0.6,"Sat":1,"Value":1,"Opacity":1,"Rainbow":false}}},"Viewmodel":{"Enabled":false,"Bind":[],"Options":{"X":{"Value":0,"Max":5},"Y":{"Value":0,"Max":5},"Z":{"Value":0,"Max":5}}}}}'
-	}
-}
-
-createPresetProfilesWindow = function()
-	if mainapi.PresetProfilesWindowObj then
-		mainapi.PresetProfilesWindowObj.Visible = not mainapi.PresetProfilesWindowObj.Visible
-		return
-	end
-
-	local window = Instance.new('Frame')
-	window.Name = 'PresetConfigsGUI'
-	window.Size = UDim2.fromOffset(580, 350)
-	window.Position = UDim2.new(0.5, -290, 0.5, -175)
-	window.BackgroundColor3 = uipallet.Main
-	window.Visible = true
-	window.Parent = scaledgui
-	mainapi.PresetProfilesWindowObj = window
-	table.insert(mainapi.Windows, window)
-
-	addBlur(window)
-	addCorner(window, UDim.new(0, 8))
-	makeDraggable(window)
-
-	-- Header Logo (2x scaled)
-	local logo = Instance.new('ImageLabel')
-	logo.Name = 'Logo'
-	logo.Size = UDim2.fromOffset(124, 32)
-	logo.Position = UDim2.fromOffset(16, 8)
-	logo.BackgroundTransparency = 1
-	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
-	logo.Parent = window
-
-	local logov4 = Instance.new('ImageLabel')
-	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(52, 28)
-	logov4.Position = UDim2.new(1, 2, 0, 2)
-	logov4.BackgroundTransparency = 1
-	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
-	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	logov4.Parent = logo
-
-	local titleLabel = Instance.new('TextLabel')
-	titleLabel.Name = 'Title'
-	titleLabel.Size = UDim2.new(1, -210, 0, 24)
-	titleLabel.Position = UDim2.fromOffset(200, 12)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = 'Preset Profiles / Configs'
-	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
-	titleLabel.TextSize = 15
-	titleLabel.FontFace = uipallet.FontSemiBold
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	titleLabel.Parent = window
-
-	addCloseButton(window, 12)
-	window.Close.MouseButton1Click:Connect(function()
-		window.Visible = false
-	end)
-
-	-- Divider
-	local topDivider = Instance.new('Frame')
-	topDivider.Size = UDim2.new(1, -24, 0, 1)
-	topDivider.Position = UDim2.fromOffset(12, 48)
-	topDivider.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
-	topDivider.BorderSizePixel = 0
-	topDivider.Parent = window
-
-	-- Scrollable Presets List Container
-	local scrollFrame = Instance.new('ScrollingFrame')
-	scrollFrame.Size = UDim2.new(1, -24, 1, -60)
-	scrollFrame.Position = UDim2.fromOffset(12, 54)
-	scrollFrame.BackgroundTransparency = 1
-	scrollFrame.BorderSizePixel = 0
-	scrollFrame.ScrollBarThickness = 4
-	scrollFrame.ScrollBarImageColor3 = color.Light(uipallet.Main, 0.2)
-	scrollFrame.Parent = window
-
-	local scrollList = Instance.new('UIListLayout')
-	scrollList.SortOrder = Enum.SortOrder.LayoutOrder
-	scrollList.Padding = UDim.new(0, 8)
-	scrollList.Parent = scrollFrame
-
-	scrollList:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		scrollFrame.CanvasSize = UDim2.fromOffset(0, scrollList.AbsoluteContentSize.Y + 10)
-	end)
-
-	for _, preset in ipairs(presetConfigsList) do
-		local itemFrame = Instance.new('Frame')
-		itemFrame.Size = UDim2.new(1, 0, 0, 44)
-		itemFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		itemFrame.Parent = scrollFrame
-		addCorner(itemFrame, UDim.new(0, 6))
-
-		local itemName = Instance.new('TextLabel')
-		itemName.Size = UDim2.new(1, -140, 0, 20)
-		itemName.Position = UDim2.fromOffset(12, 4)
-		itemName.BackgroundTransparency = 1
-		itemName.Text = preset.Name
-		itemName.TextColor3 = uipallet.Text
-		itemName.TextSize = 14
-		itemName.FontFace = uipallet.FontBold or uipallet.FontSemiBold
-		itemName.TextXAlignment = Enum.TextXAlignment.Left
-		itemName.Parent = itemFrame
-
-		local itemDesc = Instance.new('TextLabel')
-		itemDesc.Size = UDim2.new(1, -140, 0, 16)
-		itemDesc.Position = UDim2.fromOffset(12, 24)
-		itemDesc.BackgroundTransparency = 1
-		itemDesc.Text = preset.Description
-		itemDesc.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		itemDesc.TextSize = 11
-		itemDesc.FontFace = uipallet.Font
-		itemDesc.TextXAlignment = Enum.TextXAlignment.Left
-		itemDesc.Parent = itemFrame
-
-		local loadBtn = Instance.new('TextButton')
-		loadBtn.Size = UDim2.fromOffset(110, 28)
-		loadBtn.Position = UDim2.new(1, -118, 0, 8)
-		loadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.08)
-		loadBtn.Text = 'Load Preset'
-		loadBtn.TextColor3 = uipallet.Text
-		loadBtn.TextSize = 12
-		loadBtn.FontFace = uipallet.FontSemiBold
-		loadBtn.Parent = itemFrame
-		addCorner(loadBtn, UDim.new(0, 4))
-
-		loadBtn.MouseEnter:Connect(function()
-			tween:Tween(loadBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.16)
-			})
-		end)
-		loadBtn.MouseLeave:Connect(function()
-			tween:Tween(loadBtn, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.08)
-			})
-		end)
-
-		loadBtn.MouseButton1Click:Connect(function()
-			local ok, profName = importProfileFromText(preset.Data, preset.Name)
-			if ok then
-				mainapi:Save(profName)
-				mainapi:Load(true, profName)
-				mainapi:CreateNotification('MXTION V4', 'Successfully imported & loaded preset: '..profName, 5, 'info')
-				window.Visible = false
-			else
-				mainapi:CreateNotification('MXTION V4', profName or 'Failed to load preset.', 5, 'alert')
-			end
-		end)
-	end
 end
 	
 
