@@ -199,16 +199,17 @@ local function addCloseButton(parent, offset)
 	return close
 end
 
--- NEW: Function to add overlay to category downloads
+-- NEW: Function to add overlay to entire GUI (excluding category bars)
 local function addCategoryOverlay(parent)
 	local overlay = Instance.new('ImageLabel')
 	overlay.Name = 'CategoryOverlay'
-	overlay.Size = UDim2.new(1, 0, 1, 0)
-	overlay.Position = UDim2.new(0, 0, 0, 0)
+	-- Cover full size but position below the category label bars
+	overlay.Size = UDim2.new(1, 0, 1, -40)  -- Subtract height of category bar
+	overlay.Position = UDim2.new(0, 0, 0, 40)  -- Position below the bars
 	overlay.BackgroundTransparency = 1
 	overlay.Image = getcustomasset('mxtionv4/assets/new/GuiOverlay.png')
 	overlay.ImageTransparency = mainapi.OverlayTransparency.Value
-	overlay.ScaleType = Enum.ScaleType.Crop
+	overlay.ScaleType = Enum.ScaleType.Tile  -- Tile the pattern across entire area
 	overlay.ZIndex = 1
 	overlay.Active = false
 	overlay.Parent = parent
@@ -4775,6 +4776,85 @@ function mainapi:CreateCategoryList(categorysettings)
 	cursedpadding.BackgroundTransparency = 1
 	cursedpadding.Parent = children
 	categorysettings.Function = categorysettings.Function or function() end
+
+	-- Add JSON Mode toggle to settings panel
+	local jsonToggleFrame = Instance.new('TextButton')
+	jsonToggleFrame.Name = 'JSONModeToggle'
+	jsonToggleFrame.Size = UDim2.fromOffset(200, 35)
+	jsonToggleFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+	jsonToggleFrame.AutoButtonColor = false
+	jsonToggleFrame.Text = ''
+	jsonToggleFrame.Parent = childrentwo
+	addCorner(jsonToggleFrame, UDim.new(0, 6))
+
+	local jsonToggleLabel = Instance.new('TextLabel')
+	jsonToggleLabel.Name = 'Label'
+	jsonToggleLabel.Size = UDim2.new(1, -40, 1, 0)
+	jsonToggleLabel.Position = UDim2.fromOffset(10, 0)
+	jsonToggleLabel.BackgroundTransparency = 1
+	jsonToggleLabel.Text = 'JSON Mode'
+	jsonToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	jsonToggleLabel.TextColor3 = color.Dark(uipallet.Text, 0.4)
+	jsonToggleLabel.TextSize = 13
+	jsonToggleLabel.FontFace = uipallet.Font
+	jsonToggleLabel.Parent = jsonToggleFrame
+
+	local jsonToggleSwitch = Instance.new('Frame')
+	jsonToggleSwitch.Name = 'Toggle'
+	jsonToggleSwitch.Size = UDim2.fromOffset(24, 14)
+	jsonToggleSwitch.Position = UDim2.new(1, -32, 0.5, -7)
+	jsonToggleSwitch.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	jsonToggleSwitch.BorderSizePixel = 0
+	jsonToggleSwitch.Parent = jsonToggleFrame
+	addCorner(jsonToggleSwitch, UDim.new(0, 3))
+
+	local jsonToggleKnob = Instance.new('Frame')
+	jsonToggleKnob.Name = 'Knob'
+	jsonToggleKnob.Size = UDim2.fromOffset(10, 10)
+	jsonToggleKnob.Position = UDim2.fromOffset(2, 2)
+	jsonToggleKnob.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+	jsonToggleKnob.BorderSizePixel = 0
+	jsonToggleKnob.Parent = jsonToggleSwitch
+	addCorner(jsonToggleKnob, UDim.new(1, 0))
+
+	local function updateJSONModeUI()
+		if jsonMode then
+			tween:Tween(jsonToggleSwitch, uipallet.Tween, {
+				BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+			})
+			tween:Tween(jsonToggleKnob, uipallet.Tween, {
+				Position = UDim2.fromOffset(12, 2)
+			})
+			addvalue.PlaceholderText = 'Enter JSON or profile name...'
+			jsonToggleLabel.TextColor3 = mainapi.GUIColor.Rainbow and Color3.new(0.19, 0.19, 0.19) or Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+		else
+			tween:Tween(jsonToggleSwitch, uipallet.Tween, {
+				BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+			})
+			tween:Tween(jsonToggleKnob, uipallet.Tween, {
+				Position = UDim2.fromOffset(2, 2)
+			})
+			addvalue.PlaceholderText = 'Add entry...'
+			jsonToggleLabel.TextColor3 = color.Dark(uipallet.Text, 0.4)
+		end
+	end
+
+	jsonToggleFrame.MouseButton1Click:Connect(function()
+		jsonMode = not jsonMode
+		updateJSONModeUI()
+	end)
+
+	jsonToggleFrame.MouseEnter:Connect(function()
+		tween:Tween(jsonToggleFrame, uipallet.Tween, {
+			BackgroundColor3 = color.Light(uipallet.Main, 0.08)
+		})
+	end)
+
+	jsonToggleFrame.MouseLeave:Connect(function()
+		tween:Tween(jsonToggleFrame, uipallet.Tween, {
+			BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+		})
+	end)
 
 	function categoryapi:ChangeValue(val)
 		if val then
