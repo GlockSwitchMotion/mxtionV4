@@ -4633,9 +4633,13 @@ function mainapi:CreateCategoryList(categorysettings)
 	children.CanvasSize = UDim2.new()
 	children.Parent = window
 	local childrentwo = Instance.new('Frame')
-	childrentwo.BackgroundTransparency = 1
+	childrentwo.Name = 'SettingsOverlay'
+	childrentwo.Size = UDim2.new(1, 0, 1, 0)
+	childrentwo.Position = UDim2.new(0, 0, 0, 0)
 	childrentwo.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
+	childrentwo.BackgroundTransparency = 0
 	childrentwo.Visible = false
+	childrentwo.ZIndex = 10
 	childrentwo.Parent = children
 	local settings = Instance.new('ImageButton')
 	settings.Name = 'Settings'
@@ -4776,85 +4780,6 @@ function mainapi:CreateCategoryList(categorysettings)
 	cursedpadding.BackgroundTransparency = 1
 	cursedpadding.Parent = children
 	categorysettings.Function = categorysettings.Function or function() end
-
-	-- Add JSON Mode toggle to settings panel
-	local jsonToggleFrame = Instance.new('TextButton')
-	jsonToggleFrame.Name = 'JSONModeToggle'
-	jsonToggleFrame.Size = UDim2.fromOffset(200, 35)
-	jsonToggleFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-	jsonToggleFrame.AutoButtonColor = false
-	jsonToggleFrame.Text = ''
-	jsonToggleFrame.Parent = childrentwo
-	addCorner(jsonToggleFrame, UDim.new(0, 6))
-
-	local jsonToggleLabel = Instance.new('TextLabel')
-	jsonToggleLabel.Name = 'Label'
-	jsonToggleLabel.Size = UDim2.new(1, -40, 1, 0)
-	jsonToggleLabel.Position = UDim2.fromOffset(10, 0)
-	jsonToggleLabel.BackgroundTransparency = 1
-	jsonToggleLabel.Text = 'JSON Mode'
-	jsonToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	jsonToggleLabel.TextColor3 = color.Dark(uipallet.Text, 0.4)
-	jsonToggleLabel.TextSize = 13
-	jsonToggleLabel.FontFace = uipallet.Font
-	jsonToggleLabel.Parent = jsonToggleFrame
-
-	local jsonToggleSwitch = Instance.new('Frame')
-	jsonToggleSwitch.Name = 'Toggle'
-	jsonToggleSwitch.Size = UDim2.fromOffset(24, 14)
-	jsonToggleSwitch.Position = UDim2.new(1, -32, 0.5, -7)
-	jsonToggleSwitch.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-	jsonToggleSwitch.BorderSizePixel = 0
-	jsonToggleSwitch.Parent = jsonToggleFrame
-	addCorner(jsonToggleSwitch, UDim.new(0, 3))
-
-	local jsonToggleKnob = Instance.new('Frame')
-	jsonToggleKnob.Name = 'Knob'
-	jsonToggleKnob.Size = UDim2.fromOffset(10, 10)
-	jsonToggleKnob.Position = UDim2.fromOffset(2, 2)
-	jsonToggleKnob.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-	jsonToggleKnob.BorderSizePixel = 0
-	jsonToggleKnob.Parent = jsonToggleSwitch
-	addCorner(jsonToggleKnob, UDim.new(1, 0))
-
-	local function updateJSONModeUI()
-		if jsonMode then
-			tween:Tween(jsonToggleSwitch, uipallet.Tween, {
-				BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-			})
-			tween:Tween(jsonToggleKnob, uipallet.Tween, {
-				Position = UDim2.fromOffset(12, 2)
-			})
-			addvalue.PlaceholderText = 'Enter JSON or profile name...'
-			jsonToggleLabel.TextColor3 = mainapi.GUIColor.Rainbow and Color3.new(0.19, 0.19, 0.19) or Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-		else
-			tween:Tween(jsonToggleSwitch, uipallet.Tween, {
-				BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-			})
-			tween:Tween(jsonToggleKnob, uipallet.Tween, {
-				Position = UDim2.fromOffset(2, 2)
-			})
-			addvalue.PlaceholderText = 'Add entry...'
-			jsonToggleLabel.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		end
-	end
-
-	jsonToggleFrame.MouseButton1Click:Connect(function()
-		jsonMode = not jsonMode
-		updateJSONModeUI()
-	end)
-
-	jsonToggleFrame.MouseEnter:Connect(function()
-		tween:Tween(jsonToggleFrame, uipallet.Tween, {
-			BackgroundColor3 = color.Light(uipallet.Main, 0.08)
-		})
-	end)
-
-	jsonToggleFrame.MouseLeave:Connect(function()
-		tween:Tween(jsonToggleFrame, uipallet.Tween, {
-			BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		})
-	end)
 
 	function categoryapi:ChangeValue(val)
 		if val then
@@ -5268,6 +5193,16 @@ function mainapi:CreateCategoryList(categorysettings)
 		end
 	end)
 	settings.MouseButton1Click:Connect(function()
+		if categorysettings.Profiles then
+			jsonMode = not jsonMode
+			if jsonMode then
+				addvalue.PlaceholderText = 'Enter JSON'
+				settings.ImageColor3 = Color3.fromRGB(255, 255, 255)
+			else
+				addvalue.PlaceholderText = categorysettings.Placeholder or 'Add entry...'
+				settings.ImageColor3 = color.Light(uipallet.Main, 0.37)
+			end
+		end
 		childrentwo.Visible = not childrentwo.Visible
 	end)
 	window.InputBegan:Connect(function(inputObj)
