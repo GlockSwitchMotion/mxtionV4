@@ -174,15 +174,23 @@ if not shared.VapeIndependent then
 		repeat task.wait() until game:IsLoaded()
 	end
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
-		loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+	local scriptId
+	if game.PlaceId == 6872265039 then
+		scriptId = '6872265039'        -- BedWars Lobby
+	elseif game.GameId == 2619619496 then
+		scriptId = '6872274481'        -- BedWars Match
+	else
+		scriptId = tostring(game.GameId)
+	end
+	if isfile('mxtionv4/games/'..scriptId..'.lua') then
+		loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
 	else
 		if not shared.VapeDeveloper then
 			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..scriptId..'.lua', true)
 			end)
 			if suc and res ~= '404: Not Found' then
-				loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+				loadstring(downloadFile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
 			end
 		end
 	end
