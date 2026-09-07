@@ -6248,10 +6248,68 @@ function mainapi:Load(skipgui, profile)
 		end
 	end
 
-	self.Profile = profile or guidata.Profile or self.Profile or 'default'
-	self.Profiles = guidata.Profiles or self.Profiles or {{
-		Name = 'default', Bind = {}
-	}}
+	-- Preserve active profile unless manually changed via profile parameter
+	if profile and typeof(profile) == "string" and #profile > 0 then
+		self.Profile = profile
+	elseif not self.Profile or self.Profile == "" then
+		self.Profile = guidata.Profile or 'default'
+	end
+
+	-- Initialize self.Profiles if nil
+	self.Profiles = self.Profiles or {}
+
+	-- Merge profiles from guidata
+	if guidata.Profiles and typeof(guidata.Profiles) == "table" then
+		for _, p in ipairs(guidata.Profiles) do
+			if p and p.Name then
+				local found = false
+				for _, existing in ipairs(self.Profiles) do
+					if existing.Name == p.Name then found = true break end
+				end
+				if not found then
+					table.insert(self.Profiles, p)
+				end
+			end
+		end
+	end
+
+	-- Auto-discover saved profile files on disk so they always appear in GUI
+	if isfolder('mxtionv4/profiles') then
+		for _, file in ipairs(listfiles('mxtionv4/profiles')) do
+			local filename = file:gsub('\\', '/'):match('([^/]+)$') or ''
+			if filename:find('.txt', 1, true) and not filename:find('.gui.txt', 1, true) and filename ~= 'commit.txt' and filename ~= 'hide.txt' and filename ~= 'gui.txt' then
+				local profName = filename:gsub('%d+%.txt$', ''):gsub('%.txt$', '')
+				if #profName > 0 then
+					local found = false
+					for _, existing in ipairs(self.Profiles) do
+						if existing.Name == profName then found = true break end
+					end
+					if not found then
+						table.insert(self.Profiles, {Name = profName, Bind = {}})
+					end
+				end
+			end
+		end
+	end
+
+	-- Ensure default profile exists in list
+	local hasDefault = false
+	for _, p in ipairs(self.Profiles) do
+		if p.Name == 'default' then hasDefault = true break end
+	end
+	if not hasDefault then
+		table.insert(self.Profiles, 1, {Name = 'default', Bind = {}})
+	end
+
+	-- Ensure active profile exists in list
+	local hasCurrent = false
+	for _, p in ipairs(self.Profiles) do
+		if p.Name == self.Profile then hasCurrent = true break end
+	end
+	if not hasCurrent then
+		table.insert(self.Profiles, {Name = self.Profile, Bind = {}})
+	end
+
 	self.Categories.Profiles:ChangeValue()
 	if self.ProfileLabel then
 		self.ProfileLabel.Text = #self.Profile > 10 and self.Profile:sub(1, 10)..'...' or self.Profile
