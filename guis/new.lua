@@ -4900,10 +4900,8 @@ function mainapi:CreateCategoryList(categorysettings)
 					end
 				end)
 				object.MouseButton1Click:Connect(function()
-					if v.Name ~= mainapi.Profile then
-						mainapi:Save()
-						mainapi:Load(true, v.Name)
-					end
+					mainapi:Save(v.Name)
+					mainapi:Load(true)
 				end)
 				object.MouseEnter:Connect(function()
 					bind.Visible = true
@@ -6242,7 +6240,6 @@ function mainapi:Load(skipgui, profile)
 	self.Profiles = guidata.Profiles or {{
 		Name = 'default', Bind = {}
 	}}
-	self.Loaded = savecheck
 	self.Categories.Profiles:ChangeValue()
 	if self.ProfileLabel then
 		self.ProfileLabel.Text = #self.Profile > 10 and self.Profile:sub(1, 10)..'...' or self.Profile
@@ -6301,25 +6298,19 @@ function mainapi:Load(skipgui, profile)
 					task.wait()
 				end
 			end
-			if (v.Enabled or false) ~= object.Enabled then
+			if v.Enabled ~= object.Enabled then
 				if skipgui then
 					if self.ToggleNotifications.Enabled then 
-						mainapi:CreateNotification(i, (v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+						mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
 					end
 				end
-				pcall(function()
-					object:Toggle(true)
-				end)
+				object:Toggle(true)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			pcall(function()
-				object:SetBind(v.Bind)
-			end)
-			if object.Object and object.Object.Bind then
-				object.Object.Bind.Visible = v.Bind and #v.Bind > 0 or false
-			end
+			object:SetBind(v.Bind)
+			object.Object.Bind.Visible = #v.Bind > 0
 		end
 
 		for i, v in savedata.Legit do
@@ -6332,10 +6323,8 @@ function mainapi:Load(skipgui, profile)
 					task.wait()
 				end
 			end
-			if (v.Enabled or false) ~= object.Enabled then
-				pcall(function()
-					object:Toggle()
-				end)
+			if object.Enabled ~= v.Enabled then
+				object:Toggle()
 				if shared.vapesmooth then
 					task.wait()
 				end
@@ -6358,8 +6347,6 @@ function mainapi:Load(skipgui, profile)
 	self.Categories.Main.Options.Bind:SetBind(self.Keybind)
 
 	if savenew then
-		self:Save()
-	else
 		self:Save()
 	end
 
@@ -6418,9 +6405,7 @@ function mainapi:LoadOptions(object, savedoptions)
 		if mainapi.ThreadFix then
 			setthreadidentity(8)
 		end
-		pcall(function()
-			option:Load(v)
-		end)
+		option:Load(v)
 	end
 end
 
@@ -6447,12 +6432,9 @@ end
 
 function mainapi:Save(newprofile)
 	if not self.Loaded then return end
-	if newprofile then
-		self.Profile = newprofile
-	end
 	local guidata = {
 		Categories = {},
-		Profile = self.Profile,
+		Profile = newprofile or self.Profile,
 		Profiles = self.Profiles,
 		Keybind = self.Keybind
 	}
@@ -6525,23 +6507,19 @@ end
 function mainapi:Uninject()
 	mainapi:Save()
 	mainapi.Loaded = nil
-	clickgui.Visible = false
-	pcall(function()
-		runService:SetRobloxGuiFocused(false)
-	end)
 	for _, v in self.Modules do
 		if v.Enabled then
-			pcall(function() v:Toggle() end)
+			v:Toggle()
 		end
 	end
 	for _, v in self.Legit.Modules do
 		if v.Enabled then
-			pcall(function() v:Toggle() end)
+			v:Toggle()
 		end
 	end
 	for _, v in self.Categories do
-		if v.Type == 'Overlay' and v.Button and v.Button.Enabled then
-			pcall(function() v.Button:Toggle() end)
+		if v.Type == 'Overlay' and v.Button.Enabled then
+			v.Button:Toggle()
 		end
 	end
 	for _, v in mainapi.Connections do
@@ -6551,20 +6529,17 @@ function mainapi:Uninject()
 	end
 	if mainapi.ThreadFix then
 		setthreadidentity(8)
+		clickgui.Visible = false
+		mainapi:BlurCheck()
 	end
-	if mainapi.gui then
-		pcall(function()
-			mainapi.gui:ClearAllChildren()
-			mainapi.gui:Destroy()
-		end)
-	end
+	mainapi.gui:ClearAllChildren()
+	mainapi.gui:Destroy()
 	table.clear(mainapi.Connections)
 	table.clear(mainapi.Libraries)
 	loopClean(mainapi)
 	shared.vape = nil
 	shared.vapereload = nil
 	shared.VapeIndependent = nil
-	_G.vape = nil
 end
 
 gui = Instance.new('ScreenGui')
@@ -6669,24 +6644,22 @@ mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
 		mainapi:QueueSave()
 	end
 	if clickgui.Visible and inputService.MouseEnabled then
-		task.spawn(function()
-			repeat
-				local visibleCheck = clickgui.Visible
-				for _, v in mainapi.Windows do
-					visibleCheck = visibleCheck or v.Visible
-				end
-				if not visibleCheck then break end
+		repeat
+			local visibleCheck = clickgui.Visible
+			for _, v in mainapi.Windows do
+				visibleCheck = visibleCheck or v.Visible
+			end
+			if not visibleCheck then break end
 
-				cursor.Visible = not inputService.MouseIconEnabled
-				if cursor.Visible then
-					local mouseLocation = inputService:GetMouseLocation()
-					cursor.Position = UDim2.fromOffset(mouseLocation.X - 31, mouseLocation.Y - 32)
-				end
+			cursor.Visible = not inputService.MouseIconEnabled
+			if cursor.Visible then
+				local mouseLocation = inputService:GetMouseLocation()
+				cursor.Position = UDim2.fromOffset(mouseLocation.X - 31, mouseLocation.Y - 32)
+			end
 
-				task.wait()
-			until mainapi.Loaded == nil
-			cursor.Visible = false
-		end)
+			task.wait()
+		until mainapi.Loaded == nil
+		cursor.Visible = false
 	end
 end))
 
