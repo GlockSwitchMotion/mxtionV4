@@ -113,9 +113,6 @@ local function finishLoading()
 			if shared.VapeDeveloper then
 				teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
 			end
-			if vape and vape.Profile then
-				shared.VapeCustomProfile = vape.Profile
-			end
 			if shared.VapeCustomProfile then
 				teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
 			end
@@ -177,21 +174,20 @@ if not shared.VapeIndependent then
 		loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
 		
 		-- ⚡ LOAD PLACE GAME SCRIPT IF CACHED
-		local scriptId = (game.PlaceId == 6872265039 and '6872265039') or (game.GameId == 2619619496 and '6872274481') or tostring(game.GameId)
-		if isfile('mxtionv4/games/'..scriptId..'.lua') then
+		if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
 			pcall(function()
-				loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
+				loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
 			end)
 		else
 			task.spawn(function()
 				local commit = (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt')) or 'main'
 				local suc, res = pcall(function()
-					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/games/'..scriptId..'.lua', true)
+					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/games/'..game.PlaceId..'.lua', true)
 				end)
 				if suc and res and res ~= '404: Not Found' then
-					writefile('mxtionv4/games/'..scriptId..'.lua', res)
+					writefile('mxtionv4/games/'..game.PlaceId..'.lua', res)
 					pcall(function()
-						loadstring(res, scriptId)(license)
+						loadstring(res, tostring(game.PlaceId))(license)
 					end)
 				end
 			end)
