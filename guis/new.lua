@@ -12,7 +12,7 @@ local mainapi = {
 	Loaded = false,
 	Libraries = {},
 	Modules = {},
-	Place = game.PlaceId,
+	Place = (game.PlaceId == 6872265039 and "6872265039" or tostring(game.GameId)),
 	Profile = 'default',
 	Profiles = {},
 	RainbowSpeed = {Value = 1},
@@ -6290,6 +6290,7 @@ function mainapi:Load(skipgui, profile)
 			legitlookup[i:gsub(' ', '')] = v
 		end
 
+		local isLobby = game.PlaceId == 6872265039
 		for i, v in savedata.Modules do
 			i = i:gsub(' ', '')
 			local object = modulelookup[i]
@@ -6301,14 +6302,16 @@ function mainapi:Load(skipgui, profile)
 				end
 			end
 			if v.Enabled ~= object.Enabled then
-				if skipgui then
-					if self.ToggleNotifications.Enabled then 
-						mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+				if not isLobby or not v.Enabled then
+					if skipgui then
+						if self.ToggleNotifications.Enabled then 
+							mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+						end
 					end
-				end
-				object:Toggle(true)
-				if shared.vapesmooth then
-					task.wait()
+					object:Toggle(true)
+					if shared.vapesmooth then
+						task.wait()
+					end
 				end
 			end
 			object:SetBind(v.Bind)
