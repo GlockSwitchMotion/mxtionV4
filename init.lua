@@ -181,7 +181,15 @@ if not shared.VapeIndependent then
 		end)
 
 		task.spawn(function()
-			local scriptId = tostring(game.PlaceId)
+			local scriptId
+			if game.PlaceId == 6872265039 then
+				scriptId = '6872265039'        -- BedWars Lobby
+			elseif game.GameId == 2619619496 then
+				scriptId = '6872274481'        -- BedWars Match
+			else
+				scriptId = tostring(game.GameId)
+			end
+
 			if isfile('mxtionv4/games/'..scriptId..'.lua') then
 				pcall(function()
 					loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
