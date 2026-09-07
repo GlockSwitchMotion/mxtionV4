@@ -7162,9 +7162,9 @@ createPublicProfilesWindow = function()
 				if publib and publib.Download then
 					local ok, resName = publib.Download(item, mainapi)
 					if ok then
-						mainapi:Save(resName or profName)
-						mainapi:Load(true, resName or profName)
-						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. tostring(resName or profName), 5, 'info')
+						local targetProf = resName or profName
+						mainapi:Load(true, targetProf)
+						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. tostring(targetProf), 5, 'info')
 						window.Visible = false
 						return
 					end
@@ -7184,7 +7184,6 @@ createPublicProfilesWindow = function()
 						table.insert(mainapi.Profiles, {Name = profName, Bind = {}})
 						mainapi.Categories.Profiles:ChangeValue()
 					end
-					mainapi:Save(profName)
 					mainapi:Load(true, profName)
 					mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
 					window.Visible = false
