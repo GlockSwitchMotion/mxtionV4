@@ -6189,6 +6189,8 @@ end
 
 
 function mainapi:Load(skipgui, profile)
+	local oldsmooth = shared.vapesmooth
+	shared.vapesmooth = false
 	if not skipgui then
 		self.GUIColor:SetValue(nil, nil, nil, 4)
 	end
@@ -6344,6 +6346,7 @@ function mainapi:Load(skipgui, profile)
 		self.Downloader = nil
 	end
 	self.Loaded = savecheck
+	shared.vapesmooth = oldsmooth
 	self.Categories.Main.Options.Bind:SetBind(self.Keybind)
 
 	if savenew then
