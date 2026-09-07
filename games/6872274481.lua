@@ -4659,63 +4659,62 @@ run(function()
 	local Color
 	local Effect
 	local Rank
+	
 	local added = {}
 	local trims, colors, effects = {}, {}, {}
 	local trimvalues, colorvalues, effectvalues = {}, {}, {}
 	
-	for _, v in bedwars.ArmorTrimType do
-		local meta = bedwars.ArmorTrimMeta[v]
-		local label = meta and meta.name or (tostring(v):gsub('_', ' '):gsub('%a+', function(word)
+	local function prettify(text)
+		return (tostring(text):gsub('_', ' '):gsub('%a+', function(word)
 			return word:sub(1, 1):upper()..word:sub(2):lower()
 		end))
-		if trimvalues[label] == nil then
-			trimvalues[label] = v
-			table.insert(trims, label)
-		end
+	end
+	
+	local function addOption(list, values, label, value)
+		if values[label] ~= nil then return end
+		values[label] = value
+		table.insert(list, label)
+	end
+	
+	for _, trim in bedwars.ArmorTrimType do
+		local meta = bedwars.ArmorTrimMeta[trim]
+		addOption(trims, trimvalues, meta and meta.name or prettify(trim), trim)
 	end
 	table.sort(trims)
 	
-	for i, v in bedwars.ArmorTrimColor do
-		local label = (tostring(i):gsub('_', ' '):gsub('%a+', function(word)
-			return word:sub(1, 1):upper()..word:sub(2):lower()
-		end))
-		if colorvalues[label] == nil then
-			colorvalues[label] = v
-			table.insert(colors, label)
-		end
+	for name, color in bedwars.ArmorTrimColor do
+		addOption(colors, colorvalues, prettify(name), color)
 	end
 	table.sort(colors)
 	
-	for _, v in bedwars.ArmorTrimEffectType do
-		local meta = bedwars.ArmorTrimEffectMeta[v]
-		local label = meta and meta.name or (tostring(v):gsub('_', ' '):gsub('%a+', function(word)
-			return word:sub(1, 1):upper()..word:sub(2):lower()
-		end))
-		if effectvalues[label] == nil then
-			effectvalues[label] = v
-			table.insert(effects, label)
-		end
+	for _, effect in bedwars.ArmorTrimEffectType do
+		local meta = bedwars.ArmorTrimEffectMeta[effect]
+		addOption(effects, effectvalues, meta and meta.name or prettify(effect), effect)
 	end
 	table.sort(effects)
 	
-	local function applyTrim()
+	local function clearTrim()
 		for _, v in added do
 			if v.Parent then
 				v:Destroy()
 			end
 		end
 		table.clear(added)
-		if not ArmorChanger.Enabled or not lplr.Character then return end
+	end
 	
-		local trim = trimvalues[Trim.Value]
-		local color = colorvalues[Color.Value]
-		local effect = effectvalues[Effect.Value]
-		if not trim or not color or not effect then return end
+	local function applyTrim()
+		clearTrim()
+		if not ArmorChanger.Enabled or not lplr.Character then return end
 	
 		local before = {}
 		for _, v in lplr.Character:GetDescendants() do
 			before[v] = true
 		end
+	
+		local trim = trimvalues[Trim.Value]
+		local color = colorvalues[Color.Value]
+		local effect = effectvalues[Effect.Value]
+		if not trim or not color or not effect then return end
 	
 		bedwars.ArmorTrimController:attachArmorTrimEffects(lplr.Character, trim, color, Rank.Value - 1, effect)
 	
@@ -4727,27 +4726,19 @@ run(function()
 	end
 	
 	ArmorChanger = vape.Categories.Render:CreateModule({
-		Name = 'ArmorChanger',
+		Name = 'ArmorTrimChanger',
 		Function = function(callback)
 			if callback then
 				ArmorChanger:Clean(lplr.CharacterAdded:Connect(function()
 					task.wait(1)
 					applyTrim()
 				end))
-				ArmorChanger:Clean(function()
-					for _, v in added do
-						if v.Parent then
-							v:Destroy()
-						end
-					end
-					table.clear(added)
-				end)
+				ArmorChanger:Clean(clearTrim)
 			end
 			applyTrim()
 		end,
 		Tooltip = 'Puts an armor trim on yourself, only you can see it'
 	})
-	
 	Trim = ArmorChanger:CreateDropdown({
 		Name = 'Trim',
 		List = trims,
@@ -4779,22 +4770,20 @@ run(function()
 		Name = 'Tier',
 		Min = 1,
 		Max = 7,
+		Default = 7,
 		Function = function()
 			if ArmorChanger.Enabled then
 				applyTrim()
 			end
 		end,
-		Default = 7,
 		Suffix = function(val)
 			local meta = bedwars.ArmorTrimEffectRankMeta[val - 1]
-			return meta and meta.tier and (tostring(meta.tier):gsub('_', ' '):gsub('%a+', function(word)
-				return word:sub(1, 1):upper()..word:sub(2):lower()
-			end)) or ''
+			return meta and meta.tier and prettify(meta.tier) or ''
 		end,
 		Tooltip = 'Higher tiers use the fancier version of the effect'
 	})
+	
 end)
-
 
 run(function()
 	local BedESP
@@ -5191,147 +5180,153 @@ run(function()
 	local Scale
 	local Whitelist
 	local Whitelisted = {}
-	local Reference, Cooldown = {}, {}
+	
 	local Folder = Instance.new('Folder')
 	Folder.Parent = vape.gui
 	
-	local function Added(ent)
-		local app = ent:FindFirstChild('RoactTree')
-		app = app and app:FindFirstChild('TeamOreGeneratorApp')
-		if not app then return end
+	local Reference, Strings, Cooldown = {}, {}, {}
 	
-		local title = app:FindFirstChild('Title', true)
-		local name, tier = title and title.Text, 'iron'
-		if not name then
-			local ore = ent:GetAttribute('Id')
-			if not ore then return end
-			ore = ore:sub(1, #ore - 2)
-			tier = ore:lower()
-			name = `{ore:sub(1, 1):upper()}{ore:sub(2)} Generator`
+	local function getNumber(text)
+		if not text or text == '' then
+			return 0
+		end
+		local seconds = text:match('%[(%d+)%]')
+		if seconds then
+			return tonumber(seconds) or 0
+		end
+		local justNumber = text:match('(%d+)')
+		if justNumber then
+			return tonumber(justNumber) or 0
+		end
+		return 0
+	end
+	
+	local function Added(ent)
+		local App = ent.RoactTree.TeamOreGeneratorApp
+		local Name = (App:FindFirstChild('GlobalOreGenerator') or App:FindFirstChild('TeamGenMain'))
+		if Name then
+			Name = Name:FindFirstChild('Title')
 		end
 	
-		if Whitelist.Enabled and not table.find(Whitelisted.ListEnabled, tier) then return end
+		local TierType = ''
+		if Name then
+			Name = Name.Text
+			TierType = 'iron'
+		else
+			local Ore = ent:GetAttribute('Id')
+			Ore = Ore:sub(0, #Ore - 2)
+			TierType = (Ore:sub(0, 1):upper() .. Ore:sub(2, #Ore)):lower()
+			Name = Ore:sub(0, 1):upper() .. Ore:sub(2, #Ore) .. ' Generator'
+		end
 	
+		if Whitelist.Enabled and not table.find(Whitelisted.ListEnabled, TierType) then
+			return
+		end
+	
+		Strings[ent] = `{Name} %s%s`
 		local nametag = Instance.new('TextLabel')
-		nametag.Name = name
-		nametag.Text = `{name} | T{ent:GetAttribute('GeneratorLevel') or 0}`
 		nametag.TextSize = 14 * Scale.Value
 		nametag.Font = Enum.Font.Arial
-		local size = getfontbounds(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace)
+		local format = string.format(Strings[ent], `| T{ent:GetAttribute('GeneratorLevel')}`, '')
+		local size = getfontsize(format, nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+		nametag.Name = Name
 		nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
 		nametag.AnchorPoint = Vector2.new(0.5, 1)
 		nametag.BackgroundColor3 = Color3.new()
-		nametag.BackgroundTransparency = Transparency.Value
+		nametag.BackgroundTransparency = 0.5
 		nametag.BorderSizePixel = 0
 		nametag.Visible = false
+		nametag.Text = format
 		nametag.TextColor3 = Color3.new(1, 1, 1)
 		nametag.RichText = true
 		nametag.Parent = Folder
-		Cooldown[ent] = app:FindFirstChild('Countdown', true) or app:FindFirstChild('Timer', true)
 		Reference[ent] = nametag
+	end
+	local function Updated(ent)
+		if Reference[ent] then
+			Reference[ent].TextSize = 14 * Scale.Value
+			Reference[ent].BackgroundTransparency = Transparency.Value
+		end
+	end
+	local function Removing(ent)
+		if Reference[ent] then
+			Reference[ent]:Destroy()
+			Reference[ent] = nil
+		end
 	end
 	
 	GeneratorESP = vape.Categories.Render:CreateModule({
-		Name = 'GeneratorESP',
+		Name = 'GeneratorDisplayer',
 		Function = function(callback)
 			if callback then
 				for _, v in collectionService:GetTagged('Generator') do
 					Added(v)
 				end
 				GeneratorESP:Clean(collectionService:GetInstanceAddedSignal('Generator'):Connect(Added))
-				GeneratorESP:Clean(collectionService:GetInstanceRemovedSignal('Generator'):Connect(function(ent)
-					if Reference[ent] then
-						Reference[ent]:Destroy()
-						Reference[ent] = nil
-						Cooldown[ent] = nil
-					end
-				end))
+				GeneratorESP:Clean(collectionService:GetInstanceRemovedSignal('Generator'):Connect(Removing))
 				GeneratorESP:Clean(runService.PreRender:Connect(function()
-					for i, v in Reference do
-						if not i.Parent then
-							v:Destroy()
-							Reference[i] = nil
-							Cooldown[i] = nil
+					for ent, nametag in Reference do
+						local headPos, headVis = gameCamera:WorldToViewportPoint(ent.Position + Vector3.new(0, 1, 0))
+						nametag.Visible = headVis
+						if not headVis then
 							continue
 						end
-	
-						local screenPos, visible = gameCamera:WorldToViewportPoint(i.Position + Vector3.new(0, 1, 0))
-						v.Visible = visible
-						if not visible then continue end
-	
-						local timer = Cooldown[i]
-						timer = timer and timer.Parent and (timer.Text:match('%[([%d%.]+)%]') or timer.Text:match('([%d%.]+)'))
-						local text = `{v.Name} | T{i:GetAttribute('GeneratorLevel') or 0}{timer and ` | {timer}s` or ''}`
-						if v.Text ~= text then
-							v.Text = text
-							local size = getfontbounds(removeTags(text), v.TextSize, v.FontFace)
-							v.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
-						end
-						v.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
+						
+						nametag.Text = string.format(Strings[ent], `| T{ent:GetAttribute('GeneratorLevel')}`, Cooldown[ent] and ` | {getNumber(Cooldown[ent].Text)}s` or '')
+						local size = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+						nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+						nametag.Position = UDim2.fromOffset(headPos.X, headPos.Y)
 					end
 				end))
 			else
-				for i, v in Reference do
-					v:Destroy()
-					Reference[i] = nil
-					Cooldown[i] = nil
+				for i in Reference do
+					Removing(i)
 				end
 			end
 		end,
 		Tooltip = 'Renders generator locations and info'
 	})
-	
 	Transparency = GeneratorESP:CreateSlider({
 		Name = 'Transparency',
-		Min = 0,
-		Max = 1,
-		Decimal = 100,
-		Function = function(value)
-			if not GeneratorESP.Enabled then return end
-			for _, v in Reference do
-				v.BackgroundTransparency = value
+		Function = function()
+			if GeneratorESP.Enabled then
+				for ent in Reference do
+					Updated(ent)
+				end
 			end
 		end,
-		Default = 0.5
+		Default = 0.5,
+		Min = 0,
+		Max = 1,
+		Decimal = 100
 	})
 	Scale = GeneratorESP:CreateSlider({
 		Name = 'Scale',
+		Default = 1,
 		Min = 0.1,
 		Max = 1.5,
 		Decimal = 10,
-		Function = function(value)
-			if not GeneratorESP.Enabled then return end
-			for _, v in Reference do
-				v.TextSize = 14 * value
-				local size = getfontbounds(removeTags(v.Text), v.TextSize, v.FontFace)
-				v.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+		Function = function()
+			if GeneratorESP.Enabled then
+				for ent in Reference do
+					Updated(ent)
+				end
 			end
-		end,
-		Default = 1
+		end
 	})
 	Whitelist = GeneratorESP:CreateToggle({
 		Name = 'Use whitelist',
-		Function = function(callback)
+		Default = true,
+		Function = function(call)
 			if Whitelisted.Object then
-				Whitelisted.Object.Visible = callback
+				Whitelisted.Object.Visible = call
 			end
-			if GeneratorESP.Enabled then
-				GeneratorESP:Toggle()
-				GeneratorESP:Toggle()
-			end
-		end,
-		Default = true
+		end
 	})
 	Whitelisted = GeneratorESP:CreateTextList({
 		Name = 'Generators',
-		Function = function()
-			if GeneratorESP.Enabled then
-				GeneratorESP:Toggle()
-				GeneratorESP:Toggle()
-			end
-		end,
-		Default = {'diamond', 'iron'},
-		Darker = true
+		Darker = true,
+		Default = {'diamond', 'iron'}
 	})
 end)
 
@@ -16350,442 +16345,6 @@ run(function()
 	
 end)
 
-run(function()
-	local AutoFlora
-	local Mode
-	local Height
-	local Speed
-	local nextGlide = 0
-	
-	AutoFlora = vape.Categories.Kits:CreateModule({
-		Name = 'AutoFlora',
-		Function = function(callback)
-			if callback then
-				nextGlide = 0
-	
-				repeat
-					if entitylib.isAlive and store.equippedKit == 'queen_bee' and tick() >= nextGlide and bedwars.AbilityController:canUseAbility('QUEEN_BEE_GLIDE', {disableBlockedAbilityAlert = true}) then
-						local root = entitylib.character.RootPart
-	
-						if root.AssemblyLinearVelocity.Y <= -Speed.Value then
-							local drop = Mode.Value == 'Void' and 2000 or Height.Value
-							local ground = workspace:Raycast(root.Position, Vector3.new(0, -drop, 0), store.airRay)
-	
-							if not ground then
-								nextGlide = tick() + 1
-								bedwars.AbilityController:useAbility('QUEEN_BEE_GLIDE')
-							end
-						end
-					end
-					task.wait(0.05)
-				until not AutoFlora.Enabled
-			end
-		end,
-		Tooltip = 'Opens the glide the moment you drop with nothing under you'
-	})
-	
-	Mode = AutoFlora:CreateDropdown({
-		Name = 'Mode',
-		List = {'Void', 'Any Drop'},
-		Default = 'Void',
-		Function = function(val)
-			if Height then
-				Height.Object.Visible = val == 'Any Drop'
-			end
-		end,
-		Tooltip = 'Void - only when there is no floor at all under you\nAny Drop - also for long falls onto the map'
-	})
-	Height = AutoFlora:CreateSlider({
-		Name = 'Ground check',
-		Min = 5,
-		Max = 200,
-		Default = 40,
-		Visible = false,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end
-	})
-	Speed = AutoFlora:CreateSlider({
-		Name = 'Fall speed',
-		Min = 1,
-		Max = 100,
-		Default = 20,
-		Tooltip = 'How fast you have to be dropping before it glides'
-	})
-	
-end)
-
-run(function()
-	local TeamUpgrades
-	local OwnTeam
-	local BedUpgrades
-	local Color
-	local Transparency
-	local Scale
-	local Reference = {}
-	local Folder = Instance.new('Folder')
-	Folder.Parent = vape.gui
-	
-	local numerals = {'I', 'II', 'III', 'IV', 'V'}
-	
-	local function getAnchor(obj)
-		return obj:IsA('Model') and (obj.PrimaryPart or obj:FindFirstChildWhichIsA('BasePart')) or obj
-	end
-	
-	local function getText(team)
-		local state = bedwars.Store:getState().Bedwars
-		local upgrades = state.teamUpgrades[team] or {}
-		local bought = {}
-	
-		for i, v in bedwars.TeamUpgradeMeta do
-			local tier = upgrades[i]
-			if tier and tier > 0 then
-				table.insert(bought, `{v.name} {numerals[tier] or tier}`)
-			end
-		end
-	
-		table.sort(bought)
-	
-		if BedUpgrades.Enabled then
-			local bed = state.bedTeamUpgrades[team] or {}
-			if bed.bed_shield then
-				table.insert(bought, 'Bed Shield')
-			end
-			if bed.bed_alarm then
-				table.insert(bought, 'Bed Alarm')
-			end
-		end
-	
-		return `Team {team} | {#bought > 0 and table.concat(bought, ', ') or 'No upgrades'}`
-	end
-	
-	local function Added(obj, tag)
-		local team = tag:match('^(%d+)_TeamOreGenerator')
-		local anchor = team and getAnchor(obj)
-		if not anchor then return end
-		if not OwnTeam.Enabled and team == lplr:GetAttribute('Team') then return end
-	
-		local nametag = Instance.new('TextLabel')
-		nametag.Name = `Team{team}`
-		nametag.Text = getText(team)
-		nametag.TextSize = 14 * Scale.Value
-		nametag.Font = Enum.Font.Arial
-		local size = getfontbounds(nametag.Text, nametag.TextSize, nametag.FontFace)
-		nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
-		nametag.AnchorPoint = Vector2.new(0.5, 1)
-		nametag.BackgroundColor3 = Color3.new()
-		nametag.BackgroundTransparency = Transparency.Value
-		nametag.BorderSizePixel = 0
-		nametag.Visible = false
-		nametag.TextColor3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
-		nametag.Parent = Folder
-		Reference[anchor] = {Label = nametag, Team = team}
-	end
-	
-	local function refresh()
-		for _, v in Reference do
-			v.Label.Text = getText(v.Team)
-			local size = getfontbounds(v.Label.Text, v.Label.TextSize, v.Label.FontFace)
-			v.Label.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
-		end
-	end
-	
-	TeamUpgrades = vape.Categories.Render:CreateModule({
-		Name = 'TeamUpgradeNotfier',
-		Function = function(callback)
-			if callback then
-				for _, tag in collectionService:GetAllTags() do
-					if tag:match('^%d+_TeamOreGenerator$') then
-						for _, v in collectionService:GetTagged(tag) do
-							Added(v, tag)
-						end
-						TeamUpgrades:Clean(collectionService:GetInstanceAddedSignal(tag):Connect(function(obj)
-							Added(obj, tag)
-						end))
-					end
-				end
-	
-				TeamUpgrades:Clean(runService.PreRender:Connect(function()
-					for i, v in Reference do
-						if not i.Parent then
-							v.Label:Destroy()
-							Reference[i] = nil
-							continue
-						end
-	
-						local screenPos, visible = gameCamera:WorldToViewportPoint(i.Position + Vector3.new(0, 4, 0))
-						v.Label.Visible = visible
-						if not visible then continue end
-						v.Label.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
-					end
-				end))
-	
-				repeat
-					refresh()
-					task.wait(0.5)
-				until not TeamUpgrades.Enabled
-			else
-				for i, v in Reference do
-					v.Label:Destroy()
-					Reference[i] = nil
-				end
-			end
-		end,
-		Tooltip = 'Puts every teams upgrades over their generator, and whether their bed is shielded or alarmed which the game never shows you anywhere'
-	})
-	
-	OwnTeam = TeamUpgrades:CreateToggle({
-		Name = 'Show own team',
-		Function = function()
-			if TeamUpgrades.Enabled then
-				TeamUpgrades:Toggle()
-				TeamUpgrades:Toggle()
-			end
-		end
-	})
-	BedUpgrades = TeamUpgrades:CreateToggle({
-		Name = 'Bed upgrades',
-		Default = true,
-		Function = function()
-			if TeamUpgrades.Enabled then
-				refresh()
-			end
-		end,
-		Tooltip = 'Bed shield and bed alarm, which no part of the games own UI displays'
-	})
-	Color = TeamUpgrades:CreateColorSlider({
-		Name = 'Text Color',
-		Function = function(hue, sat, val)
-			for _, v in Reference do
-				v.Label.TextColor3 = Color3.fromHSV(hue, sat, val)
-			end
-		end,
-		DefaultSat = 0,
-		DefaultValue = 1
-	})
-	Transparency = TeamUpgrades:CreateSlider({
-		Name = 'Transparency',
-		Min = 0,
-		Max = 1,
-		Decimal = 100,
-		Default = 0.5,
-		Function = function(value)
-			for _, v in Reference do
-				v.Label.BackgroundTransparency = value
-			end
-		end
-	})
-	Scale = TeamUpgrades:CreateSlider({
-		Name = 'Scale',
-		Min = 0.1,
-		Max = 1.5,
-		Decimal = 10,
-		Default = 1,
-		Function = function(value)
-			for _, v in Reference do
-				v.Label.TextSize = 14 * value
-				local size = getfontbounds(v.Label.Text, v.Label.TextSize, v.Label.FontFace)
-				v.Label.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
-			end
-		end
-	})
-	
-end)
-
-run(function()
-	local AutoArachne
-	local Targets
-	local Range
-	local Amount
-	
-	AutoArachne = vape.Categories.Kits:CreateModule({
-		Name = 'AutoSpider',
-		Function = function(callback)
-			if callback then
-				repeat
-					if entitylib.isAlive and store.equippedKit == 'spider_queen' and bedwars.AbilityController:canUseAbility('spider_queen_summon_spiders', {disableBlockedAbilityAlert = true}) then
-						local found = #entitylib.AllPosition({
-							Range = Range.Value,
-							Part = 'RootPart',
-							Players = Targets.Players.Enabled,
-							NPCs = Targets.NPCs.Enabled,
-							Wallcheck = Targets.Walls.Enabled
-						})
-	
-						if found >= Amount.Value then
-							bedwars.AbilityController:useAbility('spider_queen_summon_spiders')
-						end
-					end
-					task.wait(0.1)
-				until not AutoArachne.Enabled
-			end
-		end,
-		Tooltip = 'Automatically summons spiders once an enemy is nearby'
-	})
-	
-	Targets = AutoArachne:CreateTargets({
-		Players = true,
-		NPCs = true
-	})
-	Range = AutoArachne:CreateSlider({
-		Name = 'Range',
-		Min = 1,
-		Max = 60,
-		Default = 30,
-		Suffix = function(val)
-			return val <= 1 and 'stud' or 'studs'
-		end
-	})
-	Amount = AutoArachne:CreateSlider({
-		Name = 'Targets',
-		Min = 1,
-		Max = 8,
-		Default = 1,
-		Tooltip = 'Enemies in range before summoning'
-	})
-	
-end)
-
-run(function()
-	local TerraAimbot
-	local Targets
-	local Sort
-	local TargetPart
-	local FOV
-	local Horizontal
-	local Vertical
-	local old
-	local arcCheck = RaycastParams.new()
-	arcCheck.FilterType = Enum.RaycastFilterType.Exclude
-	
-	TerraAimbot = vape.Categories.Blatant:CreateModule({
-		Name = 'TerraAimbot',
-		Function = function(callback)
-			if callback then
-				old = bedwars.BlockKickerKitController.onAbilityUsed
-				bedwars.BlockKickerKitController.onAbilityUsed = function(self, character, data, ...)
-					if not data or data.ability ~= 'BLOCK_KICK' or not entitylib.isAlive then
-						return old(self, character, data, ...)
-					end
-	
-					local look = gameCamera.CFrame.LookVector
-					local origin = self:getKickBlockProjectileOriginPosition(entitylib.character.RootPart.Position, look)
-					local part = TargetPart.Value
-					local aim
-	
-					local ent = entitylib.EntityMouse({
-						Part = 'RootPart',
-						Range = FOV.Value,
-						Players = Targets.Players.Enabled,
-						NPCs = Targets.NPCs.Enabled,
-						Priority = Targets.Priority.Value,
-						Origin = origin,
-						MouseOrigin = gameCamera.ViewportSize / 2,
-						Sort = sortmethods[Sort.Value],
-						Check = function(entity)
-							local aimpart = getTargetPart(entity, part)
-							local velocity = aimpart.AssemblyLinearVelocity
-							local playerGravity = workspace.Gravity
-							local balloons = entity.Character:GetAttribute('InflatedBalloons')
-							if balloons and balloons > 0 then
-								playerGravity = workspace.Gravity * (1 - (balloons >= 4 and 1.2 or balloons >= 3 and 1 or 0.975))
-							end
-	
-							local airborne = entity.Humanoid.FloorMaterial == Enum.Material.Air or math.abs(entity.RootPart.AssemblyLinearVelocity.Y) > 0.01
-							local calc, _, travelTime = prediction.SolveTrajectory(origin, 100, 20, aimpart.Position, velocity, playerGravity, entity.HipHeight, entity.Jumping and 42.6 or nil, store.airRay, airborne, entity.RootPart.Position, entity.RootPart, nil, true)
-							if calc and travelTime and (Horizontal.Value ~= 1 or Vertical.Value ~= 1) then
-								local rise = (velocity.Y * travelTime) - (playerGravity * travelTime * travelTime * 0.5)
-								local lead = Vector3.new(velocity.X * travelTime * (Horizontal.Value - 1), rise * (Vertical.Value - 1), velocity.Z * travelTime * (Horizontal.Value - 1))
-								local adjusted, _, adjustedTime = prediction.SolveTrajectory(origin, 100, 20, aimpart.Position + lead, velocity, playerGravity, entity.HipHeight, entity.Jumping and 42.6 or nil, store.airRay, airborne, entity.RootPart.Position, entity.RootPart, nil, true)
-								if adjusted then
-									calc, travelTime = adjusted, adjustedTime or travelTime
-								end
-							end
-							if not calc or (calc - origin).Magnitude <= 0 then return false end
-	
-							if Targets.Walls.Enabled and travelTime then
-								local ignorelist = {gameCamera, lplr.Character}
-								for _, v in entitylib.List do
-									if v.Character then
-										table.insert(ignorelist, v.Character)
-									end
-								end
-								arcCheck.FilterDescendantsInstances = ignorelist
-								if not prediction.IsTrajectoryClear(origin, (calc - origin).Unit * 100, 20, travelTime, arcCheck) then
-									return false
-								end
-							end
-	
-							store.hitchance.TerraAimbot = {Value = getHitChance(entity, travelTime), Clock = tick()}
-							aim = (calc - origin).Unit
-							return true
-						end
-					})
-	
-					if not ent or not aim then
-						return old(self, character, data, ...)
-					end
-	
-					targetinfo.Targets[ent] = tick() + 1
-					if bedwars.CameraPerspectiveController:getCameraPerspective() == 1 then
-						local scale = ((0.7 * aim.Y) + math.sqrt((0.49 * aim.Y * aim.Y) + 3.51)) / 2
-						aim = (aim * scale) - Vector3.new(0, 0.35, 0)
-					end
-	
-					local restore = gameCamera.CFrame
-					gameCamera.CFrame = CFrame.lookAt(restore.Position, restore.Position + aim)
-					local call = old(self, character, data, ...)
-					gameCamera.CFrame = restore
-					return call
-				end
-			else
-				bedwars.BlockKickerKitController.onAbilityUsed = old
-			end
-		end,
-		Tooltip = 'throw block kick at the enemy'
-	})
-	
-	Targets = TerraAimbot:CreateTargets({
-		Players = true,
-		Walls = true
-	})
-	local methods = {'Distance', 'Damage'}
-	for _, v in sortlist do
-		if not table.find(methods, v) then
-			table.insert(methods, v)
-		end
-	end
-	Sort = TerraAimbot:CreateDropdown({
-		Name = 'Target mode',
-		List = methods
-	})
-	TargetPart = TerraAimbot:CreateDropdown({
-		Name = 'Part',
-		List = {'RootPart', 'Head', 'Torso', 'Left arm', 'Right arm', 'Left leg', 'Right leg', 'Random'}
-	})
-	FOV = TerraAimbot:CreateSlider({
-		Name = 'FOV',
-		Min = 1,
-		Max = 1000,
-		Default = 1000
-	})
-	Horizontal = TerraAimbot:CreateSlider({
-		Name = 'Horizontal prediction',
-		Min = 0,
-		Max = 2,
-		Decimal = 100,
-		Default = 1,
-		Tooltip = 'How much of the targets sideways movement to lead'
-	})
-	Vertical = TerraAimbot:CreateSlider({
-		Name = 'Vertical prediction',
-		Min = 0,
-		Max = 2,
-		Decimal = 100,
-		Default = 1,
-		Tooltip = 'How much of the targets rise and fall to lead, 1 is the honest amount'
-	})
-end)
 
 run(function()
     local AutoStyx
