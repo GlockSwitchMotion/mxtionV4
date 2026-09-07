@@ -190,15 +190,19 @@ if not shared.VapeIndependent then
 			end
 		end
 	end
-	loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
-	pcall(function()
-		local publib = loadstring(downloadFile('mxtionv4/libraries/publicconfigs.lua'), 'publicconfigs')(license)
-		if publib and vape then
-			vape.Libraries = vape.Libraries or {}
-			vape.Libraries.publicconfigs = publib
-		end
-	end)
 	finishLoading()
+	task.spawn(function()
+		pcall(function()
+			loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
+		end)
+		pcall(function()
+			local publib = loadstring(downloadFile('mxtionv4/libraries/publicconfigs.lua'), 'publicconfigs')(license)
+			if publib and vape then
+				vape.Libraries = vape.Libraries or {}
+				vape.Libraries.publicconfigs = publib
+			end
+		end)
+	end)
 else
 	vape.Init = finishLoading
 	return vape
