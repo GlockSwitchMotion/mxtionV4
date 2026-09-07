@@ -6309,11 +6309,13 @@ function mainapi:Load(skipgui, profile)
 				if mod.Enabled then
 					pcall(function() mod:Toggle(true) end)
 				end
+				self:ResetOptions(mod)
 			end
 			for _, mod in self.Legit.Modules do
 				if mod.Enabled then
 					pcall(function() mod:Toggle() end)
 				end
+				self:ResetOptions(mod)
 			end
 		end
 
@@ -6435,6 +6437,24 @@ function mainapi:Load(skipgui, profile)
 			clickgui.Visible = not clickgui.Visible
 			tooltip.Visible = false
 			self:BlurCheck()
+		end)
+	end
+end
+
+function mainapi:ResetOptions(object)
+	if not object or not object.Options then return end
+	for _, option in object.Options do
+		if not option then continue end
+		pcall(function()
+			if option.Default ~= nil then
+				if option.SetValue then
+					option:SetValue(option.Default)
+				elseif option.Toggle and option.Enabled ~= option.Default then
+					option:Toggle(option.Default)
+				elseif option.Load then
+					option:Load(option.Default)
+				end
+			end
 		end)
 	end
 end
