@@ -6236,10 +6236,39 @@ function mainapi:Load(skipgui, profile)
 		end
 	end
 
-	self.Profile = profile or guidata.Profile or 'default'
-	self.Profiles = guidata.Profiles or {{
-		Name = 'default', Bind = {}
-	}}
+	local lastUsedProfile = (isfile('mxtionv4/profiles/currentprofile.txt') and readfile('mxtionv4/profiles/currentprofile.txt')) or nil
+	if profile and typeof(profile) == "string" and #profile > 0 then
+		self.Profile = profile
+	else
+		self.Profile = shared.VapeCustomProfile or lastUsedProfile or guidata.Profile or 'default'
+	end
+	shared.VapeCustomProfile = self.Profile
+	pcall(function() writefile('mxtionv4/profiles/currentprofile.txt', self.Profile) end)
+	-- Auto-discover saved profile files on disk so they always appear in GUI
+	if isfolder('mxtionv4/profiles') then
+		for _, file in ipairs(listfiles('mxtionv4/profiles')) do
+			local filename = file:gsub('\\', '/'):match('([^/]+)$') or ''
+			if filename:find('.txt', 1, true) and not filename:find('.gui.txt', 1, true) and filename ~= 'commit.txt' and filename ~= 'hide.txt' and filename ~= 'gui.txt' and filename ~= 'currentprofile.txt' then
+				local profName = filename:gsub('%d+%.txt$', ''):gsub('%.txt$', '')
+				if #profName > 0 and profName ~= 'currentprofile' then
+					local found = false
+					for _, existing in ipairs(self.Profiles) do
+						if existing.Name == profName then found = true break end
+					end
+					if not found then
+						table.insert(self.Profiles, {Name = profName, Bind = {}})
+					end
+				end
+			end
+		end
+	end
+
+	-- Filter out currentprofile from UI dropdown
+	for i = #self.Profiles, 1, -1 do
+		if self.Profiles[i] and self.Profiles[i].Name == 'currentprofile' then
+			table.remove(self.Profiles, i)
+		end
+	end
 	self.Categories.Profiles:ChangeValue()
 	if self.ProfileLabel then
 		self.ProfileLabel.Text = #self.Profile > 10 and self.Profile:sub(1, 10)..'...' or self.Profile
