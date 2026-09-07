@@ -4900,8 +4900,10 @@ function mainapi:CreateCategoryList(categorysettings)
 					end
 				end)
 				object.MouseButton1Click:Connect(function()
-					mainapi:Save(v.Name)
-					mainapi:Load(true)
+					if v.Name ~= mainapi.Profile then
+						mainapi:Save()
+						mainapi:Load(true, v.Name)
+					end
 				end)
 				object.MouseEnter:Connect(function()
 					bind.Visible = true
@@ -6236,8 +6238,8 @@ function mainapi:Load(skipgui, profile)
 		end
 	end
 
-	self.Profile = profile or guidata.Profile or 'default'
-	self.Profiles = guidata.Profiles or {{
+	self.Profile = profile or guidata.Profile or self.Profile or 'default'
+	self.Profiles = guidata.Profiles or self.Profiles or {{
 		Name = 'default', Bind = {}
 	}}
 	self.Categories.Profiles:ChangeValue()
@@ -6300,17 +6302,27 @@ function mainapi:Load(skipgui, profile)
 			end
 			if v.Enabled ~= object.Enabled then
 				if skipgui then
-					if self.ToggleNotifications.Enabled then 
-						mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+					if self.ToggleNotifications and self.ToggleNotifications.Enabled then 
+						pcall(function()
+							mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+						end)
 					end
 				end
-				object:Toggle(true)
+				pcall(function()
+					object:Toggle(true)
+				end)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			object:SetBind(v.Bind)
-			object.Object.Bind.Visible = #v.Bind > 0
+			if v.Bind then
+				pcall(function()
+					object:SetBind(v.Bind)
+					if object.Object and object.Object:FindFirstChild('Bind') then
+						object.Object.Bind.Visible = typeof(v.Bind) == 'table' and #v.Bind > 0 or false
+					end
+				end)
+			end
 		end
 
 		for i, v in savedata.Legit do
@@ -6324,7 +6336,9 @@ function mainapi:Load(skipgui, profile)
 				end
 			end
 			if object.Enabled ~= v.Enabled then
-				object:Toggle()
+				pcall(function()
+					object:Toggle()
+				end)
 				if shared.vapesmooth then
 					task.wait()
 				end
@@ -6399,13 +6413,16 @@ function mainapi:Load(skipgui, profile)
 end
 
 function mainapi:LoadOptions(object, savedoptions)
+	if not savedoptions or typeof(savedoptions) ~= "table" then return end
 	for i, v in savedoptions do
-		local option = object.Options[i]
+		local option = object.Options and object.Options[i]
 		if not option then continue end
 		if mainapi.ThreadFix then
 			setthreadidentity(8)
 		end
-		option:Load(v)
+		pcall(function()
+			option:Load(v)
+		end)
 	end
 end
 
@@ -6432,9 +6449,12 @@ end
 
 function mainapi:Save(newprofile)
 	if not self.Loaded then return end
+	if newprofile and typeof(newprofile) == "string" and #newprofile > 0 then
+		self.Profile = newprofile
+	end
 	local guidata = {
 		Categories = {},
-		Profile = newprofile or self.Profile,
+		Profile = self.Profile,
 		Profiles = self.Profiles,
 		Keybind = self.Keybind
 	}
