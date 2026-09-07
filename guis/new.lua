@@ -2595,8 +2595,10 @@ end)
 
 function mainapi:BlurCheck()
 	if self.ThreadFix and not inputService.TouchEnabled then
-		setthreadidentity(8)
-		runService:SetRobloxGuiFocused((clickgui.Visible or guiService:GetErrorType() ~= Enum.ConnectionError.OK) and self.Blur.Enabled)
+		pcall(function()
+			setthreadidentity(8)
+			runService:SetRobloxGuiFocused((clickgui and clickgui.Visible or false) and (self.Blur and self.Blur.Enabled or false))
+		end)
 	end
 end
 
@@ -6248,12 +6250,14 @@ function mainapi:Load(skipgui, profile)
 		end
 	end
 
-	-- Preserve active profile unless manually changed via profile parameter
+	local lastUsedProfile = (isfile('mxtionv4/profiles/currentprofile.txt') and readfile('mxtionv4/profiles/currentprofile.txt')) or nil
 	if profile and typeof(profile) == "string" and #profile > 0 then
 		self.Profile = profile
-	elseif not self.Profile or self.Profile == "" then
-		self.Profile = guidata.Profile or 'default'
+	else
+		self.Profile = shared.VapeCustomProfile or lastUsedProfile or guidata.Profile or 'default'
 	end
+	shared.VapeCustomProfile = self.Profile
+	pcall(function() writefile('mxtionv4/profiles/currentprofile.txt', self.Profile) end)
 
 	-- Initialize self.Profiles if nil
 	self.Profiles = self.Profiles or {}
@@ -6576,6 +6580,8 @@ function mainapi:Save(newprofile)
 	if newprofile and typeof(newprofile) == "string" and #newprofile > 0 then
 		self.Profile = newprofile
 	end
+	shared.VapeCustomProfile = self.Profile
+	pcall(function() writefile('mxtionv4/profiles/currentprofile.txt', self.Profile) end)
 	local guidata = {
 		Categories = {},
 		Profile = self.Profile,
