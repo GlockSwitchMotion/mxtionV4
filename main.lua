@@ -118,9 +118,6 @@ local function finishLoading()
 			if shared.VapeDeveloper then
 				teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
 			end
-			if vape and vape.Profile then
-				shared.VapeCustomProfile = vape.Profile
-			end
 			if shared.VapeCustomProfile then
 				teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
 			end
@@ -177,32 +174,27 @@ if not shared.VapeIndependent then
 		repeat task.wait() until game:IsLoaded()
 	end
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	local scriptId = (game.PlaceId == 6872265039 and '6872265039') or (game.GameId == 2619619496 and '6872274481') or tostring(game.GameId)
-	if isfile('mxtionv4/games/'..scriptId..'.lua') then
-		loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
+	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
+		loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
 	else
 		if not shared.VapeDeveloper then
 			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..scriptId..'.lua', true)
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
 			end)
 			if suc and res ~= '404: Not Found' then
-				loadstring(downloadFile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
+				loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
 			end
 		end
 	end
-	finishLoading()
-	task.spawn(function()
-		pcall(function()
-			loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
-		end)
-		pcall(function()
-			local publib = loadstring(downloadFile('mxtionv4/libraries/publicconfigs.lua'), 'publicconfigs')(license)
-			if publib and vape then
-				vape.Libraries = vape.Libraries or {}
-				vape.Libraries.publicconfigs = publib
-			end
-		end)
+	loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
+	pcall(function()
+		local publib = loadstring(downloadFile('mxtionv4/libraries/publicconfigs.lua'), 'publicconfigs')(license)
+		if publib and vape then
+			vape.Libraries = vape.Libraries or {}
+			vape.Libraries.publicconfigs = publib
+		end
 	end)
+	finishLoading()
 else
 	vape.Init = finishLoading
 	return vape
