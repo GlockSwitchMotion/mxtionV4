@@ -118,6 +118,9 @@ local function finishLoading()
 			if shared.VapeDeveloper then
 				teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
 			end
+			if vape and vape.Profile then
+				shared.VapeCustomProfile = vape.Profile
+			end
 			if shared.VapeCustomProfile then
 				teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
 			end
@@ -174,14 +177,7 @@ if not shared.VapeIndependent then
 		repeat task.wait() until game:IsLoaded()
 	end
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	local scriptId
-	if game.PlaceId == 6872265039 then
-		scriptId = '6872265039'        -- BedWars Lobby
-	elseif game.GameId == 2619619496 then
-		scriptId = '6872274481'        -- BedWars Match
-	else
-		scriptId = tostring(game.GameId)
-	end
+	local scriptId = (game.PlaceId == 6872265039 and '6872265039') or (game.GameId == 2619619496 and '6872274481') or tostring(game.GameId)
 	if isfile('mxtionv4/games/'..scriptId..'.lua') then
 		loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
 	else
