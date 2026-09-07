@@ -174,20 +174,21 @@ if not shared.VapeIndependent then
 		loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
 		
 		-- ⚡ LOAD PLACE GAME SCRIPT IF CACHED
-		if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
+		local scriptId = (game.PlaceId == 6872265039 and '6872265039') or (game.GameId == 2619619496 and '6872274481') or tostring(game.GameId)
+		if isfile('mxtionv4/games/'..scriptId..'.lua') then
 			pcall(function()
-				loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+				loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
 			end)
 		else
 			task.spawn(function()
 				local commit = (isfile('mxtionv4/profiles/commit.txt') and readfile('mxtionv4/profiles/commit.txt')) or 'main'
 				local suc, res = pcall(function()
-					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/games/'..game.PlaceId..'.lua', true)
+					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/games/'..scriptId..'.lua', true)
 				end)
 				if suc and res and res ~= '404: Not Found' then
-					writefile('mxtionv4/games/'..game.PlaceId..'.lua', res)
+					writefile('mxtionv4/games/'..scriptId..'.lua', res)
 					pcall(function()
-						loadstring(res, tostring(game.PlaceId))(license)
+						loadstring(res, scriptId)(license)
 					end)
 				end
 			end)
