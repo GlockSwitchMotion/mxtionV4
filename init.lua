@@ -1,6 +1,5 @@
 local license = ... or {}
 if shared.vape then shared.vape:Uninject() end
-pcall(function() setfpscap(240) end) -- unlock FPS cap
 license.Key = license.Key or '_key'
 
 local isfile = isfile or function(file)
