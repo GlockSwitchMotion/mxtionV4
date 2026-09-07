@@ -11,7 +11,7 @@ local mainapi = {
 	Legit = {Modules = {}},
 	Libraries = {},
 	Modules = {},
-	Place = game.PlaceId,
+	Place = (game.PlaceId == 6872265039 and "6872265039" or tostring(game.GameId)),
 	Profile = 'default',
 	Profiles = {},
 	RainbowSpeed = {Value = 1},
