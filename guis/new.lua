@@ -6236,34 +6236,17 @@ function mainapi:Load(skipgui, profile)
 		end
 	end
 
-	local lastUsedProfile = (isfile('mxtionv4/profiles/currentprofile.txt') and readfile('mxtionv4/profiles/currentprofile.txt')) or nil
-	if profile and typeof(profile) == "string" and #profile > 0 then
-		self.Profile = profile
-	else
-		self.Profile = shared.VapeCustomProfile or lastUsedProfile or guidata.Profile or 'default'
-	end
+	-- Load profile: persist last used profile across reloads/teleports
+	self.Profile = profile or shared.VapeCustomProfile or (isfile('mxtionv4/profiles/currentprofile.txt') and readfile('mxtionv4/profiles/currentprofile.txt')) or guidata.Profile or 'default'
 	shared.VapeCustomProfile = self.Profile
 	pcall(function() writefile('mxtionv4/profiles/currentprofile.txt', self.Profile) end)
-	-- Auto-discover saved profile files on disk so they always appear in GUI
-	if isfolder('mxtionv4/profiles') then
-		for _, file in ipairs(listfiles('mxtionv4/profiles')) do
-			local filename = file:gsub('\\', '/'):match('([^/]+)$') or ''
-			if filename:find('.txt', 1, true) and not filename:find('.gui.txt', 1, true) and filename ~= 'commit.txt' and filename ~= 'hide.txt' and filename ~= 'gui.txt' and filename ~= 'currentprofile.txt' then
-				local profName = filename:gsub('%d+%.txt$', ''):gsub('%.txt$', '')
-				if #profName > 0 and profName ~= 'currentprofile' then
-					local found = false
-					for _, existing in ipairs(self.Profiles) do
-						if existing.Name == profName then found = true break end
-					end
-					if not found then
-						table.insert(self.Profiles, {Name = profName, Bind = {}})
-					end
-				end
-			end
-		end
-	end
 
-	-- Filter out currentprofile from UI dropdown
+	-- Restore profiles list from saved GUI data
+	self.Profiles = guidata.Profiles or {{
+		Name = 'default', Bind = {}
+	}}
+
+	-- Filter out currentprofile.txt entry from dropdown (hidden system file)
 	for i = #self.Profiles, 1, -1 do
 		if self.Profiles[i] and self.Profiles[i].Name == 'currentprofile' then
 			table.remove(self.Profiles, i)
