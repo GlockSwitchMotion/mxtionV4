@@ -7013,7 +7013,10 @@ createPublicProfilesWindow = function()
 		scrollFrame.CanvasSize = UDim2.fromOffset(0, listLayout.AbsoluteContentSize.Y)
 	end)
 
-	local publicconfigs = mainapi.Libraries and mainapi.Libraries.publicconfigs
+	local function getPublicConfigs()
+		return (mainapi and mainapi.Libraries and mainapi.Libraries.publicconfigs) or (shared.vape and shared.vape.Libraries and shared.vape.Libraries.publicconfigs)
+	end
+
 	local allCachedConfigs = {}
 
 	local function renderList(filterText)
@@ -7088,17 +7091,37 @@ createPublicProfilesWindow = function()
 			end)
 
 			downloadBtn.MouseButton1Click:Connect(function()
+				local publib = getPublicConfigs()
+				local profName = item.Name or item.name or "public_config"
+				if publib and publib.Download then
+					local ok, resName = publib.Download(item, mainapi)
+					if ok then
+						mainapi:Save(resName or profName)
+						mainapi:Load(true, resName or profName)
+						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. tostring(resName or profName), 5, 'info')
+						window.Visible = false
+						return
+					end
+				end
+
+				-- Direct write fallback
 				local content = item.Data or item.data or item.Content
 				if content then
-					local ok, profName = importProfileFromText(content, item.Name or item.name)
-					if ok then
-						mainapi:Save(profName)
-						mainapi:Load(true, profName)
-						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
-						window.Visible = false
-					else
-						mainapi:CreateNotification('MXTION V4', profName or 'Failed to load profile.', 5, 'alert')
+					pcall(function()
+						writefile('mxtionv4/profiles/'..profName..mainapi.Place..'.txt', content)
+					end)
+					local found = false
+					for _, p in ipairs(mainapi.Profiles) do
+						if p.Name == profName then found = true break end
 					end
+					if not found then
+						table.insert(mainapi.Profiles, {Name = profName, Bind = {}})
+						mainapi.Categories.Profiles:ChangeValue()
+					end
+					mainapi:Save(profName)
+					mainapi:Load(true, profName)
+					mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
+					window.Visible = false
 				end
 			end)
 		end
@@ -7107,10 +7130,11 @@ createPublicProfilesWindow = function()
 	local function refreshPublicList()
 		allCachedConfigs = {}
 		local addedNames = {}
+		local publib = getPublicConfigs()
 
 		-- Fetch live global public configs from Cloudflare API
-		if publicconfigs and publicconfigs.FetchAll then
-			local ok, cloudList = publicconfigs.FetchAll(nil)
+		if publib and publib.FetchAll then
+			local ok, cloudList = publib.FetchAll(nil)
 			if ok and type(cloudList) == 'table' then
 				for _, item in ipairs(cloudList) do
 					local profName = item.name or item.Name
@@ -7147,15 +7171,20 @@ createPublicProfilesWindow = function()
 	-- 📤 UPLOAD PROFILE ACTION WITH DUPLICATE NAME PROTECTION
 	uploadBtn.MouseButton1Click:Connect(function()
 		local targetProfile = selectedUploadProfile or mainapi.Profile or 'default'
-		local exportData = exportProfileJson(targetProfile)
-		if not exportData then
+		local publib = getPublicConfigs()
+
+		local content
+		if isfile('mxtionv4/profiles/'..targetProfile..mainapi.Place..'.txt') then
+			content = readfile('mxtionv4/profiles/'..targetProfile..mainapi.Place..'.txt')
+		end
+		if not content then
 			mainapi:CreateNotification('MXTION V4', 'No profile data found for "' .. tostring(targetProfile) .. '".', 5, 'alert')
 			return
 		end
 
 		-- Check if name is already taken by someone else
-		if publicconfigs and publicconfigs.IsNameTaken then
-			local taken, owner = publicconfigs.IsNameTaken(tostring(targetProfile))
+		if publib and publib.IsNameTaken then
+			local taken, owner = publib.IsNameTaken(tostring(targetProfile))
 			local localPlayerName = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "Anonymous"}).Name
 			if taken and owner and owner:lower() ~= localPlayerName:lower() then
 				mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
@@ -7164,8 +7193,8 @@ createPublicProfilesWindow = function()
 		end
 
 		-- Upload to Cloudflare KV database
-		if publicconfigs and publicconfigs.Upload then
-			local ok, msg = publicconfigs.Upload(tostring(targetProfile), tostring(game.PlaceId), exportData)
+		if publib and publib.Upload then
+			local ok, msg = publib.Upload(tostring(targetProfile), tostring(game.PlaceId), content)
 			if not ok then
 				if msg and (msg:lower():find('already taken') or msg:lower():find('already used') or msg:lower():find('taken')) then
 					mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
@@ -7178,7 +7207,7 @@ createPublicProfilesWindow = function()
 
 		local newEntry = {
 			Name = tostring(targetProfile),
-			Data = exportData,
+			Data = content,
 			Author = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "You"}).Name
 		}
 		table.insert(localPublicProfilesList, 1, newEntry)
