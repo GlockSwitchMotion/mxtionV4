@@ -12,7 +12,7 @@ local mainapi = {
 	Loaded = false,
 	Libraries = {},
 	Modules = {},
-	Place = game.PlaceId,
+	Place = (game.PlaceId == 6872265039 and "6872265039" or tostring(game.GameId)),
 	Profile = 'default',
 	Profiles = {},
 	RainbowSpeed = {Value = 1},
@@ -6208,8 +6208,8 @@ function mainapi:Load(skipgui, profile)
 	local savecheck = true
 	local savenew
 
-	if isfile('mxtionv4/profiles/'..game.GameId..'.gui.txt') then
-		guidata = loadJson('mxtionv4/profiles/'..game.GameId..'.gui.txt')
+	if isfile('mxtionv4/profiles/'..self.Place..'.gui.txt') then
+		guidata = loadJson('mxtionv4/profiles/'..self.Place..'.gui.txt')
 		if not guidata then
 			guidata = {Categories = {}}
 			self:CreateNotification('MXTION V4', 'Failed to load GUI settings.', 10, 'alert')
@@ -6623,7 +6623,7 @@ function mainapi:Save(newprofile)
 		end
 	end
 
-	writeSave('mxtionv4/profiles/'..game.GameId..'.gui.txt', httpService:JSONEncode(guidata))
+	writeSave('mxtionv4/profiles/'..self.Place..'.gui.txt', httpService:JSONEncode(guidata))
 	writeSave('mxtionv4/profiles/'..self.Profile..self.Place..'.txt', httpService:JSONEncode(savedata))
 end
 
