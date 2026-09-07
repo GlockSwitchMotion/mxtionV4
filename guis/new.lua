@@ -6281,9 +6281,9 @@ function mainapi:Load(skipgui, profile)
 	if isfolder('mxtionv4/profiles') then
 		for _, file in ipairs(listfiles('mxtionv4/profiles')) do
 			local filename = file:gsub('\\', '/'):match('([^/]+)$') or ''
-			if filename:find('.txt', 1, true) and not filename:find('.gui.txt', 1, true) and filename ~= 'commit.txt' and filename ~= 'hide.txt' and filename ~= 'gui.txt' then
+			if filename:find('.txt', 1, true) and not filename:find('.gui.txt', 1, true) and filename ~= 'commit.txt' and filename ~= 'hide.txt' and filename ~= 'gui.txt' and filename ~= 'currentprofile.txt' then
 				local profName = filename:gsub('%d+%.txt$', ''):gsub('%.txt$', '')
-				if #profName > 0 then
+				if #profName > 0 and profName ~= 'currentprofile' then
 					local found = false
 					for _, existing in ipairs(self.Profiles) do
 						if existing.Name == profName then found = true break end
@@ -6310,8 +6310,15 @@ function mainapi:Load(skipgui, profile)
 	for _, p in ipairs(self.Profiles) do
 		if p.Name == self.Profile then hasCurrent = true break end
 	end
-	if not hasCurrent then
+	if not hasCurrent and self.Profile ~= 'currentprofile' then
 		table.insert(self.Profiles, {Name = self.Profile, Bind = {}})
+	end
+
+	-- Filter out internal system names like 'currentprofile' from Profiles GUI list
+	for i = #self.Profiles, 1, -1 do
+		if self.Profiles[i] and self.Profiles[i].Name == 'currentprofile' then
+			table.remove(self.Profiles, i)
+		end
 	end
 
 	self.Categories.Profiles:ChangeValue()
@@ -6400,6 +6407,8 @@ function mainapi:Load(skipgui, profile)
 			end
 		end
 
+		local isLobby = (game.PlaceId == 6872265039)
+
 		for i, v in savedata.Modules do
 			local cleanKey = i:gsub(' ', '')
 			local object = modulelookup[cleanKey] or modulelookup[cleanKey:lower()]
@@ -6410,7 +6419,7 @@ function mainapi:Load(skipgui, profile)
 					task.wait()
 				end
 			end
-			if v.Enabled ~= object.Enabled then
+			if not isLobby and v.Enabled ~= object.Enabled then
 				if skipgui then
 					if self.ToggleNotifications and self.ToggleNotifications.Enabled then 
 						pcall(function()
