@@ -12,7 +12,7 @@ local mainapi = {
 	Loaded = false,
 	Libraries = {},
 	Modules = {},
-	Place = (game.PlaceId == 6872265039) and tostring(game.PlaceId) or tostring(game.GameId),
+	Place = game.PlaceId,
 	Profile = 'default',
 	Profiles = {},
 	RainbowSpeed = {Value = 1},
@@ -6236,22 +6236,10 @@ function mainapi:Load(skipgui, profile)
 		end
 	end
 
-	-- Load profile: persist last used profile across reloads/teleports
-	self.Profile = profile or shared.VapeCustomProfile or (isfile('mxtionv4/profiles/currentprofile.txt') and readfile('mxtionv4/profiles/currentprofile.txt')) or guidata.Profile or 'default'
-	shared.VapeCustomProfile = self.Profile
-	pcall(function() writefile('mxtionv4/profiles/currentprofile.txt', self.Profile) end)
-
-	-- Restore profiles list from saved GUI data
+	self.Profile = profile or guidata.Profile or 'default'
 	self.Profiles = guidata.Profiles or {{
 		Name = 'default', Bind = {}
 	}}
-
-	-- Filter out currentprofile.txt entry from dropdown (hidden system file)
-	for i = #self.Profiles, 1, -1 do
-		if self.Profiles[i] and self.Profiles[i].Name == 'currentprofile' then
-			table.remove(self.Profiles, i)
-		end
-	end
 	self.Categories.Profiles:ChangeValue()
 	if self.ProfileLabel then
 		self.ProfileLabel.Text = #self.Profile > 10 and self.Profile:sub(1, 10)..'...' or self.Profile
@@ -6300,8 +6288,6 @@ function mainapi:Load(skipgui, profile)
 			legitlookup[i:gsub(' ', '')] = v
 		end
 
-		local isLobby = game.PlaceId == 6872265039
-
 		for i, v in savedata.Modules do
 			i = i:gsub(' ', '')
 			local object = modulelookup[i]
@@ -6312,18 +6298,15 @@ function mainapi:Load(skipgui, profile)
 					task.wait()
 				end
 			end
-			-- In lobby: load settings but do NOT activate modules
-			if not isLobby then
-				if v.Enabled ~= object.Enabled then
-					if skipgui then
-						if self.ToggleNotifications.Enabled then 
-							mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
-						end
+			if v.Enabled ~= object.Enabled then
+				if skipgui then
+					if self.ToggleNotifications.Enabled then 
+						mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
 					end
-					object:Toggle(true)
-					if shared.vapesmooth then
-						task.wait()
-					end
+				end
+				object:Toggle(true)
+				if shared.vapesmooth then
+					task.wait()
 				end
 			end
 			object:SetBind(v.Bind)
