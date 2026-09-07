@@ -421,9 +421,19 @@ end
 
 local function loadJson(path)
 	local suc, res = pcall(function()
-		return httpService:JSONDecode(readfile(path))
+		local raw = readfile(path)
+		local decoded = httpService:JSONDecode(raw)
+		if type(decoded) == 'string' then
+			local suc2, decoded2 = pcall(function()
+				return httpService:JSONDecode(decoded)
+			end)
+			if suc2 and type(decoded2) == 'table' then
+				return decoded2
+			end
+		end
+		return decoded
 	end)
-	return suc and type(res) == 'table' and res or nil
+	return (suc and type(res) == 'table') and res or nil
 end
 
 local function loadFeatures()
@@ -2585,8 +2595,10 @@ end)
 
 function mainapi:BlurCheck()
 	if self.ThreadFix and not inputService.TouchEnabled then
-		setthreadidentity(8)
-		runService:SetRobloxGuiFocused((clickgui.Visible or guiService:GetErrorType() ~= Enum.ConnectionError.OK) and self.Blur.Enabled)
+		pcall(function()
+			setthreadidentity(8)
+			runService:SetRobloxGuiFocused((clickgui and clickgui.Visible or false) and (self.Blur and self.Blur.Enabled or false))
+		end)
 	end
 end
 
@@ -4900,8 +4912,10 @@ function mainapi:CreateCategoryList(categorysettings)
 					end
 				end)
 				object.MouseButton1Click:Connect(function()
-					mainapi:Save(v.Name)
-					mainapi:Load(true)
+					if v.Name ~= mainapi.Profile then
+						mainapi:Save()
+						mainapi:Load(true, v.Name)
+					end
 				end)
 				object.MouseEnter:Connect(function()
 					bind.Visible = true
@@ -6196,8 +6210,8 @@ function mainapi:Load(skipgui, profile)
 	local savecheck = true
 	local savenew
 
-	if isfile('mxtionv4/profiles/'..game.GameId..'.gui.txt') then
-		guidata = loadJson('mxtionv4/profiles/'..game.GameId..'.gui.txt')
+	if isfile('mxtionv4/profiles/'..self.Place..'.gui.txt') then
+		guidata = loadJson('mxtionv4/profiles/'..self.Place..'.gui.txt')
 		if not guidata then
 			guidata = {Categories = {}}
 			self:CreateNotification('MXTION V4', 'Failed to load GUI settings.', 10, 'alert')
@@ -6245,9 +6259,23 @@ function mainapi:Load(skipgui, profile)
 	shared.VapeCustomProfile = self.Profile
 	pcall(function() writefile('mxtionv4/profiles/currentprofile.txt', self.Profile) end)
 
-	self.Profiles = guidata.Profiles or {{
-		Name = 'default', Bind = {}
-	}}
+	-- Initialize self.Profiles if nil
+	self.Profiles = self.Profiles or {}
+
+	-- Merge profiles from guidata
+	if guidata.Profiles and typeof(guidata.Profiles) == "table" then
+		for _, p in ipairs(guidata.Profiles) do
+			if p and p.Name then
+				local found = false
+				for _, existing in ipairs(self.Profiles) do
+					if existing.Name == p.Name then found = true break end
+				end
+				if not found then
+					table.insert(self.Profiles, p)
+				end
+			end
+		end
+	end
 
 	-- Auto-discover saved profile files on disk so they always appear in GUI
 	if isfolder('mxtionv4/profiles') then
@@ -6277,6 +6305,15 @@ function mainapi:Load(skipgui, profile)
 		table.insert(self.Profiles, 1, {Name = 'default', Bind = {}})
 	end
 
+	-- Ensure active profile exists in list
+	local hasCurrent = false
+	for _, p in ipairs(self.Profiles) do
+		if p.Name == self.Profile then hasCurrent = true break end
+	end
+	if not hasCurrent and self.Profile ~= 'currentprofile' then
+		table.insert(self.Profiles, {Name = self.Profile, Bind = {}})
+	end
+
 	-- Filter out internal system names like 'currentprofile' from Profiles GUI list
 	for i = #self.Profiles, 1, -1 do
 		if self.Profiles[i] and self.Profiles[i].Name == 'currentprofile' then
@@ -6290,8 +6327,27 @@ function mainapi:Load(skipgui, profile)
 		self.ProfileLabel.Size = UDim2.fromOffset(getfontsize(self.ProfileLabel.Text, self.ProfileLabel.TextSize, self.ProfileLabel.Font).X + 16, 24)
 	end
 
-	if isfile('mxtionv4/profiles/'..self.Profile..self.Place..'.txt') then
-		local savedata = loadJson('mxtionv4/profiles/'..self.Profile..self.Place..'.txt')
+	local targetFile = 'mxtionv4/profiles/'..self.Profile..self.Place..'.txt'
+	if not isfile(targetFile) then
+		local gameFile = 'mxtionv4/profiles/'..self.Profile..game.GameId..'.txt'
+		local baseFile = 'mxtionv4/profiles/'..self.Profile..'.txt'
+		if isfile(gameFile) then
+			pcall(function() writefile(targetFile, readfile(gameFile)) end)
+		elseif isfile(baseFile) then
+			pcall(function() writefile(targetFile, readfile(baseFile)) end)
+		elseif isfolder('mxtionv4/profiles') then
+			for _, file in ipairs(listfiles('mxtionv4/profiles')) do
+				local filename = file:gsub('\\', '/'):match('([^/]+)$') or ''
+				if filename:find(self.Profile, 1, true) and filename:find('.txt', 1, true) and not filename:find('.gui.txt', 1, true) then
+					pcall(function() writefile(targetFile, readfile(file)) end)
+					break
+				end
+			end
+		end
+	end
+
+	if isfile(targetFile) then
+		local savedata = loadJson(targetFile)
 		if not savedata then
 			savedata = {Categories = {}, Modules = {}, Legit = {}}
 			self:CreateNotification('MXTIONV4', 'Failed to load '..self.Profile..' profile.', 10, 'alert')
@@ -6326,16 +6382,36 @@ function mainapi:Load(skipgui, profile)
 
 		local modulelookup, legitlookup = {}, {}
 		for i, v in self.Modules do
-			modulelookup[i:gsub(' ', '')] = v
+			local cleanKey = i:gsub(' ', '')
+			modulelookup[cleanKey] = v
+			modulelookup[cleanKey:lower()] = v
 		end
 		for i, v in self.Legit.Modules do
-			legitlookup[i:gsub(' ', '')] = v
+			local cleanKey = i:gsub(' ', '')
+			legitlookup[cleanKey] = v
+			legitlookup[cleanKey:lower()] = v
+		end
+
+		if skipgui then
+			for _, mod in self.Modules do
+				if mod.Enabled then
+					pcall(function() mod:Toggle(true) end)
+				end
+				self:ResetOptions(mod)
+			end
+			for _, mod in self.Legit.Modules do
+				if mod.Enabled then
+					pcall(function() mod:Toggle() end)
+				end
+				self:ResetOptions(mod)
+			end
 		end
 
 		local isLobby = (game.PlaceId == 6872265039)
+
 		for i, v in savedata.Modules do
-			i = i:gsub(' ', '')
-			local object = modulelookup[i]
+			local cleanKey = i:gsub(' ', '')
+			local object = modulelookup[cleanKey] or modulelookup[cleanKey:lower()]
 			if not object then continue end
 			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
@@ -6345,22 +6421,32 @@ function mainapi:Load(skipgui, profile)
 			end
 			if not isLobby and v.Enabled ~= object.Enabled then
 				if skipgui then
-					if self.ToggleNotifications.Enabled then 
-						mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+					if self.ToggleNotifications and self.ToggleNotifications.Enabled then 
+						pcall(function()
+							mainapi:CreateNotification(i, (not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>"), 0.75)
+						end)
 					end
 				end
-				object:Toggle(true)
+				pcall(function()
+					object:Toggle(true)
+				end)
 				if shared.vapesmooth then
 					task.wait()
 				end
 			end
-			object:SetBind(v.Bind)
-			object.Object.Bind.Visible = #v.Bind > 0
+			if v.Bind then
+				pcall(function()
+					object:SetBind(v.Bind)
+					if object.Object and object.Object:FindFirstChild('Bind') then
+						object.Object.Bind.Visible = typeof(v.Bind) == 'table' and #v.Bind > 0 or false
+					end
+				end)
+			end
 		end
 
 		for i, v in savedata.Legit do
-			i = i:gsub(' ', '')
-			local object = legitlookup[i]
+			local cleanKey = i:gsub(' ', '')
+			local object = legitlookup[cleanKey] or legitlookup[cleanKey:lower()]
 			if not object then continue end
 			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
@@ -6369,7 +6455,9 @@ function mainapi:Load(skipgui, profile)
 				end
 			end
 			if object.Enabled ~= v.Enabled then
-				object:Toggle()
+				pcall(function()
+					object:Toggle()
+				end)
 				if shared.vapesmooth then
 					task.wait()
 				end
@@ -6443,14 +6531,35 @@ function mainapi:Load(skipgui, profile)
 	end
 end
 
+function mainapi:ResetOptions(object)
+	if not object or not object.Options then return end
+	for _, option in object.Options do
+		if not option then continue end
+		pcall(function()
+			if option.Default ~= nil then
+				if option.SetValue then
+					option:SetValue(option.Default)
+				elseif option.Toggle and option.Enabled ~= option.Default then
+					option:Toggle(option.Default)
+				elseif option.Load then
+					option:Load(option.Default)
+				end
+			end
+		end)
+	end
+end
+
 function mainapi:LoadOptions(object, savedoptions)
+	if not savedoptions or typeof(savedoptions) ~= "table" then return end
 	for i, v in savedoptions do
-		local option = object.Options[i]
+		local option = object.Options and object.Options[i]
 		if not option then continue end
 		if mainapi.ThreadFix then
 			setthreadidentity(8)
 		end
-		option:Load(v)
+		pcall(function()
+			option:Load(v)
+		end)
 	end
 end
 
@@ -6477,9 +6586,14 @@ end
 
 function mainapi:Save(newprofile)
 	if not self.Loaded then return end
+	if newprofile and typeof(newprofile) == "string" and #newprofile > 0 then
+		self.Profile = newprofile
+	end
+	shared.VapeCustomProfile = self.Profile
+	pcall(function() writefile('mxtionv4/profiles/currentprofile.txt', self.Profile) end)
 	local guidata = {
 		Categories = {},
-		Profile = newprofile or self.Profile,
+		Profile = self.Profile,
 		Profiles = self.Profiles,
 		Keybind = self.Keybind
 	}
@@ -6524,7 +6638,7 @@ function mainapi:Save(newprofile)
 		end
 	end
 
-	writeSave('mxtionv4/profiles/'..game.GameId..'.gui.txt', httpService:JSONEncode(guidata))
+	writeSave('mxtionv4/profiles/'..self.Place..'.gui.txt', httpService:JSONEncode(guidata))
 	writeSave('mxtionv4/profiles/'..self.Profile..self.Place..'.txt', httpService:JSONEncode(savedata))
 end
 
@@ -7038,7 +7152,10 @@ createPublicProfilesWindow = function()
 		scrollFrame.CanvasSize = UDim2.fromOffset(0, listLayout.AbsoluteContentSize.Y)
 	end)
 
-	local publicconfigs = mainapi.Libraries and mainapi.Libraries.publicconfigs
+	local function getPublicConfigs()
+		return (mainapi and mainapi.Libraries and mainapi.Libraries.publicconfigs) or (shared.vape and shared.vape.Libraries and shared.vape.Libraries.publicconfigs)
+	end
+
 	local allCachedConfigs = {}
 
 	local function renderList(filterText)
@@ -7113,17 +7230,36 @@ createPublicProfilesWindow = function()
 			end)
 
 			downloadBtn.MouseButton1Click:Connect(function()
+				local publib = getPublicConfigs()
+				local profName = item.Name or item.name or "public_config"
+				if publib and publib.Download then
+					local ok, resName = publib.Download(item, mainapi)
+					if ok then
+						local targetProf = resName or profName
+						mainapi:Load(true, targetProf)
+						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. tostring(targetProf), 5, 'info')
+						window.Visible = false
+						return
+					end
+				end
+
+				-- Direct write fallback
 				local content = item.Data or item.data or item.Content
 				if content then
-					local ok, profName = importProfileFromText(content, item.Name or item.name)
-					if ok then
-						mainapi:Save(profName)
-						mainapi:Load(true, profName)
-						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
-						window.Visible = false
-					else
-						mainapi:CreateNotification('MXTION V4', profName or 'Failed to load profile.', 5, 'alert')
+					pcall(function()
+						writefile('mxtionv4/profiles/'..profName..mainapi.Place..'.txt', content)
+					end)
+					local found = false
+					for _, p in ipairs(mainapi.Profiles) do
+						if p.Name == profName then found = true break end
 					end
+					if not found then
+						table.insert(mainapi.Profiles, {Name = profName, Bind = {}})
+						mainapi.Categories.Profiles:ChangeValue()
+					end
+					mainapi:Load(true, profName)
+					mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
+					window.Visible = false
 				end
 			end)
 		end
@@ -7132,10 +7268,11 @@ createPublicProfilesWindow = function()
 	local function refreshPublicList()
 		allCachedConfigs = {}
 		local addedNames = {}
+		local publib = getPublicConfigs()
 
 		-- Fetch live global public configs from Cloudflare API
-		if publicconfigs and publicconfigs.FetchAll then
-			local ok, cloudList = publicconfigs.FetchAll(nil)
+		if publib and publib.FetchAll then
+			local ok, cloudList = publib.FetchAll(nil)
 			if ok and type(cloudList) == 'table' then
 				for _, item in ipairs(cloudList) do
 					local profName = item.name or item.Name
@@ -7172,15 +7309,20 @@ createPublicProfilesWindow = function()
 	-- 📤 UPLOAD PROFILE ACTION WITH DUPLICATE NAME PROTECTION
 	uploadBtn.MouseButton1Click:Connect(function()
 		local targetProfile = selectedUploadProfile or mainapi.Profile or 'default'
-		local exportData = exportProfileJson(targetProfile)
-		if not exportData then
+		local publib = getPublicConfigs()
+
+		local content
+		if isfile('mxtionv4/profiles/'..targetProfile..mainapi.Place..'.txt') then
+			content = readfile('mxtionv4/profiles/'..targetProfile..mainapi.Place..'.txt')
+		end
+		if not content then
 			mainapi:CreateNotification('MXTION V4', 'No profile data found for "' .. tostring(targetProfile) .. '".', 5, 'alert')
 			return
 		end
 
 		-- Check if name is already taken by someone else
-		if publicconfigs and publicconfigs.IsNameTaken then
-			local taken, owner = publicconfigs.IsNameTaken(tostring(targetProfile))
+		if publib and publib.IsNameTaken then
+			local taken, owner = publib.IsNameTaken(tostring(targetProfile))
 			local localPlayerName = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "Anonymous"}).Name
 			if taken and owner and owner:lower() ~= localPlayerName:lower() then
 				mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
@@ -7189,8 +7331,8 @@ createPublicProfilesWindow = function()
 		end
 
 		-- Upload to Cloudflare KV database
-		if publicconfigs and publicconfigs.Upload then
-			local ok, msg = publicconfigs.Upload(tostring(targetProfile), tostring(game.PlaceId), exportData)
+		if publib and publib.Upload then
+			local ok, msg = publib.Upload(tostring(targetProfile), tostring(game.PlaceId), content)
 			if not ok then
 				if msg and (msg:lower():find('already taken') or msg:lower():find('already used') or msg:lower():find('taken')) then
 					mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
@@ -7203,7 +7345,7 @@ createPublicProfilesWindow = function()
 
 		local newEntry = {
 			Name = tostring(targetProfile),
-			Data = exportData,
+			Data = content,
 			Author = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "You"}).Name
 		}
 		table.insert(localPublicProfilesList, 1, newEntry)
