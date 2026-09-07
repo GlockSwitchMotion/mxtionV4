@@ -421,9 +421,19 @@ end
 
 local function loadJson(path)
 	local suc, res = pcall(function()
-		return httpService:JSONDecode(readfile(path))
+		local raw = readfile(path)
+		local decoded = httpService:JSONDecode(raw)
+		if type(decoded) == 'string' then
+			local suc2, decoded2 = pcall(function()
+				return httpService:JSONDecode(decoded)
+			end)
+			if suc2 and type(decoded2) == 'table' then
+				return decoded2
+			end
+		end
+		return decoded
 	end)
-	return suc and type(res) == 'table' and res or nil
+	return (suc and type(res) == 'table') and res or nil
 end
 
 local function loadFeatures()
@@ -6284,15 +6294,32 @@ function mainapi:Load(skipgui, profile)
 
 		local modulelookup, legitlookup = {}, {}
 		for i, v in self.Modules do
-			modulelookup[i:gsub(' ', '')] = v
+			local cleanKey = i:gsub(' ', '')
+			modulelookup[cleanKey] = v
+			modulelookup[cleanKey:lower()] = v
 		end
 		for i, v in self.Legit.Modules do
-			legitlookup[i:gsub(' ', '')] = v
+			local cleanKey = i:gsub(' ', '')
+			legitlookup[cleanKey] = v
+			legitlookup[cleanKey:lower()] = v
+		end
+
+		if skipgui then
+			for _, mod in self.Modules do
+				if mod.Enabled then
+					pcall(function() mod:Toggle(true) end)
+				end
+			end
+			for _, mod in self.Legit.Modules do
+				if mod.Enabled then
+					pcall(function() mod:Toggle() end)
+				end
+			end
 		end
 
 		for i, v in savedata.Modules do
-			i = i:gsub(' ', '')
-			local object = modulelookup[i]
+			local cleanKey = i:gsub(' ', '')
+			local object = modulelookup[cleanKey] or modulelookup[cleanKey:lower()]
 			if not object then continue end
 			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
@@ -6326,8 +6353,8 @@ function mainapi:Load(skipgui, profile)
 		end
 
 		for i, v in savedata.Legit do
-			i = i:gsub(' ', '')
-			local object = legitlookup[i]
+			local cleanKey = i:gsub(' ', '')
+			local object = legitlookup[cleanKey] or legitlookup[cleanKey:lower()]
 			if not object then continue end
 			if object.Options and v.Options then
 				self:LoadOptions(object, v.Options)
