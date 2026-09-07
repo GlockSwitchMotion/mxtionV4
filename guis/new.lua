@@ -6258,8 +6258,27 @@ function mainapi:Load(skipgui, profile)
 		self.ProfileLabel.Size = UDim2.fromOffset(getfontsize(self.ProfileLabel.Text, self.ProfileLabel.TextSize, self.ProfileLabel.Font).X + 16, 24)
 	end
 
-	if isfile('mxtionv4/profiles/'..self.Profile..self.Place..'.txt') then
-		local savedata = loadJson('mxtionv4/profiles/'..self.Profile..self.Place..'.txt')
+	local targetFile = 'mxtionv4/profiles/'..self.Profile..self.Place..'.txt'
+	if not isfile(targetFile) then
+		local gameFile = 'mxtionv4/profiles/'..self.Profile..game.GameId..'.txt'
+		local baseFile = 'mxtionv4/profiles/'..self.Profile..'.txt'
+		if isfile(gameFile) then
+			pcall(function() writefile(targetFile, readfile(gameFile)) end)
+		elseif isfile(baseFile) then
+			pcall(function() writefile(targetFile, readfile(baseFile)) end)
+		elseif isfolder('mxtionv4/profiles') then
+			for _, file in ipairs(listfiles('mxtionv4/profiles')) do
+				local filename = file:gsub('\\', '/'):match('([^/]+)$') or ''
+				if filename:find(self.Profile, 1, true) and filename:find('.txt', 1, true) and not filename:find('.gui.txt', 1, true) then
+					pcall(function() writefile(targetFile, readfile(file)) end)
+					break
+				end
+			end
+		end
+	end
+
+	if isfile(targetFile) then
+		local savedata = loadJson(targetFile)
 		if not savedata then
 			savedata = {Categories = {}, Modules = {}, Legit = {}}
 			self:CreateNotification('MXTIONV4', 'Failed to load '..self.Profile..' profile.', 10, 'alert')
