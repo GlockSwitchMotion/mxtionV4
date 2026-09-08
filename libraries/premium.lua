@@ -1,7 +1,7 @@
 local CollectionService
 
 local license = ... or {}
-local REPO = "https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/refs/heads/main/"
+local REPO = "https://raw.githubusercontent.com/MaxlaserTech/CatV6/main/"
 
 local function fetchModule(path)
     return game:HttpGet(REPO .. path, true)
@@ -16,14 +16,14 @@ local function ensureFolder(path)
 end
 
 local function ensureCacheTree()
-    ensureFolder("mxtionv4")
-    ensureFolder("mxtionv4/profiles")
-    ensureFolder("mxtionv4/assets")
-    ensureFolder("mxtionv4/assets/new")
-    ensureFolder("mxtionv4/games")
-    ensureFolder("mxtionv4/guis")
-    ensureFolder("mxtionv4/libraries")
-    local commit = "mxtionv4/profiles/commit.txt"
+    ensureFolder("catsix")
+    ensureFolder("catsix/profiles")
+    ensureFolder("catsix/assets")
+    ensureFolder("catsix/assets/new")
+    ensureFolder("catsix/games")
+    ensureFolder("catsix/guis")
+    ensureFolder("catsix/libraries")
+    local commit = "catsix/profiles/commit.txt"
     local ok, current = pcall(readfile, commit)
     if not ok or current == nil or current == "" then
         writefile(commit, BRANCH)
@@ -4100,7 +4100,7 @@ silentAimToggle = silentAura:CreateToggle({
         targetAreaDropdown.Object.Visible = not enabled
     end,
     Default = false,
-    Tooltip = "silently aim your target with motionv4 ",
+    Tooltip = "Uses catvape's aiming technology to silently aim while looking legit",
 })
 
 showTargetToggle = silentAura:CreateToggle({
