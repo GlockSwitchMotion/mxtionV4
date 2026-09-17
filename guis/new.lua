@@ -6846,8 +6846,8 @@ createPublicProfilesWindow = function()
 
 	local window = Instance.new('Frame')
 	window.Name = 'PublicProfilesGUI'
-	window.Size = UDim2.fromOffset(654, 436)
-	window.Position = UDim2.new(0.5, -327, 0.5, -218)
+	window.Size = UDim2.fromOffset(600, 420)
+	window.Position = UDim2.new(0.5, -300, 0.5, -210)
 	window.BackgroundColor3 = uipallet.Main
 	window.Visible = true
 	window.Parent = scaledgui
@@ -6860,527 +6860,159 @@ createPublicProfilesWindow = function()
 
 	mainapi.PublicProfiles = mainapi.PublicProfiles or { Accents = {} }
 
-	-- Header Branding: guivape logo moved to left edge and increased size
+	-- Header Logo
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'Logo'
-	logo.Size = UDim2.fromOffset(190, 78)
-	logo.Position = UDim2.fromOffset(-23, -12)
+	logo.Size = UDim2.fromOffset(160, 54)
+	logo.Position = UDim2.fromOffset(-20, -6)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
-	logo.ImageColor3 = select(3, uipallet.Main:ToHSV()) > 0.5 and uipallet.Text or Color3.new(1, 1, 1)
-	logo.ScaleType = Enum.ScaleType.Fit
 	logo.Parent = window
 
-	-- guiv4 logo placed right beside guivape logo matching height (36px)
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(60, 36)
-	logov4.Position = UDim2.fromOffset(150, 4)
+	logov4.Size = UDim2.fromOffset(52, 28)
+	logov4.Position = UDim2.new(1, 2, 0, 2)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	logov4.ScaleType = Enum.ScaleType.Fit
-	logov4.Parent = window
+	logov4.Parent = logo
 
 	local titleLabel = Instance.new('TextLabel')
 	titleLabel.Name = 'Title'
-	titleLabel.Size = UDim2.new(1, -300, 0, 30)
-	titleLabel.Position = UDim2.fromOffset(218, 7)
+	titleLabel.Size = UDim2.new(1, -210, 0, 24)
+	titleLabel.Position = UDim2.fromOffset(200, 12)
 	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = 'PUBLIC CONFIGS'
-	titleLabel.TextColor3 = uipallet.Text
-	titleLabel.TextSize = 14
-	titleLabel.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
+	titleLabel.Text = 'Public configs'
+	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
+	titleLabel.TextSize = 15
+	titleLabel.FontFace = uipallet.FontSemiBold
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = window
 
-	addCloseButton(window, 10)
+	addCloseButton(window, 12)
 	window.Close.MouseButton1Click:Connect(function()
 		window.Visible = false
 	end)
 
-	-- Top Divider Line matching main GUI pallet
+	-- Top Divider
 	local topDivider = Instance.new('Frame')
 	topDivider.Size = UDim2.new(1, -24, 0, 1)
-	topDivider.Position = UDim2.fromOffset(12, 44)
-	topDivider.BackgroundColor3 = color.Light(uipallet.Main, 0.08)
+	topDivider.Position = UDim2.fromOffset(12, 48)
+	topDivider.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
 	topDivider.BorderSizePixel = 0
 	topDivider.Parent = window
 
-	-- Left Container (Main List & Search & Tabs)
-	local leftContainer = Instance.new('Frame')
-	leftContainer.Name = 'LeftContainer'
-	leftContainer.Size = UDim2.new(1, -232, 1, -52)
-	leftContainer.Position = UDim2.fromOffset(12, 48)
-	leftContainer.BackgroundTransparency = 1
-	leftContainer.Parent = window
-
-	-- Search Bar & Upload Button Row
+	-- 🔍 SEARCH BAR SECTION
 	local searchFrame = Instance.new('Frame')
 	searchFrame.Name = 'SearchFrame'
-	searchFrame.Size = UDim2.new(1, -75, 0, 30)
-	searchFrame.Position = UDim2.fromOffset(0, 0)
-	searchFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-	searchFrame.Parent = leftContainer
+	searchFrame.Size = UDim2.new(1, -24, 0, 32)
+	searchFrame.Position = UDim2.fromOffset(12, 54)
+	searchFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+	searchFrame.Parent = window
 	addCorner(searchFrame, UDim.new(0, 6))
 
 	local searchIcon = Instance.new('ImageLabel')
 	searchIcon.Size = UDim2.fromOffset(14, 14)
-	searchIcon.Position = UDim2.fromOffset(10, 8)
+	searchIcon.Position = UDim2.fromOffset(10, 9)
 	searchIcon.BackgroundTransparency = 1
 	searchIcon.Image = getcustomasset('mxtionv4/assets/new/search.png')
-	searchIcon.ImageColor3 = color.Dark(uipallet.Text, 0.4)
+	searchIcon.ImageColor3 = color.Light(uipallet.Main, 0.37)
 	searchIcon.Parent = searchFrame
 
 	local searchBox = Instance.new('TextBox')
 	searchBox.Name = 'SearchBox'
-	searchBox.Size = UDim2.new(1, -34, 1, 0)
-	searchBox.Position = UDim2.fromOffset(30, 0)
+	searchBox.Size = UDim2.new(1, -38, 1, 0)
+	searchBox.Position = UDim2.fromOffset(32, 0)
 	searchBox.BackgroundTransparency = 1
 	searchBox.Text = ''
-	searchBox.PlaceholderText = 'Search Profile / Username'
+	searchBox.PlaceholderText = 'Search public configs by name or author...'
 	searchBox.TextColor3 = uipallet.Text
-	searchBox.PlaceholderColor3 = color.Dark(uipallet.Text, 0.5)
-	searchBox.TextSize = 11
-	searchBox.FontFace = Font.fromEnum(Enum.Font.Gotham)
+	searchBox.PlaceholderColor3 = color.Dark(uipallet.Text, 0.4)
+	searchBox.TextSize = 13
+	searchBox.FontFace = uipallet.Font
 	searchBox.TextXAlignment = Enum.TextXAlignment.Left
 	searchBox.ClearTextOnFocus = false
 	searchBox.Parent = searchFrame
 
-	-- Upload Button beside SearchBar
+	-- 📤 UPLOAD SECTION WITH PROFILE SELECTOR
+	local uploadFrame = Instance.new('Frame')
+	uploadFrame.Name = 'UploadFrame'
+	uploadFrame.Size = UDim2.new(1, -24, 0, 38)
+	uploadFrame.Position = UDim2.fromOffset(12, 92)
+	uploadFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+	uploadFrame.Parent = window
+	addCorner(uploadFrame, UDim.new(0, 6))
+
+	local selectedUploadProfile = mainapi.Profile or 'default'
+
+	local selectProfBtn = Instance.new('TextButton')
+	selectProfBtn.Name = 'SelectProfile'
+	selectProfBtn.Size = UDim2.new(1, -145, 1, 0)
+	selectProfBtn.Position = UDim2.fromOffset(12, 0)
+	selectProfBtn.BackgroundTransparency = 1
+	selectProfBtn.Text = 'Select profile: ' .. selectedUploadProfile .. '  (click to change)'
+	selectProfBtn.TextColor3 = uipallet.Text
+	selectProfBtn.TextSize = 13
+	selectProfBtn.FontFace = uipallet.Font
+	selectProfBtn.TextXAlignment = Enum.TextXAlignment.Left
+	selectProfBtn.Parent = uploadFrame
+
 	local uploadBtn = Instance.new('TextButton')
-	uploadBtn.Name = 'UploadButton'
-	uploadBtn.Size = UDim2.fromOffset(68, 30)
-	uploadBtn.Position = UDim2.new(1, -68, 0, 0)
-	uploadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-	uploadBtn.Text = 'UPLOAD'
-	uploadBtn.TextColor3 = uipallet.Text
-	uploadBtn.TextSize = 10
-	uploadBtn.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-	uploadBtn.AutoButtonColor = false
-	uploadBtn.Parent = leftContainer
-	addCorner(uploadBtn, UDim.new(0, 6))
+	uploadBtn.Name = 'UploadBtn'
+	uploadBtn.Size = UDim2.fromOffset(120, 28)
+	uploadBtn.Position = UDim2.new(1, -126, 0, 5)
+	uploadBtn.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+	uploadBtn.Text = 'Upload Profile'
+	uploadBtn.TextColor3 = mainapi:TextColor(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
+	uploadBtn.TextSize = 13
+	uploadBtn.FontFace = uipallet.FontSemiBold
+	uploadBtn.Parent = uploadFrame
+	addCorner(uploadBtn, UDim.new(0, 4))
+	table.insert(mainapi.PublicProfiles.Accents, uploadBtn)
 
-	uploadBtn.MouseEnter:Connect(function()
-		tween:Tween(uploadBtn, uipallet.Tween, {
-			BackgroundColor3 = color.Light(uipallet.Main, 0.09)
-		})
-	end)
-	uploadBtn.MouseLeave:Connect(function()
-		tween:Tween(uploadBtn, uipallet.Tween, {
-			BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-		})
-	end)
-
-	-- Upload Modal Frame (Profile Picker)
-	local uploadModal = Instance.new('Frame')
-	uploadModal.Name = 'UploadModal'
-	uploadModal.Size = UDim2.fromOffset(280, 260)
-	uploadModal.Position = UDim2.new(0.5, -140, 0.5, -130)
-	uploadModal.BackgroundColor3 = uipallet.Main
-	uploadModal.Visible = false
-	uploadModal.ZIndex = 20
-	uploadModal.Parent = window
-	addCorner(uploadModal, UDim.new(0, 8))
-	addBlur(uploadModal)
-
-	local uploadModalStroke = Instance.new('UIStroke')
-	uploadModalStroke.Color = color.Light(uipallet.Main, 0.12)
-	uploadModalStroke.Thickness = 1
-	uploadModalStroke.Parent = uploadModal
-
-	local uploadTitle = Instance.new('TextLabel')
-	uploadTitle.Size = UDim2.new(1, -30, 0, 28)
-	uploadTitle.Position = UDim2.fromOffset(12, 10)
-	uploadTitle.BackgroundTransparency = 1
-	uploadTitle.Text = 'SELECT PROFILE TO UPLOAD'
-	uploadTitle.TextColor3 = uipallet.Text
-	uploadTitle.TextSize = 11
-	uploadTitle.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-	uploadTitle.TextXAlignment = Enum.TextXAlignment.Left
-	uploadTitle.ZIndex = 21
-	uploadTitle.Parent = uploadModal
-
-	local closeUploadModal = addCloseButton(uploadModal, 10)
-	closeUploadModal.ZIndex = 21
-	closeUploadModal.MouseButton1Click:Connect(function()
-		uploadModal.Visible = false
-	end)
-
-	local profileScroll = Instance.new('ScrollingFrame')
-	profileScroll.Size = UDim2.new(1, -24, 1, -85)
-	profileScroll.Position = UDim2.fromOffset(12, 42)
-	profileScroll.BackgroundTransparency = 1
-	profileScroll.BorderSizePixel = 0
-	profileScroll.ScrollBarThickness = 3
-	profileScroll.ScrollBarImageTransparency = 0.5
-	profileScroll.ZIndex = 21
-	profileScroll.Parent = uploadModal
-
-	local profileScrollLayout = Instance.new('UIListLayout')
-	profileScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	profileScrollLayout.Padding = UDim.new(0, 4)
-	profileScrollLayout.Parent = profileScroll
-
-	profileScrollLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		profileScroll.CanvasSize = UDim2.fromOffset(0, profileScrollLayout.AbsoluteContentSize.Y)
-	end)
-
-	local selectedUploadProfile = nil
-
-	local publishBtn = Instance.new('TextButton')
-	publishBtn.Size = UDim2.new(1, -24, 0, 28)
-	publishBtn.Position = UDim2.new(0, 12, 1, -34)
-	publishBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	publishBtn.Text = 'PUBLISH TO PUBLIC CONFIGS'
-	publishBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-	publishBtn.TextSize = 10
-	publishBtn.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-	publishBtn.AutoButtonColor = false
-	publishBtn.ZIndex = 21
-	publishBtn.Parent = uploadModal
-	addCorner(publishBtn, UDim.new(0, 6))
-
-	local function showNotification(title, text)
-		pcall(function()
-			game:GetService('StarterGui'):SetCore('SendNotification', {
-				Title = title,
-				Text = text,
-				Duration = 5
-			})
-		end)
-		pcall(function()
-			if mainapi.CreateNotification then
-				mainapi:CreateNotification(title, text, 5, 'info')
-			end
-		end)
-	end
-
-	local function exportProfileJson(profileName)
-		profileName = profileName or mainapi.Profile or 'default'
-		pcall(function() mainapi:Save(profileName) end)
-		local path = 'mxtionv4/profiles/' .. tostring(profileName) .. mainapi.Place .. '.txt'
-		if isfile(path) then
-			local ok, data = pcall(readfile, path)
-			if ok and type(data) == 'string' and data ~= '' then
-				return data
-			end
-		end
-		local saveTable = { Modules = {}, Profile = profileName }
-		for modName, mod in pairs(mainapi.Modules or {}) do
-			if mod and mod.Enabled then
-				saveTable.Modules[modName] = { Enabled = true }
-			end
-		end
-		return httpService:JSONEncode(saveTable)
-	end
-
-	local function openUploadPicker()
-		selectedUploadProfile = mainapi.Profile or 'default'
-		for _, child in ipairs(profileScroll:GetChildren()) do
-			if child:IsA('TextButton') then child:Destroy() end
-		end
-
-		local profileList = {}
-		if mainapi.Profiles then
+	-- Profile picker: cycles through all available user profiles
+	local profIndex = 1
+	selectProfBtn.MouseButton1Click:Connect(function()
+		local availableProfiles = {}
+		if mainapi.Profiles and #mainapi.Profiles > 0 then
 			for _, p in ipairs(mainapi.Profiles) do
-				if p and p.Name then
-					table.insert(profileList, p.Name)
-				end
+				if p and p.Name then table.insert(availableProfiles, p.Name) end
 			end
 		end
-		if not table.find(profileList, 'default') then
-			table.insert(profileList, 1, 'default')
-		end
-
-		local itemButtons = {}
-		for _, profName in ipairs(profileList) do
-			local pBtn = Instance.new('TextButton')
-			pBtn.Size = UDim2.new(1, 0, 0, 26)
-			pBtn.BackgroundColor3 = profName == selectedUploadProfile and color.Light(uipallet.Main, 0.08) or color.Light(uipallet.Main, 0.02)
-			pBtn.Text = '   ' .. profName
-			pBtn.TextColor3 = profName == selectedUploadProfile and uipallet.Text or color.Dark(uipallet.Text, 0.3)
-			pBtn.TextSize = 11
-			pBtn.FontFace = Font.fromEnum(Enum.Font.Gotham)
-			pBtn.TextXAlignment = Enum.TextXAlignment.Left
-			pBtn.AutoButtonColor = false
-			pBtn.ZIndex = 22
-			pBtn.Parent = profileScroll
-			addCorner(pBtn, UDim.new(0, 4))
-
-			table.insert(itemButtons, {btn = pBtn, name = profName})
-
-			pBtn.MouseButton1Click:Connect(function()
-				selectedUploadProfile = profName
-				for _, entry in ipairs(itemButtons) do
-					local isSel = (entry.name == selectedUploadProfile)
-					entry.btn.BackgroundColor3 = isSel and color.Light(uipallet.Main, 0.08) or color.Light(uipallet.Main, 0.02)
-					entry.btn.TextColor3 = isSel and uipallet.Text or color.Dark(uipallet.Text, 0.3)
-				end
-			end)
-		end
-
-		uploadModal.Visible = true
-	end
-
-	uploadBtn.MouseButton1Click:Connect(openUploadPicker)
-
-	publishBtn.MouseButton1Click:Connect(function()
-		if not selectedUploadProfile then return end
-		local jsonContent = exportProfileJson(selectedUploadProfile)
-		if not jsonContent then
-			showNotification('MXTION V4', 'Could not export profile content.')
-			return
-		end
-
-		local lplr = game:GetService('Players').LocalPlayer
-		local authorName = (lplr and lplr.Name or 'Community') .. ' [TRUSTED]'
-		local newConfigEntry = {
-			Name = selectedUploadProfile,
-			Data = jsonContent,
-			Author = authorName,
-			Downloads = 0,
-			Date = liveTodayStr
-		}
-
-		table.insert(localPublicProfilesList, 1, newConfigEntry)
-
-		if publicconfigs and publicconfigs.Publish then
-			pcall(function()
-				publicconfigs.Publish(selectedUploadProfile, jsonContent)
-			end)
-		end
-
-		if setclipboard then
-			pcall(function() setclipboard(jsonContent) end)
-		end
-
-		uploadModal.Visible = false
-		refreshPublicList()
-		showNotification('MXTION V4', 'Uploaded profile "' .. selectedUploadProfile .. '" to Public Configs!')
+		if #availableProfiles == 0 then availableProfiles = {'default'} end
+		profIndex = (profIndex % #availableProfiles) + 1
+		selectedUploadProfile = availableProfiles[profIndex] or 'default'
+		selectProfBtn.Text = 'Select profile: ' .. selectedUploadProfile .. '  (click to change)'
 	end)
 
-	-- Sort Filter Tabs
-	local tabFrame = Instance.new('Frame')
-	tabFrame.Name = 'TabFrame'
-	tabFrame.Size = UDim2.new(1, 0, 0, 24)
-	tabFrame.Position = UDim2.fromOffset(0, 35)
-	tabFrame.BackgroundTransparency = 1
-	tabFrame.Parent = leftContainer
-
-	local activeSortMode = 'TopRated'
-
-	local function createTabBtn(text, sortKey, posOffset)
-		local btn = Instance.new('TextButton')
-		btn.Size = UDim2.fromOffset(95, 22)
-		btn.Position = UDim2.fromOffset(posOffset, 0)
-		btn.BackgroundColor3 = activeSortMode == sortKey and Color3.fromRGB(255, 255, 255) or color.Light(uipallet.Main, 0.03)
-		btn.Text = text
-		btn.TextColor3 = activeSortMode == sortKey and Color3.fromRGB(20, 20, 20) or color.Dark(uipallet.Text, 0.4)
-		btn.TextSize = 9
-		btn.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-		btn.Parent = tabFrame
-		addCorner(btn, UDim.new(0, 11))
-		return btn
-	end
-
-	local topRatedBtn = createTabBtn('TOP RATED', 'TopRated', 0)
-	local mostDownloadedBtn = createTabBtn('MOST DOWNLOADED', 'MostDownloaded', 101)
-	local newestBtn = createTabBtn('NEWEST', 'Newest', 212)
-
-	-- Grid Scroll Frame for Public Config Cards
+	-- 📋 SCROLLING LIST OF PUBLIC PROFILES
 	local scrollFrame = Instance.new('ScrollingFrame')
-	scrollFrame.Name = 'ConfigGrid'
-	scrollFrame.Size = UDim2.new(1, 0, 1, -64)
-	scrollFrame.Position = UDim2.fromOffset(0, 64)
+	scrollFrame.Name = 'ConfigList'
+	scrollFrame.Size = UDim2.new(1, -24, 1, -142)
+	scrollFrame.Position = UDim2.fromOffset(12, 136)
 	scrollFrame.BackgroundTransparency = 1
 	scrollFrame.BorderSizePixel = 0
 	scrollFrame.ScrollBarThickness = 3
-	scrollFrame.ScrollBarImageTransparency = 0.6
+	scrollFrame.ScrollBarImageTransparency = 0.5
 	scrollFrame.CanvasSize = UDim2.new()
-	scrollFrame.Parent = leftContainer
+	scrollFrame.Parent = window
 
-	local gridLayout = Instance.new('UIGridLayout')
-	gridLayout.CellSize = UDim2.fromOffset(130, 100)
-	gridLayout.CellPadding = UDim2.fromOffset(8, 8)
-	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	gridLayout.Parent = scrollFrame
+	local listLayout = Instance.new('UIListLayout')
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 6)
+	listLayout.Parent = scrollFrame
 
-	gridLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		scrollFrame.CanvasSize = UDim2.fromOffset(0, gridLayout.AbsoluteContentSize.Y)
+	listLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
+		scrollFrame.CanvasSize = UDim2.fromOffset(0, listLayout.AbsoluteContentSize.Y)
 	end)
 
-	-- Right Side Panel (Details & Affected Modules View)
-	local rightPanel = Instance.new('Frame')
-	rightPanel.Name = 'RightPanel'
-	rightPanel.Size = UDim2.new(0, 210, 1, -52)
-	rightPanel.Position = UDim2.new(1, -222, 0, 48)
-	rightPanel.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-	rightPanel.Parent = window
-	addCorner(rightPanel, UDim.new(0, 8))
-
-	local detailConfigName = Instance.new('TextLabel')
-	detailConfigName.Size = UDim2.new(1, -16, 0, 22)
-	detailConfigName.Position = UDim2.fromOffset(12, 10)
-	detailConfigName.BackgroundTransparency = 1
-	detailConfigName.Text = 'Select a Config'
-	detailConfigName.TextColor3 = uipallet.Text
-	detailConfigName.TextSize = 14
-	detailConfigName.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-	detailConfigName.TextXAlignment = Enum.TextXAlignment.Left
-	detailConfigName.Parent = rightPanel
-
-	local detailAuthor = Instance.new('TextLabel')
-	detailAuthor.Size = UDim2.new(1, -16, 0, 16)
-	detailAuthor.Position = UDim2.fromOffset(12, 32)
-	detailAuthor.BackgroundTransparency = 1
-	detailAuthor.Text = 'By --'
-	detailAuthor.TextColor3 = color.Dark(uipallet.Text, 0.4)
-	detailAuthor.TextSize = 10
-	detailAuthor.FontFace = Font.fromEnum(Enum.Font.Gotham)
-	detailAuthor.TextXAlignment = Enum.TextXAlignment.Left
-	detailAuthor.Parent = rightPanel
-
-	-- Stats Row (Updated Date & Downloads - Positive Reviews Stat Removed)
-	local statsFrame = Instance.new('Frame')
-	statsFrame.Size = UDim2.new(1, -24, 0, 44)
-	statsFrame.Position = UDim2.fromOffset(12, 52)
-	statsFrame.BackgroundTransparency = 1
-	statsFrame.Parent = rightPanel
-
-	local function createStatBox(pos, width, numText, labelText)
-		local box = Instance.new('Frame')
-		box.Size = UDim2.fromOffset(width, 44)
-		box.Position = UDim2.fromOffset(pos, 0)
-		box.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-		box.Parent = statsFrame
-		addCorner(box, UDim.new(0, 6))
-
-		local num = Instance.new('TextLabel')
-		num.Size = UDim2.new(1, 0, 0, 24)
-		num.Position = UDim2.fromOffset(0, 3)
-		num.BackgroundTransparency = 1
-		num.Text = numText
-		num.TextColor3 = uipallet.Text
-		num.TextSize = 11
-		num.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-		num.Parent = box
-
-		local lbl = Instance.new('TextLabel')
-		lbl.Size = UDim2.new(1, 0, 0, 14)
-		lbl.Position = UDim2.fromOffset(0, 25)
-		lbl.BackgroundTransparency = 1
-		lbl.Text = labelText
-		lbl.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		lbl.TextSize = 8
-		lbl.FontFace = Font.fromEnum(Enum.Font.Gotham)
-		lbl.Parent = box
-		return num
-	end
-
-	local liveTodayStr = os.date('%b %d, %Y')
-	local statDateNum = createStatBox(0, 90, liveTodayStr, 'Last updated')
-	local statDownloadsNum = createStatBox(96, 90, '0', 'Downloads')
-
-	-- Affected Modules Section Label
-	local modulesHeader = Instance.new('TextLabel')
-	modulesHeader.Size = UDim2.new(1, -24, 0, 18)
-	modulesHeader.Position = UDim2.fromOffset(12, 102)
-	modulesHeader.BackgroundTransparency = 1
-	modulesHeader.Text = '0 AFFECTED MODULES'
-	modulesHeader.TextColor3 = color.Dark(uipallet.Text, 0.4)
-	modulesHeader.TextSize = 9
-	modulesHeader.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-	modulesHeader.TextXAlignment = Enum.TextXAlignment.Left
-	modulesHeader.Parent = rightPanel
-
-	-- Scrollable Affected Modules List
-	local moduleScroll = Instance.new('ScrollingFrame')
-	moduleScroll.Size = UDim2.new(1, -24, 1, -165)
-	moduleScroll.Position = UDim2.fromOffset(12, 122)
-	moduleScroll.BackgroundTransparency = 1
-	moduleScroll.BorderSizePixel = 0
-	moduleScroll.ScrollBarThickness = 2
-	moduleScroll.ScrollBarImageTransparency = 0.6
-	moduleScroll.CanvasSize = UDim2.new()
-	moduleScroll.Parent = rightPanel
-
-	local moduleLayout = Instance.new('UIListLayout')
-	moduleLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	moduleLayout.Padding = UDim.new(0, 4)
-	moduleLayout.Parent = moduleScroll
-
-	moduleLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		moduleScroll.CanvasSize = UDim2.fromOffset(0, moduleLayout.AbsoluteContentSize.Y)
-	end)
-
-	-- Big White "Download" Action Button
-	local actionLoadBtn = Instance.new('TextButton')
-	actionLoadBtn.Size = UDim2.new(1, -24, 0, 30)
-	actionLoadBtn.Position = UDim2.new(0, 12, 1, -36)
-	actionLoadBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	actionLoadBtn.Text = 'Download'
-	actionLoadBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-	actionLoadBtn.TextSize = 11
-	actionLoadBtn.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-	actionLoadBtn.Parent = rightPanel
-	addCorner(actionLoadBtn, UDim.new(0, 6))
-
-	local selectedConfigItem = nil
 	local publicconfigs = mainapi.Libraries and mainapi.Libraries.publicconfigs
 	local allCachedConfigs = {}
 
-	-- Helper to parse JSON content and extract active enabled module names
-	local function extractAffectedModules(dataStr)
-		if type(dataStr) ~= 'string' then return {} end
-		local ok, decoded = pcall(function() return httpService:JSONDecode(dataStr) end)
-		if not ok or type(decoded) ~= 'table' then return {} end
-		local activeList = {}
-		local mods = decoded.Modules or decoded.modules
-		if type(mods) == 'table' then
-			for modName, settings in pairs(mods) do
-				if type(settings) == 'table' and settings.Enabled then
-					table.insert(activeList, modName)
-				end
-			end
-		end
-		table.sort(activeList)
-		return activeList
-	end
-
-	local function selectConfigItem(item)
-		selectedConfigItem = item
-		detailConfigName.Text = tostring(item.Name or item.name or 'Unnamed Config')
-		detailAuthor.Text = 'By ' .. tostring(item.Author or item.author or 'Community')
-		local rawDate = item.Date or item.date
-		statDateNum.Text = (rawDate and rawDate ~= 'Today') and tostring(rawDate) or liveTodayStr
-		statDownloadsNum.Text = tostring(item.Downloads or item.downloads or 0)
-
-		-- Clear module scroll list
-		for _, c in ipairs(moduleScroll:GetChildren()) do
-			if c:IsA('Frame') or c:IsA('TextLabel') then c:Destroy() end
-		end
-
-		local contentData = item.Data or item.data or item.Content
-		local affectedModules = extractAffectedModules(contentData)
-		modulesHeader.Text = tostring(#affectedModules) .. ' AFFECTED MODULES'
-
-		for _, modName in ipairs(affectedModules) do
-			local lbl = Instance.new('TextLabel')
-			lbl.Size = UDim2.new(1, 0, 0, 18)
-			lbl.BackgroundTransparency = 1
-			lbl.Text = modName
-			lbl.TextColor3 = color.Dark(uipallet.Text, 0.2)
-			lbl.TextSize = 10
-			lbl.FontFace = Font.fromEnum(Enum.Font.Gotham)
-			lbl.TextXAlignment = Enum.TextXAlignment.Left
-			lbl.Parent = moduleScroll
-		end
-	end
-
-	local function renderGrid(filterText)
+	local function renderList(filterText)
 		for _, child in scrollFrame:GetChildren() do
-			if child:IsA('Frame') or child:IsA('TextButton') then
+			if child:IsA('Frame') or child:IsA('TextButton') or child:IsA('TextLabel') then
 				child:Destroy()
 			end
 		end
@@ -7396,120 +7028,81 @@ createPublicProfilesWindow = function()
 			end
 		end
 
-		-- Apply sorting based on active Tab
-		if activeSortMode == 'TopRated' then
-			table.sort(displayList, function(a, b) return (a.Downloads or a.downloads or 0) > (b.Downloads or b.downloads or 0) end)
-		elseif activeSortMode == 'MostDownloaded' then
-			table.sort(displayList, function(a, b) return (a.Downloads or a.downloads or 0) > (b.Downloads or b.downloads or 0) end)
+		if #displayList == 0 then
+			local emptyMsg = Instance.new('TextLabel')
+			emptyMsg.Size = UDim2.new(1, 0, 0, 40)
+			emptyMsg.BackgroundTransparency = 1
+			emptyMsg.Text = query ~= '' and ('No configs found matching "' .. query .. '".') or 'No public profiles found. Pick your profile above and click Upload!'
+			emptyMsg.TextColor3 = color.Dark(uipallet.Text, 0.4)
+			emptyMsg.TextSize = 13
+			emptyMsg.FontFace = uipallet.Font
+			emptyMsg.Parent = scrollFrame
+			return
 		end
 
 		for i, item in ipairs(displayList) do
-			local card = Instance.new('TextButton')
-			card.Size = UDim2.fromOffset(130, 100)
-			card.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-			card.Text = ''
-			card.AutoButtonColor = false
-			card.Parent = scrollFrame
-			addCorner(card, UDim.new(0, 8))
+			local itemFrame = Instance.new('Frame')
+			itemFrame.Size = UDim2.new(1, 0, 0, 38)
+			itemFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
+			itemFrame.Parent = scrollFrame
+			addCorner(itemFrame, UDim.new(0, 6))
 
-			local cardName = Instance.new('TextLabel')
-			cardName.Size = UDim2.new(1, -16, 0, 22)
-			cardName.Position = UDim2.fromOffset(10, 10)
-			cardName.BackgroundTransparency = 1
-			cardName.Text = tostring(item.Name or item.name or 'Unnamed')
-			cardName.TextColor3 = uipallet.Text
-			cardName.TextSize = 11
-			cardName.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
-			cardName.TextXAlignment = Enum.TextXAlignment.Left
-			cardName.Parent = card
+			local configDisplayName = tostring(item.Name or item.name or 'Unnamed')
+			local configAuthor = tostring(item.Author or item.author or 'Community')
+			local downloads = tonumber(item.Downloads or item.downloads or 0)
 
-			local cardAuthor = Instance.new('TextLabel')
-			cardAuthor.Size = UDim2.new(1, -16, 0, 16)
-			cardAuthor.Position = UDim2.fromOffset(10, 32)
-			cardAuthor.BackgroundTransparency = 1
-			cardAuthor.Text = 'By ' .. tostring(item.Author or item.author or 'community')
-			cardAuthor.TextColor3 = color.Dark(uipallet.Text, 0.4)
-			cardAuthor.TextSize = 9
-			cardAuthor.FontFace = Font.fromEnum(Enum.Font.Gotham)
-			cardAuthor.TextXAlignment = Enum.TextXAlignment.Left
-			cardAuthor.Parent = card
+			local itemName = Instance.new('TextLabel')
+			itemName.Size = UDim2.new(1, -130, 1, 0)
+			itemName.Position = UDim2.fromOffset(12, 0)
+			itemName.BackgroundTransparency = 1
+			itemName.Text = configDisplayName .. '  <font color="#888888">by ' .. configAuthor .. '</font>'
+			itemName.TextColor3 = uipallet.Text
+			itemName.TextSize = 13
+			itemName.RichText = true
+			itemName.FontFace = uipallet.Font
+			itemName.TextXAlignment = Enum.TextXAlignment.Left
+			itemName.Parent = itemFrame
 
-			local cardDate = Instance.new('TextLabel')
-			cardDate.Size = UDim2.new(1, -16, 0, 14)
-			cardDate.Position = UDim2.fromOffset(10, 74)
-			cardDate.BackgroundTransparency = 1
-			local itemDate = item.Date or item.date
-			cardDate.Text = (itemDate and itemDate ~= 'Today') and tostring(itemDate) or liveTodayStr
-			cardDate.TextColor3 = color.Dark(uipallet.Text, 0.5)
-			cardDate.TextSize = 9
-			cardDate.FontFace = Font.fromEnum(Enum.Font.Gotham)
-			cardDate.TextXAlignment = Enum.TextXAlignment.Left
-			cardDate.Parent = card
+			local downloadBtn = Instance.new('TextButton')
+			downloadBtn.Size = UDim2.fromOffset(100, 26)
+			downloadBtn.Position = UDim2.new(1, -108, 0, 6)
+			downloadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.1)
+			downloadBtn.Text = 'Load Profile'
+			downloadBtn.TextColor3 = uipallet.Text
+			downloadBtn.TextSize = 12
+			downloadBtn.FontFace = uipallet.FontSemiBold
+			downloadBtn.Parent = itemFrame
+			addCorner(downloadBtn, UDim.new(0, 4))
 
-			card.MouseButton1Click:Connect(function()
-				selectConfigItem(item)
+			downloadBtn.MouseEnter:Connect(function()
+				tween:Tween(downloadBtn, uipallet.Tween, { BackgroundColor3 = color.Light(uipallet.Main, 0.2) })
+			end)
+			downloadBtn.MouseLeave:Connect(function()
+				tween:Tween(downloadBtn, uipallet.Tween, { BackgroundColor3 = color.Light(uipallet.Main, 0.1) })
 			end)
 
-			if i == 1 and not selectedConfigItem then
-				selectConfigItem(item)
-			end
+			downloadBtn.MouseButton1Click:Connect(function()
+				local content = item.Data or item.data or item.Content
+				if content then
+					local ok, profName = importProfileFromText(content, item.Name or item.name)
+					if ok then
+						mainapi:Save(profName)
+						mainapi:Load(true, profName)
+						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
+						window.Visible = false
+					else
+						mainapi:CreateNotification('MXTION V4', profName or 'Failed to load profile.', 5, 'alert')
+					end
+				end
+			end)
 		end
 	end
-
-	-- Tab Buttons Switch
-	topRatedBtn.MouseButton1Click:Connect(function()
-		activeSortMode = 'TopRated'
-		topRatedBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		topRatedBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-		mostDownloadedBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-		mostDownloadedBtn.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		newestBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-		newestBtn.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		renderGrid(searchBox.Text)
-	end)
-
-	mostDownloadedBtn.MouseButton1Click:Connect(function()
-		activeSortMode = 'MostDownloaded'
-		mostDownloadedBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		mostDownloadedBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-		topRatedBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-		topRatedBtn.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		newestBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-		newestBtn.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		renderGrid(searchBox.Text)
-	end)
-
-	newestBtn.MouseButton1Click:Connect(function()
-		activeSortMode = 'Newest'
-		newestBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		newestBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
-		topRatedBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-		topRatedBtn.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		mostDownloadedBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
-		mostDownloadedBtn.TextColor3 = color.Dark(uipallet.Text, 0.4)
-		renderGrid(searchBox.Text)
-	end)
-
-	actionLoadBtn.MouseButton1Click:Connect(function()
-		if not selectedConfigItem then return end
-		local content = selectedConfigItem.Data or selectedConfigItem.data or selectedConfigItem.Content
-		if content then
-			local ok, profName = importProfileFromText(content, selectedConfigItem.Name or selectedConfigItem.name)
-			if ok then
-				mainapi:Save(profName)
-				mainapi:Load(true, profName)
-				mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
-				window.Visible = false
-			else
-				mainapi:CreateNotification('MXTION V4', profName or 'Failed to load profile.', 5, 'alert')
-			end
-		end
-	end)
 
 	local function refreshPublicList()
 		allCachedConfigs = {}
 		local addedNames = {}
 
+		-- Fetch live global public configs from Cloudflare API
 		if publicconfigs and publicconfigs.FetchAll then
 			local ok, cloudList = publicconfigs.FetchAll(nil)
 			if ok and type(cloudList) == 'table' then
@@ -7521,14 +7114,14 @@ createPublicProfilesWindow = function()
 							Name = profName,
 							Data = item.data or item.Data,
 							Author = item.author or item.Author or "Community",
-							Downloads = item.downloads or 0,
-							Date = item.date or liveTodayStr
+							Downloads = item.downloads or 0
 						})
 					end
 				end
 			end
 		end
 
+		-- Session memory fallback
 		for _, item in ipairs(localPublicProfilesList) do
 			local profName = item.name or item.Name
 			if profName and not addedNames[profName] then
@@ -7537,11 +7130,55 @@ createPublicProfilesWindow = function()
 			end
 		end
 
-		renderGrid(searchBox.Text)
+		renderList(searchBox.Text)
 	end
 
+	-- Real-time search box filter
 	searchBox:GetPropertyChangedSignal('Text'):Connect(function()
-		renderGrid(searchBox.Text)
+		renderList(searchBox.Text)
+	end)
+
+	-- 📤 UPLOAD PROFILE ACTION WITH DUPLICATE NAME PROTECTION
+	uploadBtn.MouseButton1Click:Connect(function()
+		local targetProfile = selectedUploadProfile or mainapi.Profile or 'default'
+		local exportData = exportProfileJson(targetProfile)
+		if not exportData then
+			mainapi:CreateNotification('MXTION V4', 'No profile data found for "' .. tostring(targetProfile) .. '".', 5, 'alert')
+			return
+		end
+
+		-- Check if name is already taken by someone else
+		if publicconfigs and publicconfigs.IsNameTaken then
+			local taken, owner = publicconfigs.IsNameTaken(tostring(targetProfile))
+			local localPlayerName = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "Anonymous"}).Name
+			if taken and owner and owner:lower() ~= localPlayerName:lower() then
+				mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
+				return
+			end
+		end
+
+		-- Upload to Cloudflare KV database
+		if publicconfigs and publicconfigs.Upload then
+			local ok, msg = publicconfigs.Upload(tostring(targetProfile), tostring(game.PlaceId), exportData)
+			if not ok then
+				if msg and (msg:lower():find('already taken') or msg:lower():find('already used') or msg:lower():find('taken')) then
+					mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
+				else
+					mainapi:CreateNotification('MXTION V4', msg or 'failed config name already used', 6, 'alert')
+				end
+				return
+			end
+		end
+
+		local newEntry = {
+			Name = tostring(targetProfile),
+			Data = exportData,
+			Author = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "You"}).Name
+		}
+		table.insert(localPublicProfilesList, 1, newEntry)
+
+		mainapi:CreateNotification('MXTION V4', 'Successfully published profile "' .. tostring(targetProfile) .. '"!', 5, 'info')
+		refreshPublicList()
 	end)
 
 	refreshPublicList()
