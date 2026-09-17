@@ -6860,7 +6860,7 @@ createPublicProfilesWindow = function()
 
 	mainapi.PublicProfiles = mainapi.PublicProfiles or { Accents = {} }
 
-	-- Header Branding: guivape logo moved to left edge and increased 1.2x
+	-- Header Branding: guivape logo moved to left edge and increased size
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'Logo'
 	logo.Size = UDim2.fromOffset(190, 78)
@@ -6871,11 +6871,11 @@ createPublicProfilesWindow = function()
 	logo.ScaleType = Enum.ScaleType.Fit
 	logo.Parent = window
 
-	-- guiv4 logo resized to match guivape height (38px), increased 1.2x and placed right beside guivape
+	-- guiv4 logo placed right beside guivape logo matching height (36px)
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(32, 72)
-	logov4.Position = UDim2.fromOffset(52, 9)
+	logov4.Size = UDim2.fromOffset(60, 36)
+	logov4.Position = UDim2.fromOffset(150, 4)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
@@ -6884,12 +6884,12 @@ createPublicProfilesWindow = function()
 
 	local titleLabel = Instance.new('TextLabel')
 	titleLabel.Name = 'Title'
-	titleLabel.Size = UDim2.new(1, -150, 0, 30)
-	titleLabel.Position = UDim2.fromOffset(214, 9)
+	titleLabel.Size = UDim2.new(1, -300, 0, 30)
+	titleLabel.Position = UDim2.fromOffset(218, 7)
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Text = 'PUBLIC CONFIGS'
 	titleLabel.TextColor3 = uipallet.Text
-	titleLabel.TextSize = 18
+	titleLabel.TextSize = 14
 	titleLabel.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = window
@@ -6915,10 +6915,10 @@ createPublicProfilesWindow = function()
 	leftContainer.BackgroundTransparency = 1
 	leftContainer.Parent = window
 
-	-- Search Bar
+	-- Search Bar & Upload Button Row
 	local searchFrame = Instance.new('Frame')
 	searchFrame.Name = 'SearchFrame'
-	searchFrame.Size = UDim2.new(1, 0, 0, 30)
+	searchFrame.Size = UDim2.new(1, -75, 0, 30)
 	searchFrame.Position = UDim2.fromOffset(0, 0)
 	searchFrame.BackgroundColor3 = color.Light(uipallet.Main, 0.03)
 	searchFrame.Parent = leftContainer
@@ -6946,6 +6946,219 @@ createPublicProfilesWindow = function()
 	searchBox.TextXAlignment = Enum.TextXAlignment.Left
 	searchBox.ClearTextOnFocus = false
 	searchBox.Parent = searchFrame
+
+	-- Upload Button beside SearchBar
+	local uploadBtn = Instance.new('TextButton')
+	uploadBtn.Name = 'UploadButton'
+	uploadBtn.Size = UDim2.fromOffset(68, 30)
+	uploadBtn.Position = UDim2.new(1, -68, 0, 0)
+	uploadBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+	uploadBtn.Text = 'UPLOAD'
+	uploadBtn.TextColor3 = uipallet.Text
+	uploadBtn.TextSize = 10
+	uploadBtn.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
+	uploadBtn.AutoButtonColor = false
+	uploadBtn.Parent = leftContainer
+	addCorner(uploadBtn, UDim.new(0, 6))
+
+	uploadBtn.MouseEnter:Connect(function()
+		tween:Tween(uploadBtn, uipallet.Tween, {
+			BackgroundColor3 = color.Light(uipallet.Main, 0.09)
+		})
+	end)
+	uploadBtn.MouseLeave:Connect(function()
+		tween:Tween(uploadBtn, uipallet.Tween, {
+			BackgroundColor3 = color.Light(uipallet.Main, 0.04)
+		})
+	end)
+
+	-- Upload Modal Frame (Profile Picker)
+	local uploadModal = Instance.new('Frame')
+	uploadModal.Name = 'UploadModal'
+	uploadModal.Size = UDim2.fromOffset(280, 260)
+	uploadModal.Position = UDim2.new(0.5, -140, 0.5, -130)
+	uploadModal.BackgroundColor3 = uipallet.Main
+	uploadModal.Visible = false
+	uploadModal.ZIndex = 20
+	uploadModal.Parent = window
+	addCorner(uploadModal, UDim.new(0, 8))
+	addBlur(uploadModal)
+
+	local uploadModalStroke = Instance.new('UIStroke')
+	uploadModalStroke.Color = color.Light(uipallet.Main, 0.12)
+	uploadModalStroke.Thickness = 1
+	uploadModalStroke.Parent = uploadModal
+
+	local uploadTitle = Instance.new('TextLabel')
+	uploadTitle.Size = UDim2.new(1, -30, 0, 28)
+	uploadTitle.Position = UDim2.fromOffset(12, 10)
+	uploadTitle.BackgroundTransparency = 1
+	uploadTitle.Text = 'SELECT PROFILE TO UPLOAD'
+	uploadTitle.TextColor3 = uipallet.Text
+	uploadTitle.TextSize = 11
+	uploadTitle.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
+	uploadTitle.TextXAlignment = Enum.TextXAlignment.Left
+	uploadTitle.ZIndex = 21
+	uploadTitle.Parent = uploadModal
+
+	local closeUploadModal = addCloseButton(uploadModal, 10)
+	closeUploadModal.ZIndex = 21
+	closeUploadModal.MouseButton1Click:Connect(function()
+		uploadModal.Visible = false
+	end)
+
+	local profileScroll = Instance.new('ScrollingFrame')
+	profileScroll.Size = UDim2.new(1, -24, 1, -85)
+	profileScroll.Position = UDim2.fromOffset(12, 42)
+	profileScroll.BackgroundTransparency = 1
+	profileScroll.BorderSizePixel = 0
+	profileScroll.ScrollBarThickness = 3
+	profileScroll.ScrollBarImageTransparency = 0.5
+	profileScroll.ZIndex = 21
+	profileScroll.Parent = uploadModal
+
+	local profileScrollLayout = Instance.new('UIListLayout')
+	profileScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	profileScrollLayout.Padding = UDim.new(0, 4)
+	profileScrollLayout.Parent = profileScroll
+
+	profileScrollLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
+		profileScroll.CanvasSize = UDim2.fromOffset(0, profileScrollLayout.AbsoluteContentSize.Y)
+	end)
+
+	local selectedUploadProfile = nil
+
+	local publishBtn = Instance.new('TextButton')
+	publishBtn.Size = UDim2.new(1, -24, 0, 28)
+	publishBtn.Position = UDim2.new(0, 12, 1, -34)
+	publishBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	publishBtn.Text = 'PUBLISH TO PUBLIC CONFIGS'
+	publishBtn.TextColor3 = Color3.fromRGB(20, 20, 20)
+	publishBtn.TextSize = 10
+	publishBtn.FontFace = Font.fromEnum(Enum.Font.Gotham, Enum.FontWeight.Bold)
+	publishBtn.AutoButtonColor = false
+	publishBtn.ZIndex = 21
+	publishBtn.Parent = uploadModal
+	addCorner(publishBtn, UDim.new(0, 6))
+
+	local function showNotification(title, text)
+		pcall(function()
+			game:GetService('StarterGui'):SetCore('SendNotification', {
+				Title = title,
+				Text = text,
+				Duration = 5
+			})
+		end)
+		pcall(function()
+			if mainapi.CreateNotification then
+				mainapi:CreateNotification(title, text, 5, 'info')
+			end
+		end)
+	end
+
+	local function exportProfileJson(profileName)
+		profileName = profileName or mainapi.Profile or 'default'
+		pcall(function() mainapi:Save(profileName) end)
+		local path = 'mxtionv4/profiles/' .. tostring(profileName) .. mainapi.Place .. '.txt'
+		if isfile(path) then
+			local ok, data = pcall(readfile, path)
+			if ok and type(data) == 'string' and data ~= '' then
+				return data
+			end
+		end
+		local saveTable = { Modules = {}, Profile = profileName }
+		for modName, mod in pairs(mainapi.Modules or {}) do
+			if mod and mod.Enabled then
+				saveTable.Modules[modName] = { Enabled = true }
+			end
+		end
+		return httpService:JSONEncode(saveTable)
+	end
+
+	local function openUploadPicker()
+		selectedUploadProfile = mainapi.Profile or 'default'
+		for _, child in ipairs(profileScroll:GetChildren()) do
+			if child:IsA('TextButton') then child:Destroy() end
+		end
+
+		local profileList = {}
+		if mainapi.Profiles then
+			for _, p in ipairs(mainapi.Profiles) do
+				if p and p.Name then
+					table.insert(profileList, p.Name)
+				end
+			end
+		end
+		if not table.find(profileList, 'default') then
+			table.insert(profileList, 1, 'default')
+		end
+
+		local itemButtons = {}
+		for _, profName in ipairs(profileList) do
+			local pBtn = Instance.new('TextButton')
+			pBtn.Size = UDim2.new(1, 0, 0, 26)
+			pBtn.BackgroundColor3 = profName == selectedUploadProfile and color.Light(uipallet.Main, 0.08) or color.Light(uipallet.Main, 0.02)
+			pBtn.Text = '   ' .. profName
+			pBtn.TextColor3 = profName == selectedUploadProfile and uipallet.Text or color.Dark(uipallet.Text, 0.3)
+			pBtn.TextSize = 11
+			pBtn.FontFace = Font.fromEnum(Enum.Font.Gotham)
+			pBtn.TextXAlignment = Enum.TextXAlignment.Left
+			pBtn.AutoButtonColor = false
+			pBtn.ZIndex = 22
+			pBtn.Parent = profileScroll
+			addCorner(pBtn, UDim.new(0, 4))
+
+			table.insert(itemButtons, {btn = pBtn, name = profName})
+
+			pBtn.MouseButton1Click:Connect(function()
+				selectedUploadProfile = profName
+				for _, entry in ipairs(itemButtons) do
+					local isSel = (entry.name == selectedUploadProfile)
+					entry.btn.BackgroundColor3 = isSel and color.Light(uipallet.Main, 0.08) or color.Light(uipallet.Main, 0.02)
+					entry.btn.TextColor3 = isSel and uipallet.Text or color.Dark(uipallet.Text, 0.3)
+				end
+			end)
+		end
+
+		uploadModal.Visible = true
+	end
+
+	uploadBtn.MouseButton1Click:Connect(openUploadPicker)
+
+	publishBtn.MouseButton1Click:Connect(function()
+		if not selectedUploadProfile then return end
+		local jsonContent = exportProfileJson(selectedUploadProfile)
+		if not jsonContent then
+			showNotification('MXTION V4', 'Could not export profile content.')
+			return
+		end
+
+		local lplr = game:GetService('Players').LocalPlayer
+		local authorName = (lplr and lplr.Name or 'Community') .. ' [TRUSTED]'
+		local newConfigEntry = {
+			Name = selectedUploadProfile,
+			Data = jsonContent,
+			Author = authorName,
+			Downloads = 0,
+			Date = liveTodayStr
+		}
+
+		table.insert(localPublicProfilesList, 1, newConfigEntry)
+
+		if publicconfigs and publicconfigs.Publish then
+			pcall(function()
+				publicconfigs.Publish(selectedUploadProfile, jsonContent)
+			end)
+		end
+
+		if setclipboard then
+			pcall(function() setclipboard(jsonContent) end)
+		end
+
+		uploadModal.Visible = false
+		refreshPublicList()
+		showNotification('MXTION V4', 'Uploaded profile "' .. selectedUploadProfile .. '" to Public Configs!')
+	end)
 
 	-- Sort Filter Tabs
 	local tabFrame = Instance.new('Frame')
