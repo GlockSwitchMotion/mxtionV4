@@ -4704,9 +4704,9 @@ function mainapi:CreateCategoryList(categorysettings)
 		publicBtn.Size = UDim2.fromOffset(86, 31)
 		publicBtn.Position = UDim2.fromOffset(114, 0)
 		publicBtn.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		publicBtn.Text = 'PUBLIC'
+		publicBtn.Text = 'PUBLIC CONFIG'
 		publicBtn.TextColor3 = color.Dark(uipallet.Text, 0.3)
-		publicBtn.TextSize = 12
+		publicBtn.TextSize = 11
 		publicBtn.FontFace = uipallet.FontSemiBold
 		publicBtn.AutoButtonColor = false
 		publicBtn.Parent = addRow
@@ -6846,7 +6846,7 @@ createPublicProfilesWindow = function()
 
 	local window = Instance.new('Frame')
 	window.Name = 'PublicProfilesGUI'
-	window.Size = UDim2.fromOffset(600, 420)
+	window.Size = UDim2.fromOffset(680, 420)
 	window.Position = UDim2.new(0.5, -300, 0.5, -210)
 	window.BackgroundColor3 = uipallet.Main
 	window.Visible = true
@@ -6863,16 +6863,16 @@ createPublicProfilesWindow = function()
 	-- Header Logo
 	local logo = Instance.new('ImageLabel')
 	logo.Name = 'Logo'
-	logo.Size = UDim2.fromOffset(160, 54)
-	logo.Position = UDim2.fromOffset(-20, -6)
+	logo.Size = UDim2.fromOffset(150, 50)
+	logo.Position = UDim2.fromOffset(-18, 2)
 	logo.BackgroundTransparency = 1
 	logo.Image = getcustomasset('mxtionv4/assets/new/guivape.png')
 	logo.Parent = window
 
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(52, 28)
-	logov4.Position = UDim2.new(1, 2, 0, 2)
+	logov4.Size = UDim2.fromOffset(200, 80)
+	logov4.Position = UDim2.fromOffset(35, -12)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
@@ -6880,10 +6880,10 @@ createPublicProfilesWindow = function()
 
 	local titleLabel = Instance.new('TextLabel')
 	titleLabel.Name = 'Title'
-	titleLabel.Size = UDim2.new(1, -210, 0, 24)
+	titleLabel.Size = UDim2.new(1, -260, 0, 20)
 	titleLabel.Position = UDim2.fromOffset(200, 12)
 	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = 'Public configs'
+	titleLabel.Text = ''
 	titleLabel.TextColor3 = color.Light(uipallet.Text, 0.2)
 	titleLabel.TextSize = 15
 	titleLabel.FontFace = uipallet.FontSemiBold
