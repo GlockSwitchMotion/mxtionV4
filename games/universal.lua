@@ -3849,6 +3849,150 @@ run(function()
 end)
 
 run(function()
+	local LevelSpoofer
+	local LevelValue
+	local OriginalLevel = nil
+	local OriginalXp = nil
+
+	local ClientStore
+	local PlayerLevelController
+	local PlayerLevelUtil
+
+	task.spawn(function()
+		pcall(function()
+			local bedwars = vape.Libraries.Bedwars
+			if bedwars and bedwars.ClientStore then
+				ClientStore = bedwars.ClientStore
+			else
+				ClientStore = require(game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("RuntimeLib")).import(script, game:GetService("ReplicatedStorage"), "TS", "ui", "store").ClientStore
+			end
+
+			if bedwars and bedwars.Knit and bedwars.Knit.Controllers then
+				PlayerLevelController = bedwars.Knit.Controllers.PlayerLevelController
+			end
+
+			PlayerLevelUtil = require(game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("RuntimeLib")).import(script, game:GetService("ReplicatedStorage"), "TS", "player-level", "player-level-util").PlayerLevelUtil
+		end)
+	end)
+
+	local function applyClientLevel(targetLevel)
+		local lplr = playersService.LocalPlayer
+		if not lplr then return end
+
+		-- Store original level data to restore on toggle disable
+		if OriginalLevel == nil then
+			OriginalLevel = lplr:GetAttribute("PlayerLevel") or lplr:GetAttribute("Level") or 1
+			if ClientStore then
+				local state = ClientStore:getState()
+				if state and state.Bedwars then
+					OriginalXp = state.Bedwars.playerLevelTotalExperience or 0
+				end
+			end
+		end
+
+		-- 1. Update Player Attributes (This fixes the [18] -> [100] badge above your head!)
+		lplr:SetAttribute("PlayerLevel", targetLevel)
+		lplr:SetAttribute("Level", targetLevel)
+
+		-- 2. Calculate XP for target level
+		local totalXp = targetLevel * 5000
+		if PlayerLevelUtil and PlayerLevelUtil.levelSystem then
+			pcall(function()
+				totalXp = PlayerLevelUtil.levelSystem:getTotalXpForLevel(targetLevel)
+			end)
+		end
+
+		-- 3. Update ClientStore (Rodux state for menus & UI)
+		if ClientStore then
+			pcall(function()
+				ClientStore:dispatch({
+					type = "BedwarsSetSome",
+					data = {
+						playerLevel = targetLevel,
+						playerLevelTotalExperience = totalXp
+					}
+				})
+			end)
+		end
+
+		-- 4. Update PlayerLevelController & fire client signals
+		if PlayerLevelController then
+			pcall(function()
+				PlayerLevelController.playerLevel = targetLevel
+				PlayerLevelController.playerLevelTotalExperience = totalXp
+				if PlayerLevelController.playerLevelUpdateSignal then
+					PlayerLevelController.playerLevelUpdateSignal:Fire(targetLevel, totalXp)
+				end
+			end)
+		end
+	end
+
+	local function restoreOriginalLevel()
+		local lplr = playersService.LocalPlayer
+		if not lplr or OriginalLevel == nil then return end
+
+		-- Restore Player Attributes
+		lplr:SetAttribute("PlayerLevel", OriginalLevel)
+		lplr:SetAttribute("Level", OriginalLevel)
+
+		if ClientStore then
+			pcall(function()
+				ClientStore:dispatch({
+					type = "BedwarsSetSome",
+					data = {
+						playerLevel = OriginalLevel,
+						playerLevelTotalExperience = OriginalXp or 0
+					}
+				})
+			end)
+		end
+
+		if PlayerLevelController then
+			pcall(function()
+				PlayerLevelController.playerLevel = OriginalLevel
+				PlayerLevelController.playerLevelTotalExperience = OriginalXp or 0
+				if PlayerLevelController.playerLevelUpdateSignal then
+					PlayerLevelController.playerLevelUpdateSignal:Fire(OriginalLevel, OriginalXp or 0)
+				end
+			end)
+		end
+
+		OriginalLevel = nil
+		OriginalXp = nil
+	end
+
+	LevelSpoofer = vape.Categories.Utility:CreateModule({
+		Name = 'LevelSpoofer',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					while LevelSpoofer.Enabled do
+						applyClientLevel(LevelValue.Value)
+						task.wait(0.5)
+					end
+				end)
+			else
+				restoreOriginalLevel()
+			end
+		end,
+		Tooltip = 'spoofs your player level clientsidedly (0-1000)'
+	})
+
+	LevelValue = LevelSpoofer:CreateSlider({
+		Name = 'Level',
+		Min = 0,
+		Max = 1000,
+		Default = 100,
+		Function = function(val)
+			if LevelSpoofer.Enabled then
+				applyClientLevel(val)
+			end
+		end,
+		Tooltip = 'set your custom clientside level (0-1000)'
+	})
+end)
+
+run(function()
 	local ESP
 	local Targets
 	local Color
