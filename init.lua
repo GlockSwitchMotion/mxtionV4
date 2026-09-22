@@ -64,7 +64,14 @@ local loadstring = function(...)
 	end
 	return res
 end
-local queue_on_teleport = queue_on_teleport or function() end
+
+-- Universal Multi-Executor Teleport Queue Resolution
+local queue_on_teleport = queue_on_teleport 
+	or (syn and syn.queue_on_teleport) 
+	or (fluxus and fluxus.queue_on_teleport) 
+	or (queue_for_teleport) 
+	or function() end
+
 local isfile = isfile or function(file)
 	local suc, res = pcall(function()
 		return readfile(file)
@@ -97,16 +104,19 @@ local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	local teleportedServers
+	-- Guaranteed Multi-Server Auto-Reinjector
 	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function()
-		if (not teleportedServers) and (not shared.VapeIndependent) then
-			teleportedServers = true
+		if not shared.VapeIndependent then
 			local teleportScript = [[
 				shared.vapereload = true
-				if shared.VapeDeveloper then
+				if shared.VapeDeveloper and isfile('mxtionv4/main.lua') then
 					loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
 				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
+					if isfile('mxtionv4/init.lua') then
+						loadstring(readfile('mxtionv4/init.lua'), 'init')(_scriptconfig)
+					else
+						loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
+					end
 				end
 			]]
 			local teleportConfig = httpService:JSONEncode(license)
@@ -121,8 +131,8 @@ local function finishLoading()
 			if shared.VapeCustomProfile then
 				teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
 			end
-			vape:Save()
-			queue_on_teleport(teleportScript)
+			pcall(function() vape:Save() end)
+			pcall(function() queue_on_teleport(teleportScript) end)
 		end
 	end))
 
@@ -146,7 +156,7 @@ end
 if not isfile('mxtionv4/profiles/gui.txt') then
 	writefile('mxtionv4/profiles/gui.txt', 'new')
 end
-local gui = 'new'--readfile('mxtionv4/profiles/gui.txt')
+local gui = 'new'
 
 if not isfolder('mxtionv4/assets/'..gui) then
 	makefolder('mxtionv4/assets/'..gui)
