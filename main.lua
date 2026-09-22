@@ -1,3 +1,7 @@
+init 
+
+
+
 local license = ... or {}
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
@@ -64,7 +68,7 @@ local loadstring = function(...)
 	end
 	return res
 end
-local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or function() end
+local queue_on_teleport = queue_on_teleport or function() end
 local isfile = isfile or function(file)
 	local suc, res = pcall(function()
 		return readfile(file)
@@ -146,7 +150,7 @@ end
 if not isfile('mxtionv4/profiles/gui.txt') then
 	writefile('mxtionv4/profiles/gui.txt', 'new')
 end
-local gui = 'new'
+local gui = 'new'--readfile('mxtionv4/profiles/gui.txt')
 
 if not isfolder('mxtionv4/assets/'..gui) then
 	makefolder('mxtionv4/assets/'..gui)
@@ -173,24 +177,19 @@ if not shared.VapeIndependent then
 	if not game:IsLoaded() then
 		repeat task.wait() until game:IsLoaded()
 	end
-	
-	-- Load Universal Base Module
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	
-	-- Determine Target Game File (Default to main Bedwars 6872274481.lua if place ID is not explicitly lobby/subplace)
-	local placeId = tostring(game.PlaceId)
-	local targetGameFile = '6872274481'
-	if placeId == '6872265039' or placeId == '8444591321' then
-		targetGameFile = placeId
-	end
-
-	-- Execute Bedwars Game Module
-	if isfile('mxtionv4/games/'..targetGameFile..'.lua') then
-		loadstring(readfile('mxtionv4/games/'..targetGameFile..'.lua'), targetGameFile)(license)
+	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
+		loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
 	else
-		loadstring(downloadFile('mxtionv4/games/'..targetGameFile..'.lua'), targetGameFile)(license)
+		if not shared.VapeDeveloper then
+			local suc, res = pcall(function()
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+			end)
+			if suc and res ~= '404: Not Found' then
+				loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+			end
+		end
 	end
-
 	loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
 	pcall(function()
 		local publib = loadstring(downloadFile('mxtionv4/libraries/publicconfigs.lua'), 'publicconfigs')(license)
