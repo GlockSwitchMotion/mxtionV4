@@ -40,6 +40,8 @@ local function handleUpdates()
 		clearFolder("mxtionv4/guis")
 		clearFolder("mxtionv4/games")
 		clearFolder("mxtionv4/libraries")
+		-- also clear cached main.lua so it re-downloads on update
+		pcall(function() if isfile("mxtionv4/main.lua") then delfile("mxtionv4/main.lua") end end)
 		
 		if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
 		writefile("mxtionv4/profiles/commit.txt", latestCommit)
@@ -48,10 +50,6 @@ local function handleUpdates()
 			shared.updated = currentCommit:sub(1, 7)
 		end
 	end
-end
-
-if not shared.vapereload then
-	handleUpdates()
 end
 
 local vape
@@ -76,6 +74,15 @@ end
 local playersService = cloneref(game:GetService('Players'))
 local httpService = cloneref(game:GetService("HttpService"))
 
+-- Ensure base folders exist
+for _, folder in {'mxtionv4', 'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/assets', 'mxtionv4/libraries', 'mxtionv4/guis'} do
+	if not isfolder(folder) then makefolder(folder) end
+end
+
+if not shared.vapereload then
+	handleUpdates()
+end
+
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
@@ -92,6 +99,10 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
+-- Cache main.lua to disk just like libraries/games
+-- On teleport reinject it reads from disk — no network request needed
+downloadFile('mxtionv4/main.lua')
+
 local REINJECT_URL = 'https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/refs/heads/main/init.lua'
 
 local function finishLoading()
@@ -104,7 +115,9 @@ local function finishLoading()
 		local s = 'shared.vapereload = true\n'
 		if shared.VapeDeveloper then s = 'shared.VapeDeveloper = true\n'..s end
 		if shared.VapeCustomProfile then s = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..s end
-		s = s..'loadstring(game:HttpGet("'..REINJECT_URL..'", true), "init")({Key="'..keyStr..'"})'
+		-- Read from cached disk file — falls back to URL if file is missing
+		s = s..'local ok, src = pcall(readfile, "mxtionv4/main.lua")\n'
+		s = s..'loadstring(ok and src or game:HttpGet("'..REINJECT_URL..'", true), "main")({Key="'..keyStr..'"})'
 		return s
 	end
 
