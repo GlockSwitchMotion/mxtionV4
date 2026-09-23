@@ -2,8 +2,15 @@ local license = ... or {}
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
+-- LOADER URL (re-downloads fresh on every teleport)
+local LOADER_URL = "https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua"
+
 -- MULTI-EXECUTOR QUEUE_ON_TELEPORT RESOLUTION
-local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_for_teleport or function() end
+local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_for_teleport
+if not queue_on_teleport then
+	warn("[mxtionV4] queue_on_teleport not found for this executor — teleport persistence will not work")
+	queue_on_teleport = function() end
+end
 local clear_teleport_queue = clear_teleport_queue or clearteleportqueue or function() end
 
 local isfile = isfile or function(file)
@@ -29,9 +36,9 @@ local function getLatestCommit()
 	end)
 	if suc and res then
 		local sha = res:match('"sha":"(.-)"')
-		if sha then 
+		if sha then
 			shared.mxtion_checked = true
-			return sha 
+			return sha
 		end
 	end
 	return "main"
@@ -43,7 +50,7 @@ local function handleUpdates()
 	if isfile("mxtionv4/profiles/commit.txt") then
 		currentCommit = readfile("mxtionv4/profiles/commit.txt")
 	end
-	
+
 	if latestCommit ~= "main" and latestCommit ~= currentCommit then
 		local function clearFolder(path)
 			if isfolder(path) then
@@ -57,10 +64,10 @@ local function handleUpdates()
 		clearFolder("mxtionv4/guis")
 		clearFolder("mxtionv4/games")
 		clearFolder("mxtionv4/libraries")
-		
+
 		if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
 		writefile("mxtionv4/profiles/commit.txt", latestCommit)
-		
+
 		if currentCommit ~= "" and currentCommit ~= "main" then
 			shared.updated = currentCommit:sub(1, 7)
 		end
@@ -75,7 +82,7 @@ local vape
 local loadstring = function(...)
 	local res, err = loadstring(...)
 	if err and vape then
-		vape:CreateNotification('Vape', 'Failed to load : '..err, 30, 'alert')
+		vape:CreateNotification('Vape', 'Failed to load : ' .. err, 30, 'alert')
 	end
 	return res
 end
@@ -87,51 +94,60 @@ local function downloadFile(path, func)
 			commit = readfile('mxtionv4/profiles/commit.txt')
 		end
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/'..select(1, path:gsub('mxtionv4/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/' .. commit .. '/' .. select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
-			res = game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/'..select(1, path:gsub('mxtionv4/', '')), true)
+			res = game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/' .. select(1, path:gsub('mxtionv4/', '')), true)
 		end
 		if path:find('.lua') then
-			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n' .. res
 		end
 		writefile(path, res)
 	end
 	return (func or readfile)(path)
 end
 
+-- TELEPORT REINJECT (always re-downloads init.lua fresh, no local file dependency)
+local function buildTeleportScript()
+	if shared.VapeIndependent then return nil end
+
+	local teleportScript = 'shared.vapereload = true\nloadstring(game:HttpGet("' .. LOADER_URL .. '", true), "init")()'
+
+	if shared.VapeDeveloper then
+		teleportScript = 'shared.VapeDeveloper = true\n' .. teleportScript
+	end
+	if shared.VapeCustomProfile then
+		teleportScript = 'shared.VapeCustomProfile = "' .. shared.VapeCustomProfile .. '"\n' .. teleportScript
+	end
+	return teleportScript
+end
+
+local function queueTeleport()
+	if shared.VapeIndependent then return end
+	local teleportScript = buildTeleportScript()
+	if not teleportScript then return end
+	pcall(clear_teleport_queue)
+	pcall(queue_on_teleport, teleportScript)
+end
+
 local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	-- BUILD AND QUEUE TELEPORT SCRIPT IMMEDIATELY 
-	local function queueTeleport()
-		if shared.VapeIndependent then return end
-		local teleportScript = [[
-			shared.vapereload = true
-			if shared.VapeDeveloper then
-				loadstring(readfile('mxtionv4/main.lua'), 'main')()
-			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua', true), 'init')()
-			end
-		]]
-		if shared.VapeDeveloper then
-			teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
-		end
-		if shared.VapeCustomProfile then
-			teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
-		end
-		pcall(clear_teleport_queue)
-		pcall(function() queue_on_teleport(teleportScript) end)
-	end
-
+	-- Queue teleport immediately on load
 	queueTeleport()
 
+	-- Re-queue on teleport state change to bake in latest flags
 	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
 		if state == Enum.TeleportState.Failed then return end
 		pcall(function() vape:Save() end)
 		queueTeleport()
 	end))
+
+	-- Clear queue on uninject
+	vape:Clean(function()
+		pcall(clear_teleport_queue)
+	end)
 
 	if not shared.vapereload then
 		if getgenv().mxtionrole == 'HWID MISMATCH' then
@@ -140,13 +156,13 @@ local function finishLoading()
 			task.wait(0.1)
 		end
 		if not shared.vapereload then
-			vape:CreateNotification('mxtionV4', (getgenv().mxtionname and `Authenticated as {getgenv().mxtionname} with {getgenv().mxtionrole}, ` or '').. (vape.VapeButton and 'Press the button in the top right' or 'Press '..table.concat(vape.Keybind, ' + '):upper())..' to open GUI', 5)
+			vape:CreateNotification('mxtionV4', (getgenv().mxtionname and `Authenticated as {getgenv().mxtionname} with {getgenv().mxtionrole}, ` or '') .. (vape.VapeButton and 'Press the button in the top right' or 'Press ' .. table.concat(vape.Keybind, ' + '):upper()) .. ' to open GUI', 5)
 			task.delay(0.05 + cloneref(game:GetService('RunService')).PostSimulation:Wait(), function()
 				if shared.updated then
 					vape:CreateNotification('mxtionV4', `Script has updated from {shared.updated} to {readfile('mxtionv4/profiles/commit.txt'):sub(1, 7)}`, 10, 'info')
 				end
 			end)
-		end	
+		end
 	end
 end
 
@@ -156,10 +172,10 @@ if not isfile('mxtionv4/profiles/gui.txt') then
 end
 local gui = 'new'
 
-if not isfolder('mxtionv4/assets/'..gui) then
-	makefolder('mxtionv4/assets/'..gui)
+if not isfolder('mxtionv4/assets/' .. gui) then
+	makefolder('mxtionv4/assets/' .. gui)
 end
-vape = loadstring(downloadFile('mxtionv4/guis/'..gui..'.lua'), 'gui')(license)
+vape = loadstring(downloadFile('mxtionv4/guis/' .. gui .. '.lua'), 'gui')(license)
 shared.vape = vape
 shared.vapesmooth = true
 _G.vape = vape
@@ -181,19 +197,19 @@ if not shared.VapeIndependent then
 	if not game:IsLoaded() then
 		repeat task.wait() until game:IsLoaded()
 	end
-	
+
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	
+
 	local placeId = tostring(game.PlaceId)
 	local targetGameFile = '6872274481'
 	if placeId == '6872265039' or placeId == '8444591321' then
 		targetGameFile = placeId
 	end
 
-	if isfile('mxtionv4/games/'..targetGameFile..'.lua') then
-		loadstring(readfile('mxtionv4/games/'..targetGameFile..'.lua'), targetGameFile)(license)
+	if isfile('mxtionv4/games/' .. targetGameFile .. '.lua') then
+		loadstring(readfile('mxtionv4/games/' .. targetGameFile .. '.lua'), targetGameFile)(license)
 	else
-		loadstring(downloadFile('mxtionv4/games/'..targetGameFile..'.lua'), targetGameFile)(license)
+		loadstring(downloadFile('mxtionv4/games/' .. targetGameFile .. '.lua'), targetGameFile)(license)
 	end
 
 	loadstring(downloadFile('mxtionv4/libraries/premium.lua'), 'premium')(license)
