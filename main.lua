@@ -92,37 +92,14 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
-local REINJECT_URL = 'https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua'
-if getgenv().mxtionAutoReinject == nil then
-	getgenv().mxtionAutoReinject = true
-end
+local REINJECT_URL = 'https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/refs/heads/main/init.lua'
 
 local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	pcall(function()
-		local cat = vape.Categories['Misc'] or vape.Categories['Settings'] or vape.Categories['Main']
-		if cat then
-			cat:CreateModule({
-				Name = 'Auto Reinject',
-				Tooltip = 'automatically reinjects after teleporting to a new server',
-				Function = function(Module)
-					Module:CreateToggle({
-						Name = 'Enabled',
-						Default = getgenv().mxtionAutoReinject ~= false,
-						Callback = function(val)
-							getgenv().mxtionAutoReinject = val
-						end
-					})
-				end
-			})
-		end
-	end)
-
 	local function buildTeleportScript()
 		if shared.VapeIndependent then return nil end
-		if not getgenv().mxtionAutoReinject then return nil end
 		local keyStr = tostring(license.Key or '_key')
 		local s = 'shared.vapereload = true\n'
 		if shared.VapeDeveloper then s = 'shared.VapeDeveloper = true\n'..s end
