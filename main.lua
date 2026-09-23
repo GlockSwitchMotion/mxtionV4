@@ -2,6 +2,23 @@ local license = ... or {}
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
+-- MULTI-EXECUTOR QUEUE_ON_TELEPORT RESOLUTION
+local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or queue_for_teleport or function() end
+local clear_teleport_queue = clear_teleport_queue or clearteleportqueue or function() end
+
+local isfile = isfile or function(file)
+	local suc, res = pcall(function()
+		return readfile(file)
+	end)
+	return suc and res ~= nil and res ~= ''
+end
+
+local cloneref = cloneref or function(obj)
+	return obj
+end
+local playersService = cloneref(game:GetService('Players'))
+local httpService = cloneref(game:GetService("HttpService"))
+
 -- AUTO UPDATE LOGIC
 local function getLatestCommit()
 	if shared.mxtion_checked and isfile("mxtionv4/profiles/commit.txt") then
@@ -63,22 +80,6 @@ local loadstring = function(...)
 	return res
 end
 
-local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or function() end
-local clear_teleport_queue = clear_teleport_queue or clearteleportqueue or function() end
-
-local isfile = isfile or function(file)
-	local suc, res = pcall(function()
-		return readfile(file)
-	end)
-	return suc and res ~= nil and res ~= ''
-end
-
-local cloneref = cloneref or function(obj)
-	return obj
-end
-local playersService = cloneref(game:GetService('Players'))
-local httpService = cloneref(game:GetService("HttpService"))
-
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local commit = "main"
@@ -89,7 +90,6 @@ local function downloadFile(path, func)
 			return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..commit..'/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
-			-- Fallback to main branch directly
 			res = game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/'..select(1, path:gsub('mxtionv4/', '')), true)
 		end
 		if path:find('.lua') then
@@ -104,10 +104,9 @@ local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
-		if state == Enum.TeleportState.Failed then return end
+	-- BUILD AND QUEUE TELEPORT SCRIPT IMMEDIATELY (aerov4 architecture)
+	local function queueTeleport()
 		if shared.VapeIndependent then return end
-
 		local teleportScript = [[
 			shared.vapereload = true
 			if shared.VapeDeveloper then
@@ -116,17 +115,22 @@ local function finishLoading()
 				loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua', true), 'init')()
 			end
 		]]
-
 		if shared.VapeDeveloper then
 			teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
 		end
 		if shared.VapeCustomProfile then
 			teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
 		end
-
-		pcall(function() vape:Save() end)
 		pcall(clear_teleport_queue)
 		pcall(function() queue_on_teleport(teleportScript) end)
+	end
+
+	queueTeleport()
+
+	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
+		if state == Enum.TeleportState.Failed then return end
+		pcall(function() vape:Save() end)
+		queueTeleport()
 	end))
 
 	if not shared.vapereload then
