@@ -62,13 +62,17 @@ local loadstring = function(...)
 	end
 	return res
 end
+
 local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport) or function() end
+local clear_teleport_queue = clear_teleport_queue or clearteleportqueue or function() end
+
 local isfile = isfile or function(file)
 	local suc, res = pcall(function()
 		return readfile(file)
 	end)
 	return suc and res ~= nil and res ~= ''
 end
+
 local cloneref = cloneref or function(obj)
 	return obj
 end
@@ -100,33 +104,29 @@ local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	local teleportedServers
-	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function()
-		if (not teleportedServers) and (not shared.VapeIndependent) then
-			teleportedServers = true
-			local teleportScript = [[
-				shared.vapereload = true
-				if shared.VapeDeveloper then
-					loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
-				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua', true), 'init')(_scriptconfig)
-				end
-			]]
-			local teleportConfig = httpService:JSONEncode(license)
-			teleportConfig = teleportConfig:gsub('":true', "=true"):gsub('{"', '{')
-			teleportConfig = teleportConfig:gsub(',"', ','):gsub('":', '=')
-			teleportConfig = teleportConfig:gsub('%[', '{'):gsub('%]', '}')
-			teleportScript = teleportScript:gsub('_key', tostring(license.Key or '_key'))
-			teleportScript = teleportScript:gsub('_scriptconfig', teleportConfig)
+	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
+		if state == Enum.TeleportState.Failed then return end
+		if shared.VapeIndependent then return end
+
+		local teleportScript = [[
+			shared.vapereload = true
 			if shared.VapeDeveloper then
-				teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
+				loadstring(readfile('mxtionv4/main.lua'), 'main')()
+			else
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua', true), 'init')()
 			end
-			if shared.VapeCustomProfile then
-				teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
-			end
-			vape:Save()
-			pcall(function() queue_on_teleport(teleportScript) end)
+		]]
+
+		if shared.VapeDeveloper then
+			teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
 		end
+		if shared.VapeCustomProfile then
+			teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
+		end
+
+		pcall(function() vape:Save() end)
+		pcall(clear_teleport_queue)
+		pcall(function() queue_on_teleport(teleportScript) end)
 	end))
 
 	if not shared.vapereload then
