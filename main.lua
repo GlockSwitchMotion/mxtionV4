@@ -104,7 +104,7 @@ local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	-- BUILD AND QUEUE TELEPORT SCRIPT IMMEDIATELY (aerov4 architecture)
+	-- BUILD AND QUEUE TELEPORT SCRIPT IMMEDIATELY 
 	local function queueTeleport()
 		if shared.VapeIndependent then return end
 		local teleportScript = [[
