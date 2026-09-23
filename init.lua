@@ -28,6 +28,7 @@ local function handleUpdates()
 	end
 	
 	if latestCommit ~= "main" and latestCommit ~= currentCommit then
+		-- An update was detected! Wipe the old cached files.
 		local function clearFolder(path)
 			if isfolder(path) then
 				for _, file in listfiles(path) do
@@ -40,16 +41,19 @@ local function handleUpdates()
 		clearFolder("mxtionv4/guis")
 		clearFolder("mxtionv4/games")
 		clearFolder("mxtionv4/libraries")
-		-- also clear cached main.lua so it re-downloads on update
-		pcall(function() if isfile("mxtionv4/main.lua") then delfile("mxtionv4/main.lua") end end)
 		
 		if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
 		writefile("mxtionv4/profiles/commit.txt", latestCommit)
 		
+		-- Trigger the Vape update notification
 		if currentCommit ~= "" and currentCommit ~= "main" then
 			shared.updated = currentCommit:sub(1, 7)
 		end
 	end
+end
+
+if not shared.vapereload then
+	handleUpdates()
 end
 
 local vape
@@ -61,7 +65,6 @@ local loadstring = function(...)
 	return res
 end
 local queue_on_teleport = queue_on_teleport or function() end
-local clear_teleport_queue = clear_teleport_queue or clearteleportqueue or function() end
 local isfile = isfile or function(file)
 	local suc, res = pcall(function()
 		return readfile(file)
@@ -73,15 +76,6 @@ local cloneref = cloneref or function(obj)
 end
 local playersService = cloneref(game:GetService('Players'))
 local httpService = cloneref(game:GetService("HttpService"))
-
--- Ensure base folders exist
-for _, folder in {'mxtionv4', 'mxtionv4/games', 'mxtionv4/profiles', 'mxtionv4/assets', 'mxtionv4/libraries', 'mxtionv4/guis'} do
-	if not isfolder(folder) then makefolder(folder) end
-end
-
-if not shared.vapereload then
-	handleUpdates()
-end
 
 local function downloadFile(path, func)
 	if not isfile(path) then
@@ -99,46 +93,41 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
--- Cache main.lua to disk just like libraries/games
--- On teleport reinject it reads from disk — no network request needed
-downloadFile('mxtionv4/main.lua')
-
-local REINJECT_URL = 'https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/refs/heads/main/init.lua'
-
 local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	local function buildTeleportScript()
-		if shared.VapeIndependent then return nil end
-		local keyStr = tostring(license.Key or '_key')
-		local s = 'shared.vapereload = true\n'
-		if shared.VapeDeveloper then s = 'shared.VapeDeveloper = true\n'..s end
-		if shared.VapeCustomProfile then s = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..s end
-		-- Read from cached disk file — falls back to URL if file is missing
-		s = s..'local ok, src = pcall(readfile, "mxtionv4/main.lua")\n'
-		s = s..'loadstring(ok and src or game:HttpGet("'..REINJECT_URL..'", true), "main")({Key="'..keyStr..'"})'
-		return s
-	end
-
-	local function queueTeleport()
-		local script = buildTeleportScript()
-		if not script then return end
-		pcall(clear_teleport_queue)
-		pcall(queue_on_teleport, script)
-	end
-
-	queueTeleport()
-
-	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
-		if state == Enum.TeleportState.Failed then return end
-		pcall(function() vape:Save() end)
-		queueTeleport()
+	local teleportedServers
+	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function()
+		if (not teleportedServers) and (not shared.VapeIndependent) then
+			teleportedServers = true
+			local teleportScript = [[
+				shared.vapereload = true
+				if shared.VapeDeveloper then
+					loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
+				else
+					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
+				end
+			]]
+			local teleportConfig = httpService:JSONEncode(license)
+			teleportConfig = teleportConfig:gsub('":true', "=true"):gsub('{"', '{')
+			teleportConfig = teleportConfig:gsub(',"', ','):gsub('":', '=')
+			teleportConfig = teleportConfig:gsub('%[', '{'):gsub('%]', '}')
+			teleportScript = teleportScript:gsub('_key', tostring(license.Key or '_key'))
+			teleportScript = teleportScript:gsub('_scriptconfig', teleportConfig)
+			if shared.VapeDeveloper then
+				teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
+			end
+			if vape and vape.Profile then
+				shared.VapeCustomProfile = vape.Profile
+			end
+			if shared.VapeCustomProfile then
+				teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
+			end
+			vape:Save()
+			queue_on_teleport(teleportScript)
+		end
 	end))
-
-	vape:Clean(function()
-		pcall(clear_teleport_queue)
-	end)
 
 	if not shared.vapereload then
 		if getgenv().mxtionrole == 'HWID MISMATCH' then
@@ -188,15 +177,16 @@ if not shared.VapeIndependent then
 		repeat task.wait() until game:IsLoaded()
 	end
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	if isfile('mxtionv4/games/'..game.PlaceId..'.lua') then
-		loadstring(readfile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+	local scriptId = (game.PlaceId == 6872265039 and '6872265039') or (game.GameId == 2619619496 and '6872274481') or tostring(game.GameId)
+	if isfile('mxtionv4/games/'..scriptId..'.lua') then
+		loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
 	else
 		if not shared.VapeDeveloper then
 			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+				return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/games/'..scriptId..'.lua', true)
 			end)
 			if suc and res ~= '404: Not Found' then
-				loadstring(downloadFile('mxtionv4/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(license)
+				loadstring(downloadFile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
 			end
 		end
 	end
