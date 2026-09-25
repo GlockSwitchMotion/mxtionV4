@@ -5082,9 +5082,9 @@ function mainapi:CreateCategoryList(categorysettings)
 					categoryapi:ChangeValue()
 					mainapi:Save(profileName)
 					mainapi:Load(true, profileName)
-					mainapi:CreateNotification('MXTION V4', 'Loaded profile: '..profileName, 4, 'info')
+					mainapi:CreateNotification('MOTION V4', 'Loaded profile: '..profileName, 4, 'info')
 				else
-					mainapi:CreateNotification('MXTION V4', profileName or 'Failed to import JSON profile.', 5, 'alert')
+					mainapi:CreateNotification('MOTION V4', profileName or 'Failed to import JSON profile.', 5, 'alert')
 				end
 			else
 				if not categoryapi:GetValue(text) then
@@ -5092,7 +5092,7 @@ function mainapi:CreateCategoryList(categorysettings)
 					mainapi:Save()
 					addvalue.Text = ''
 				else
-					mainapi:CreateNotification('MXTION V4', 'Profile "'..text..'" already exists.', 4, 'alert')
+					mainapi:CreateNotification('MOTION V4', 'Profile "'..text..'" already exists.', 4, 'alert')
 				end
 			end
 		else
@@ -5749,7 +5749,7 @@ function mainapi:PromptPresets()
 		Function = function(result)
 			if result == 'dismiss' then
 				pcall(writefile, presetPromptFile, getCommit() or 'main')
-				self:CreateNotification('MXTION V4', 'Preset configs wont be offered again until the next update.', 8)
+				self:CreateNotification('MOTION V4', 'Preset configs wont be offered again until the next update.', 8)
 				return
 			end
 			if not result then return end
@@ -5759,13 +5759,13 @@ function mainapi:PromptPresets()
 
 				if not installPresets() then
 					self.Loaded = loaded
-					self:CreateNotification('MXTION V4', 'Failed to download preset configs.', 8, 'alert')
+					self:CreateNotification('MOTION V4', 'Failed to download preset configs.', 8, 'alert')
 					return
 				end
 
 				table.clear(self.SaveCache)
 				self:Load(true)
-				self:CreateNotification('MXTION V4', `Loaded the preset config for {self.Profile}`, 8)
+				self:CreateNotification('MOTION V4', `Loaded the preset config for {self.Profile}`, 8)
 			end)
 		end
 	})
@@ -5942,7 +5942,7 @@ function mainapi:CreateChangelogs()
 			if empty.Visible then return end
 
 			changelogapi:Open()
-			self:CreateNotification('MXTION V4', `Script updated from {shared.updated:sub(1, 7)}, here is what changed`, 10, 'info')
+			self:CreateNotification('MOTION V4', `Script updated from {shared.updated:sub(1, 7)}, here is what changed`, 10, 'info')
 		end
 
 		local pending
@@ -6200,7 +6200,7 @@ function mainapi:Load(skipgui, profile)
 		guidata = loadJson('mxtionv4/profiles/'..game.GameId..'.gui.txt')
 		if not guidata then
 			guidata = {Categories = {}}
-			self:CreateNotification('MXTION V4', 'Failed to load GUI settings.', 10, 'alert')
+			self:CreateNotification('MOTION V4', 'Failed to load GUI settings.', 10, 'alert')
 			savecheck = false
 		end
 
@@ -6814,7 +6814,7 @@ Profiles:CreateButton({
 		end
 
 		mainapi:Load(true, 'default')
-		mainapi:CreateNotification('MXTION V4', `Synced "{profile}" to the default profile`, 5, 'info')
+		mainapi:CreateNotification('MOTION V4', `Synced "{profile}" to the default profile`, 5, 'info')
 	end
 })
 Profiles:CreateButton({
@@ -6871,8 +6871,8 @@ createPublicProfilesWindow = function()
 
 	local logov4 = Instance.new('ImageLabel')
 	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(200, 80)
-	logov4.Position = UDim2.fromOffset(35, -12)
+	logov4.Size = UDim2.fromOffset(240, 80)
+	logov4.Position = UDim2.fromOffset(15, -12)
 	logov4.BackgroundTransparency = 1
 	logov4.Image = getcustomasset('mxtionv4/assets/new/guiv4.png')
 	logov4.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
@@ -7088,10 +7088,10 @@ createPublicProfilesWindow = function()
 					if ok then
 						mainapi:Save(profName)
 						mainapi:Load(true, profName)
-						mainapi:CreateNotification('MXTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
+						mainapi:CreateNotification('MOTION V4', 'Successfully loaded profile: ' .. profName, 5, 'info')
 						window.Visible = false
 					else
-						mainapi:CreateNotification('MXTION V4', profName or 'Failed to load profile.', 5, 'alert')
+						mainapi:CreateNotification('MOTION V4', profName or 'Failed to load profile.', 5, 'alert')
 					end
 				end
 			end)
@@ -7143,7 +7143,7 @@ createPublicProfilesWindow = function()
 		local targetProfile = selectedUploadProfile or mainapi.Profile or 'default'
 		local exportData = exportProfileJson(targetProfile)
 		if not exportData then
-			mainapi:CreateNotification('MXTION V4', 'No profile data found for "' .. tostring(targetProfile) .. '".', 5, 'alert')
+			mainapi:CreateNotification('MOTION V4', 'No profile data found for "' .. tostring(targetProfile) .. '".', 5, 'alert')
 			return
 		end
 
@@ -7152,7 +7152,7 @@ createPublicProfilesWindow = function()
 			local taken, owner = publicconfigs.IsNameTaken(tostring(targetProfile))
 			local localPlayerName = (cloneref(game:GetService('Players')).LocalPlayer or {Name = "Anonymous"}).Name
 			if taken and owner and owner:lower() ~= localPlayerName:lower() then
-				mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
+				mainapi:CreateNotification('MOTION V4', 'failed config name already used', 6, 'alert')
 				return
 			end
 		end
@@ -7162,9 +7162,9 @@ createPublicProfilesWindow = function()
 			local ok, msg = publicconfigs.Upload(tostring(targetProfile), tostring(game.PlaceId), exportData)
 			if not ok then
 				if msg and (msg:lower():find('already taken') or msg:lower():find('already used') or msg:lower():find('taken')) then
-					mainapi:CreateNotification('MXTION V4', 'failed config name already used', 6, 'alert')
+					mainapi:CreateNotification('MOTION V4', 'failed config name already used', 6, 'alert')
 				else
-					mainapi:CreateNotification('MXTION V4', msg or 'failed config name already used', 6, 'alert')
+					mainapi:CreateNotification('MOTION V4', msg or 'failed config name already used', 6, 'alert')
 				end
 				return
 			end
@@ -7177,7 +7177,7 @@ createPublicProfilesWindow = function()
 		}
 		table.insert(localPublicProfilesList, 1, newEntry)
 
-		mainapi:CreateNotification('MXTION V4', 'Successfully published profile "' .. tostring(targetProfile) .. '"!', 5, 'info')
+		mainapi:CreateNotification('MOTION V4', 'Successfully published profile "' .. tostring(targetProfile) .. '"!', 5, 'info')
 		refreshPublicList()
 	end)
 
@@ -7220,13 +7220,13 @@ general:CreateButton({
 	Function = function()
 		local exportdata = exportProfileJson(mainapi.Profile)
 		if not exportdata then
-			mainapi:CreateNotification('MXTION V4', 'No profile data found to export.', 5, 'alert')
+			mainapi:CreateNotification('MOTION V4', 'No profile data found to export.', 5, 'alert')
 			return
 		end
 		if setclipboard then
 			setclipboard(exportdata)
 		end
-		mainapi:CreateNotification('MXTION V4', 'Current profile JSON copied to your clipboard.', 5, 'info')
+		mainapi:CreateNotification('MOTION V4', 'Current profile JSON copied to your clipboard.', 5, 'info')
 	end,
 	Tooltip = 'Copies your current profile config as JSON'
 })
