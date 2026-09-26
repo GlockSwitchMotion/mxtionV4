@@ -107,26 +107,18 @@ local function finishLoading()
 		until vape.Loaded == nil
 	end))
 
-	-- Aerov4-style teleport queue building & execution
+	-- Exact Aerov4 Teleport Queue implementation matching your script URL:
+	-- loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua'), 'init.lua')({})
 	local function buildTeleportScript()
 		if shared.VapeIndependent then return nil end
 
 		local teleportScript = [[
+			repeat task.wait() until game:IsLoaded()
 			shared.vapereload = true
 			if isfile and isfile('mxtionv4/init.lua') then
-				loadstring(readfile('mxtionv4/init.lua'), 'init')(_scriptconfig)
-			elseif isfile and isfile('mxtionv4/main.lua') then
-				loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
+				loadstring(readfile('mxtionv4/init.lua'), 'init.lua')(_scriptconfig)
 			else
-				local suc, res = pcall(function()
-					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true)
-				end)
-				if suc and res and res ~= '404: Not Found' then
-					if not isfile('mxtionv4/init.lua') then
-						writefile('mxtionv4/init.lua', res)
-					end
-					loadstring(res, 'init')(_scriptconfig)
-				end
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/main/init.lua'), 'init.lua')(_scriptconfig)
 			end
 		]]
 
@@ -150,18 +142,20 @@ local function finishLoading()
 	end
 
 	local function queueTeleport()
+		if getgenv().AutoReinjectEnabled == false then return end
 		local scriptStr = buildTeleportScript()
 		if not scriptStr then return end
 		pcall(clear_teleport_queue)
 		pcall(queue_on_teleport, scriptStr)
 	end
 
-	-- Run immediately on load
+	-- Queue immediately on load
 	queueTeleport()
 
 	-- Hook OnTeleport listener (Aerov4 pattern)
 	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
 		if state == Enum.TeleportState.Failed then return end
+		if getgenv().AutoReinjectEnabled == false then return end
 		pcall(function() vape:Save() end)
 		queueTeleport()
 	end))
@@ -216,11 +210,6 @@ end
 if not isfile('mxtionv4/init.lua') then
 	pcall(function()
 		downloadFile('mxtionv4/init.lua')
-	end)
-end
-if not isfile('mxtionv4/main.lua') then
-	pcall(function()
-		downloadFile('mxtionv4/main.lua')
 	end)
 end
 
