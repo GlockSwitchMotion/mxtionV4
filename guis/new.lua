@@ -7307,6 +7307,14 @@ guipane:CreateToggle({
 	Default = true,
 	Tooltip = 'Toggles visibility of these'
 })
+guipane:CreateToggle({
+    Name = 'Auto Reinject',
+    Function = function(callback)
+        shared.VapeIndependent = not callback
+    end,
+    Default = true, 
+    Tooltip = 'reinjects while yuo switch servers'
+})
 if not inputService.KeyboardEnabled or shared.VapeDeveloper then
 	guipane:CreateToggle({
 		Name = 'Hide Vape Button',
