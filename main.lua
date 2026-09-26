@@ -64,7 +64,10 @@ local loadstring = function(...)
 	end
 	return res
 end
-local queue_on_teleport = queue_on_teleport or function() end
+
+local queue_on_teleport = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport) or function() end
+local clear_teleport_queue = clear_teleport_queue or clearteleportqueue or function() end
+
 local isfile = isfile or function(file)
 	local suc, res = pcall(function()
 		return readfile(file)
@@ -97,37 +100,75 @@ local function finishLoading()
 	vape.Init = nil
 	vape:Load()
 
-	local teleportedServers
-	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function()
-		if (not teleportedServers) and (not shared.VapeIndependent) then
-			teleportedServers = true
-			local teleportScript = [[
-				shared.vapereload = true
-				if shared.VapeDeveloper then
-					loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
-				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true), 'init')(_scriptconfig)
-				end
-			]]
-			local teleportConfig = httpService:JSONEncode(license)
-			teleportConfig = teleportConfig:gsub('":true', "=true"):gsub('{"', '{')
-			teleportConfig = teleportConfig:gsub(',"', ','):gsub('":', '=')
-			teleportConfig = teleportConfig:gsub('%[', '{'):gsub('%]', '}')
-			teleportScript = teleportScript:gsub('_key', tostring(license.Key or '_key'))
-			teleportScript = teleportScript:gsub('_scriptconfig', teleportConfig)
-			if shared.VapeDeveloper then
-				teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
-			end
-			if vape and vape.Profile then
-				shared.VapeCustomProfile = vape.Profile
-			end
-			if shared.VapeCustomProfile then
-				teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
-			end
-			vape:Save()
-			queue_on_teleport(teleportScript)
-		end
+	vape:Clean(task.spawn(function()
+		repeat
+			pcall(vape.Save, vape)
+			task.wait(10)
+		until vape.Loaded == nil
 	end))
+
+	-- Aerov4-style teleport queue building & execution
+	local function buildTeleportScript()
+		if shared.VapeIndependent then return nil end
+
+		local teleportScript = [[
+			shared.vapereload = true
+			if isfile and isfile('mxtionv4/init.lua') then
+				loadstring(readfile('mxtionv4/init.lua'), 'init')(_scriptconfig)
+			elseif isfile and isfile('mxtionv4/main.lua') then
+				loadstring(readfile('mxtionv4/main.lua'), 'main')(_scriptconfig)
+			else
+				local suc, res = pcall(function()
+					return game:HttpGet('https://raw.githubusercontent.com/GlockSwitchMotion/mxtionV4/'..readfile('mxtionv4/profiles/commit.txt')..'/init.lua', true)
+				end)
+				if suc and res and res ~= '404: Not Found' then
+					if not isfile('mxtionv4/init.lua') then
+						writefile('mxtionv4/init.lua', res)
+					end
+					loadstring(res, 'init')(_scriptconfig)
+				end
+			end
+		]]
+
+		local teleportConfig = httpService:JSONEncode(license)
+		teleportConfig = teleportConfig:gsub('":true', "=true"):gsub('{"', '{')
+		teleportConfig = teleportConfig:gsub(',"', ','):gsub('":', '=')
+		teleportConfig = teleportConfig:gsub('%[', '{'):gsub('%]', '}')
+		teleportScript = teleportScript:gsub('_key', tostring(license.Key or '_key'))
+		teleportScript = teleportScript:gsub('_scriptconfig', teleportConfig)
+
+		if shared.VapeDeveloper then
+			teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
+		end
+		if vape and vape.Profile then
+			shared.VapeCustomProfile = vape.Profile
+		end
+		if shared.VapeCustomProfile then
+			teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
+		end
+		return teleportScript
+	end
+
+	local function queueTeleport()
+		local scriptStr = buildTeleportScript()
+		if not scriptStr then return end
+		pcall(clear_teleport_queue)
+		pcall(queue_on_teleport, scriptStr)
+	end
+
+	-- Run immediately on load
+	queueTeleport()
+
+	-- Hook OnTeleport listener (Aerov4 pattern)
+	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
+		if state == Enum.TeleportState.Failed then return end
+		pcall(function() vape:Save() end)
+		queueTeleport()
+	end))
+
+	vape:Clean(function()
+		pcall(clear_teleport_queue)
+	end)
 
 	if not shared.vapereload then
 		if getgenv().mxtionrole == 'HWID MISMATCH' then
@@ -169,6 +210,17 @@ if hookmetamethod and not getgenv().run then
 			end
 		end
 		return old(self, Remote, ...)
+	end)
+end
+
+if not isfile('mxtionv4/init.lua') then
+	pcall(function()
+		downloadFile('mxtionv4/init.lua')
+	end)
+end
+if not isfile('mxtionv4/main.lua') then
+	pcall(function()
+		downloadFile('mxtionv4/main.lua')
 	end)
 end
 
