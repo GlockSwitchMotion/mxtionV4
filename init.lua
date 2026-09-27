@@ -3,6 +3,9 @@ local license = ... or {}
 if shared.vape then shared.vape:Uninject() end
 license.Key = license.Key or '_key'
 
+-- Enable auto-injection by default
+getgenv().AutoReinjectEnabled = true
+
 -- AUTO UPDATE LOGIC
 local function getLatestCommit()
 	if shared.mxtion_checked then
@@ -179,7 +182,8 @@ local function finishLoading()
 					vape:CreateNotification('mxtionV4', `Script has updated from {shared.updated} to {readfile('mxtionv4/profiles/commit.txt'):sub(1, 7)}`, 10, 'info')
 				end
 			end)
-		end	
+		end
+	
 	end
 end
 
