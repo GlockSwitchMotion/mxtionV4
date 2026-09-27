@@ -1,22 +1,19 @@
 {
 	"added": [
-		"AutoBank",
-		"AutoCyber",
-		"DaveyAim"
+		"InfiniteFly",
+		"RegentAura",
+		"MouseTP",
+		"ShopTierBypass",
+		"GhostBlockFixer",
+		"LevelSpoofer",
+		"ProjectileHitbox"
 	],
 	"updated": [
-		"Speed",
-		"NoFall",
-		"SoundChanger",
-		"PickupRange",
-		"NameTags",
-		"Clutch",
-		"AutoSmoke",
-		"AutoNazar",
-		"AutoNahila",
-		"ReplayMod",
-		"AutoBuy",
-		"AutoFish",
+		"PreventSlow",
+		"KitRender",
+		"HitRegisterFixer",
+		"ProjectileTeleport",
+		"AimAssist",
 		"Killaura",
 		"StaffDetector"
 	],
