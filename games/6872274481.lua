@@ -11212,7 +11212,7 @@ run(function()
 	local nextUlt = 0
 	
 	AutoShielderUlt = vape.Categories.Kits:CreateModule({
-		Name = 'AutoInfernal',
+		Name = 'AutoInfernalShielder',
 		Function = function(callback)
 			if callback then
 				nextUlt = 0
