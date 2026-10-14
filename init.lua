@@ -6,10 +6,6 @@ license.Key = license.Key or '_key'
 -- Enable auto-injection by default
 getgenv().AutoReinjectEnabled = true
 
--- Bedwars Universe and Place ID constants
-local isBedwars = (game.GameId == 2619619496 or game.PlaceId == 6872265039 or game.PlaceId == 6872274481)
-local BEDWARS_UNIFIED_PLACE = 6872274481
-
 -- AUTO UPDATE LOGIC
 local function getLatestCommit()
 	if shared.mxtion_checked then
@@ -36,6 +32,7 @@ local function handleUpdates()
 	end
 	
 	if latestCommit ~= "main" and latestCommit ~= currentCommit then
+		-- An update was detected! Wipe the old cached files.
 		local function clearFolder(path)
 			if isfolder(path) then
 				for _, file in listfiles(path) do
@@ -52,6 +49,7 @@ local function handleUpdates()
 		if not isfolder("mxtionv4/profiles") then makefolder("mxtionv4/profiles") end
 		writefile("mxtionv4/profiles/commit.txt", latestCommit)
 		
+		-- Trigger the Vape update notification
 		if currentCommit ~= "" and currentCommit ~= "main" then
 			shared.updated = currentCommit:sub(1, 7)
 		end
@@ -102,88 +100,28 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
--- Config Migration Helper: Copies any match configs to unified lobby place ID so no settings are lost
-local function syncBedwarsConfigs()
-	if not isBedwars or not isfolder("mxtionv4/profiles") then return end
-	pcall(function()
-		for _, file in ipairs(listfiles("mxtionv4/profiles")) do
-			if file:find("6872265039%.txt$") then
-				local target = file:gsub("6872265039%.txt$", "6872274481.txt")
-				if not isfile(target) or (#readfile(target) < 10 and #readfile(file) > 10) then
-					writefile(target, readfile(file))
-				end
-			end
-		end
-	end)
-end
-
 local function finishLoading()
 	vape.Init = nil
 	if not vape.Load then
 		warn('[mxtionv4] vape.Load is nil skipping load')
 		return
 	end
+	vape:Load()
 
-	-- Unify PlaceId for Bedwars matches & lobby
-	if isBedwars then
-		vape.Place = BEDWARS_UNIFIED_PLACE
-		syncBedwarsConfigs()
-	end
-
-	-- Restore active profile from shared variable or persistent file
-	local activeProfile = shared.VapeCustomProfile
-	if (not activeProfile or activeProfile == "" or activeProfile == "default") and isfile("mxtionv4/profiles/selectedprofile.txt") then
-		pcall(function()
-			local saved = readfile("mxtionv4/profiles/selectedprofile.txt")
-			if saved and saved ~= "" then
-				activeProfile = saved
-			end
-		end)
-	end
-
-	if activeProfile and activeProfile ~= "" then
-		vape.Profile = activeProfile
-		shared.VapeCustomProfile = activeProfile
-		if vape.ProfileLabel then
-			pcall(function() vape.ProfileLabel.Text = activeProfile end)
-		end
-	end
-
-	-- Brief yield to ensure all game modules are registered into vape.Modules before loading states
-	task.wait(0.15)
-	pcall(function()
-		vape:Load(true, activeProfile or vape.Profile)
-	end)
-
-	-- Safe Auto-Save: Wait 15 seconds so modules are fully active, preventing blank overwrites
 	vape:Clean(task.spawn(function()
-		task.wait(15)
 		repeat
-			if vape.Loaded and vape.Modules and next(vape.Modules) ~= nil then
-				pcall(function()
-					if vape.Profile then
-						writefile("mxtionv4/profiles/selectedprofile.txt", tostring(vape.Profile))
-					end
-					vape:Save()
-				end)
-			end
+			pcall(vape.Save, vape)
 			task.wait(10)
 		until vape.Loaded == nil
 	end))
 
-	-- Exact Teleport Queue implementation with persistent profile preservation
+	-- Teleport Queue implementation adapted for mxtionV4
 	local function buildTeleportScript()
 		if shared.VapeIndependent then return nil end
-
-		local currentProfile = (vape and vape.Profile) or shared.VapeCustomProfile or "default"
-		pcall(function()
-			writefile("mxtionv4/profiles/selectedprofile.txt", tostring(currentProfile))
-		end)
 
 		local teleportScript = [[
 			repeat task.wait() until game:IsLoaded()
 			shared.vapereload = true
-			shared.VapeCustomProfile = "]] .. tostring(currentProfile) .. [["
 			if isfile and isfile("mxtionv4/init.lua") then
 				loadstring(readfile("mxtionv4/init.lua"), "init.lua")(_scriptconfig)
 			else
@@ -200,6 +138,9 @@ local function finishLoading()
 
 		if shared.VapeDeveloper then
 			teleportScript = 'shared.VapeDeveloper = true\n'..teleportScript
+		end
+		if vape and vape.Profile then
+			shared.VapeCustomProfile = vape.Profile
 		end
 		if shared.VapeCustomProfile then
 			teleportScript = 'shared.VapeCustomProfile = "'..shared.VapeCustomProfile..'"\n'..teleportScript
@@ -220,12 +161,7 @@ local function finishLoading()
 	vape:Clean(playersService.LocalPlayer.OnTeleport:Connect(function(state)
 		if state == Enum.TeleportState.Failed then return end
 		if getgenv().AutoReinjectEnabled == false then return end
-		pcall(function()
-			if vape and vape.Profile then
-				writefile("mxtionv4/profiles/selectedprofile.txt", tostring(vape.Profile))
-				vape:Save()
-			end
-		end)
+		pcall(function() vape:Save() end)
 		queueTeleport()
 	end))
 
@@ -247,6 +183,7 @@ local function finishLoading()
 				end
 			end)
 		end
+	
 	end
 end
 
@@ -263,40 +200,6 @@ shared.vape = vape
 shared.vapesmooth = true
 _G.vape = vape
 getgenv().used_init = true
-
--- Unify Bedwars PlaceId in vape instance immediately
-if isBedwars then
-	vape.Place = BEDWARS_UNIFIED_PLACE
-	syncBedwarsConfigs()
-
-	-- Hook vape.Load to ensure Bedwars configs always load from unified file with fallback
-	local origLoad = vape.Load
-	if origLoad then
-		vape.Load = function(self, custom, customname)
-			self.Place = BEDWARS_UNIFIED_PLACE
-			local prof = customname or (custom and self.Profile) or shared.VapeCustomProfile or self.Profile or 'default'
-			local unifiedPath = 'mxtionv4/profiles/' .. tostring(prof) .. '6872274481.txt'
-			local matchPath = 'mxtionv4/profiles/' .. tostring(prof) .. '6872265039.txt'
-
-			-- Auto-restore from match file if unified file doesn't exist yet
-			if not isfile(unifiedPath) and isfile(matchPath) then
-				pcall(function()
-					writefile(unifiedPath, readfile(matchPath))
-				end)
-			end
-			return origLoad(self, custom, prof)
-		end
-	end
-
-	-- Hook vape.Save to ensure Bedwars configs always write to unified place ID
-	local origSave = vape.Save
-	if origSave then
-		vape.Save = function(self, customname)
-			self.Place = BEDWARS_UNIFIED_PLACE
-			return origSave(self, customname)
-		end
-	end
-end
 
 if hookmetamethod and not getgenv().run then
 	getgenv().run = true
@@ -315,9 +218,7 @@ if not shared.VapeIndependent then
 		repeat task.wait() until game:IsLoaded()
 	end
 	loadstring(downloadFile('mxtionv4/games/universal.lua'), 'universal')(license)
-	
-	-- Unify Bedwars scriptId so both Lobby and Match load games/6872274481.lua
-	local scriptId = isBedwars and '6872274481' or tostring(game.PlaceId)
+	local scriptId = (game.PlaceId == 6872265039 and '6872265039') or (game.GameId == 2619619496 and '6872274481') or tostring(game.GameId)
 	if isfile('mxtionv4/games/'..scriptId..'.lua') then
 		loadstring(readfile('mxtionv4/games/'..scriptId..'.lua'), scriptId)(license)
 	else
